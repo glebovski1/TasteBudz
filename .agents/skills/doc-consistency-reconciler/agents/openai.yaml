@@ -1,0 +1,4 @@
+interface:
+  display_name: "Doc Reconciler"
+  short_description: "Reconcile conflicting project docs"
+  default_prompt: "Use $doc-consistency-reconciler to compare these two project documents, register conflicts, and walk them issue by issue before editing."

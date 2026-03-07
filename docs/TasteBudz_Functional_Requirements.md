@@ -1,113 +1,111 @@
-﻿# TasteBudz â€” Functional Requirements (FR) with Acceptance Criteria
+﻿# TasteBudz - Functional Requirements (FR) with Acceptance Criteria
 
 ## 0. MVP Build Checklist
 
-Implement the following MVP items first (rough order). Each item references the owning requirement(s):
+Implement the following MVP items first. Each item references the owning requirement(s):
 
-- **Account auth + sessions + first-run onboarding** (FR-001, FR-002)
-- **Profile CRUD + dashboard summary + account deletion** (FR-002)
-- **Preferences + availability windows** (FR-003, FR-004)
-- **Privacy controls + blocking** (FR-005, FR-024)
-- **Seeded Restaurant catalog + Restaurant entity** (FR-006)
-- **Restaurant browse + filtering + simple suggestions** (FR-007)
-- **People discovery core: search + swipe + Budz list** (FR-018, FR-019, FR-020)
-- **Basic browse/search for open events and public groups** (FR-022)
-- **Create Events (Open + Closed) + Closed invites (username-based)** (FR-008)
-- **Join/Leave with atomic capacity enforcement + DecisionAt lock** (FR-009, FR-010)
-- **Groups: create/join/leave + owner management** (FR-011, FR-012, FR-013)
-- **Event status lifecycle + DecisionAt evaluation** (FR-014)
-- **In-app notifications for state changes (invite/join/leave/confirmed/cancelled)** (FR-016)
-- **Event-only chat (basic, non-1:1)** (FR-017)
-- **Safety stack: report â†’ moderation queue â†’ soft bans â†’ audit log** (FR-025, FR-026, FR-027, FR-028)
+- Account auth + sessions + first-run onboarding (FR-001, FR-002)
+- Profile CRUD + dashboard summary + account deletion (FR-002)
+- Preferences + availability windows (FR-003, FR-004)
+- Privacy controls + blocking (FR-005, FR-024)
+- Seeded restaurant catalog + Restaurant entity (FR-006)
+- Restaurant browse + filtering + simple suggestions (FR-007)
+- People discovery core: search + swipe + Budz list (FR-018, FR-019, FR-020)
+- Basic browse/search for open events and public groups (FR-022)
+- Create events (Open + Closed) + closed invites by username (FR-008)
+- Join/leave with atomic capacity enforcement + DecisionAt lock (FR-009, FR-010)
+- Groups: create/join/leave + owner management (FR-011, FR-012, FR-013)
+- Event status lifecycle + DecisionAt evaluation (FR-014)
+- In-app notifications for state changes and material event updates (FR-016)
+- Event + group chat, real-time and text-only (FR-017, FR-017A)
+- Safety stack: report -> moderation queue -> scoped soft bans -> audit log (FR-025, FR-026, FR-027, FR-028)
 
-> **MVP Decisions (Locked for Capstone)**
-> - **Restaurant data source (MVP):** **Seeded internal restaurant list** (no external API dependency). (FR-006/FR-007, Appendix C1)
-> - **Notifications (MVP):** **State-change notifications only** (no scheduled reminders/jobs). (FR-016, Appendix C2)
-> - **People discovery (MVP):** **Search + swipe + mutual Budz core are included**, while **1-on-1 messaging remains out of MVP UI**. (FR-018â€“FR-021, Appendix C7)
-> - **Browse/search scope (MVP):** **Basic query-based browsing/search for open events and public groups is in scope**; advanced feed/caching remains a later layer. (FR-022/FR-023, Appendix C6)
+> MVP decisions locked for the capstone:
+> - Restaurants use a seeded internal catalog in MVP with no external API dependency.
+> - Notifications are in-app only in MVP; no scheduled reminder jobs are required.
+> - People discovery in MVP includes search + swipe + mutual Budz; direct 1-on-1 messaging remains out of MVP UI.
+> - Basic query-based browse/search for open events and public groups is in scope; richer feed/caching is later.
+> - Event chat and group chat are both in scope for MVP and share the same basic messaging core.
 
 ## 1. System Overview
 
-TasteBudz is a web-based social dining coordination platform that connects people who want to try restaurants together based on cuisine preferences, dietary compatibility, location proximity, and availability. The goal is to let users form small dining groups, discover compatible people, and coordinate restaurant visits quickly and safely.
+TasteBudz is a web-based social dining coordination platform that connects people who want to try restaurants together based on cuisine preferences, dietary compatibility, location proximity, and availability. The product focuses on helping users discover compatible people, plan small dining events, and coordinate safely.
 
-For MVP UX, the product is organized around three core surfaces reflected in the prototype/design work: **Profile Creation**, **Budz and Groups**, and **Events**.
+For MVP UX, the product is organized around three core surfaces:
+
+- Profile and onboarding
+- Budz and groups
+- Events
 
 Core value flow:
 
-User wants food â†’ discovers Budz, a group, or an event â†’ restaurant is suggested â†’ participants confirm â†’ dinner happens.
+User wants food -> discovers Budz, a group, or an event -> restaurant is selected or suggested -> participants confirm -> dinner happens.
 
-### 1.1 Roles & Permissions (MVP)
+### 1.1 Roles and Permissions (MVP)
 
-| Role | Allowed actions (MVP; non-exhaustive) |
+| Role | Allowed actions (MVP, non-exhaustive) |
 |---|---|
-| **User** | Register/login/logout (FR-001)<br>Update profile/preferences/availability/privacy (FR-002â€“FR-005)<br>Browse/filter restaurants (FR-007)<br>Search/swipe people and view Budz (FR-018â€“FR-020)<br>Browse/search open events and public groups (FR-022)<br>Join/leave **Open** events; accept/decline **Closed** invites (FR-008â€“FR-009)<br>Use event chat if participating (FR-017)<br>Block/report users (FR-024â€“FR-025) |
-| **Host** | Create Open/Closed events (FR-008)<br>Invite users to Closed events (FR-008)<br>Cancel own event with reason (FR-014)<br>View participants and event details (FR-008â€“FR-014) |
-| **Group Owner** | Create group; manage name/description/visibility (FR-011â€“FR-012)<br>Remove group members (FR-012)<br>Transfer ownership or dissolve group (FR-012A)<br>Create/view group-linked events (FR-013)<br>Use group chat if enabled (FR-017A) |
-| **Moderator** | View report queue; resolve reports with recorded decision (FR-026)<br>Apply/expire soft bans (FR-027)<br>Actions are audit-logged (FR-028) |
-| **Admin** | All Moderator actions (FR-026â€“FR-027)<br>Cancel events as needed (FR-014)<br>View audit log for sensitive actions (FR-028)<br>May perform support overrides (e.g., unlock participation) only when required to resolve errors or abuse cases (FR-009/FR-014) |
-
----
+| User | Register/login/logout (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline Closed invites (FR-008 to FR-009), use event chat when participating and group chat when a current member (FR-017 to FR-017A), block/report users (FR-024 to FR-025) |
+| Host | Create Open/Closed events (FR-008), invite users to Closed events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
+| Group Owner | Create group, manage name/description/visibility (FR-011 to FR-012), remove group members (FR-012), transfer ownership or dissolve group later (FR-012A), create/view group-linked events (FR-013), use group chat (FR-017A) |
+| Moderator | View report queue, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
+| Admin | All Moderator actions plus support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-014, FR-026 to FR-028) |
 
 ## 2. Functional Requirements Catalogue
 
-> **Feature layers (priority legend)**
->
-> - **MVP**: required for initial release (capstone demo scope)
-> - **MVP+**: optional â€œnice-to-haveâ€ improvements if time permits (moderate effort, high UX/reliability value)
-> - **MVP++**: back-end ready (data model/endpoints may exist) and feature-flagged; may be disabled or not exposed in UI initially
+Priority legend:
 
----
+- MVP: required for initial release
+- MVP+: optional improvement if time permits
+- MVP++: backend-ready or feature-flagged for later
 
-## 2.1 User Stories
+### 2.1 User Stories
 
-### MVP User Stories
+#### MVP User Stories
 
-- **US-001** â€” As a user, I want to register an account so that I can use TasteBudz. *(Covers: FR-001)*
-- **US-002** â€” As a user, I want to log in and log out so that my account stays secure. *(Covers: FR-001)*
-- **US-003** â€” As a user, I want to edit my profile (bio, ZIP, goal) so that others can understand my vibe and location area. *(Covers: FR-002)*
-- **US-004** â€” As a user, I want to manage my cuisine preferences, spice tolerance, and dietary/allergy flags so that recommendations and matches fit my needs. *(Covers: FR-003)*
-- **US-005** â€” As a user, I want to define when Iâ€™m available so that I can find events I can actually attend. *(Covers: FR-004)*
-- **US-006** â€” As a user, I want to control whether people can discover me so that I can manage privacy. *(Covers: FR-005)*
-- **US-007** â€” As a user, I want to browse and filter restaurants by cuisine, price, and distance so that I can choose a practical place. *(Covers: FR-006, FR-007)*
-- **US-008** â€” As a user, I want the app to suggest a restaurant (optionally midpoint) so that my group can decide faster. *(Covers: FR-007)*
-- **US-009** â€” As a user, I want to create an **open event** so that people nearby can join my dining plan. *(Covers: FR-008)*
-- **US-010** â€” As a user, I want to create a **closed event** and invite specific people so that I can plan privately. *(Covers: FR-008)*
-- **US-011** â€” As a user, I want to join and leave events so that I can commit or change plans without breaking the system. *(Covers: FR-009, FR-010)*
-- **US-012** â€” As a user, I want events to prevent overfilling so that capacity is respected. *(Covers: FR-010, FR-014)*
-- **US-013** â€” As a user, I want to create and join persistent groups so that I can build recurring circles for dining. *(Covers: FR-011)*
-- **US-014** â€” As a group owner, I want to manage group settings and members so that the group stays healthy. *(Covers: FR-012)*
-- **US-015** â€” As a user, I want to link an event to a group so that the group can coordinate around it. *(Covers: FR-013)*
-- **US-016** â€” As a user, I want event statuses (open/full/confirmed/cancelled) so that I know whether a dinner is happening. *(Covers: FR-014)*
-- **US-018** â€” As a user, I want notifications so that I donâ€™t miss important event changes. *(Covers: FR-016)*
-- **US-019** â€” As an event participant, I want an event-only group chat so that I can coordinate logistics safely. *(Covers: FR-017)*
-- **US-020** â€” As a user, I want to block someone so that they cannot contact or appear to me again. *(Covers: FR-024)*
-- **US-021** â€” As a user, I want to report inappropriate behavior so that moderators can keep the community safe. *(Covers: FR-025)*
-- **US-022** â€” As a moderator, I want a queue of reports so that I can review and resolve issues consistently. *(Covers: FR-026)*
-- **US-023** â€” As a moderator, I want to apply temporary restrictions (soft bans) so that harmful users are limited without permanent deletion. *(Covers: FR-027)*
-- **US-024** â€” As an admin/moderator, I want sensitive actions to be audit-logged so that decisions are traceable. *(Covers: FR-028)*
-- **US-025** â€” As a user, I want to search people by username so that I can find someone I met. *(Covers: FR-018)*
-- **US-026** â€” As a user, I want to swipe Like/Pass on suggested profiles so that discovery feels fast and fun. *(Covers: FR-019)*
-- **US-027** â€” As a user, I want a mutual-like connection (Budz) so that the social layer feels explicit and trackable. *(Covers: FR-020)*
-- **US-029** â€” As a user, I want to browse and search events and groups so that I can discover plans that match my schedule and preferences. *(Covers: FR-022)*
-- **US-036** â€” As a user, I want my profile page to show my active events, groups, and Budz so that I can quickly understand my current activity. *(Covers: FR-002)*
+- US-001: As a user, I want to register so that I can use TasteBudz.
+- US-002: As a user, I want to log in and out so that my account stays secure.
+- US-003: As a user, I want to edit my profile so that other people understand my vibe and location area.
+- US-004: As a user, I want to manage cuisine preferences, spice tolerance, and dietary/allergy flags so recommendations fit me.
+- US-005: As a user, I want to define when I am available so I can find events I can actually attend.
+- US-006: As a user, I want to control whether people can discover me.
+- US-007: As a user, I want to browse and filter restaurants by cuisine, price, and distance.
+- US-008: As a user, I want the app to suggest a restaurant so my group can decide faster.
+- US-009: As a user, I want to create an open event.
+- US-010: As a user, I want to create a closed event and invite specific people.
+- US-011: As a user, I want to join and leave events safely.
+- US-012: As a user, I want events to prevent overfilling.
+- US-013: As a user, I want to create and join persistent groups.
+- US-014: As a group owner, I want to manage group settings and members.
+- US-015: As a user, I want to link an event to a group.
+- US-016: As a user, I want clear event statuses.
+- US-018: As a user, I want notifications so I do not miss important changes.
+- US-019: As an event participant, I want an event chat for coordination.
+- US-020: As a group member, I want a group chat for group coordination.
+- US-021: As a user, I want to block someone.
+- US-022: As a user, I want to report inappropriate behavior.
+- US-023: As a moderator, I want a queue of reports to review.
+- US-024: As an admin/moderator, I want sensitive actions to be audit-logged.
+- US-025: As a user, I want to search people by username/display name.
+- US-026: As a user, I want to Like/Pass discovery candidates quickly.
+- US-027: As a user, I want mutual Like to create a Budz connection.
+- US-029: As a user, I want to browse and search events and groups.
+- US-036: As a user, I want my profile page to show active events, groups, and Budz.
 
-### MVP+ User Stories
+#### MVP+ User Stories
 
-- **US-017** â€” As a user, I want RSVP confirmations and deadlines so that I can trust events wonâ€™t collapse last minute. *(Covers: FR-015)*
-- **US-037** â€” As a group owner, I want to transfer ownership or dissolve a group so that group administration remains manageable over time. *(Covers: FR-012A)*
-- **US-038** â€” As a group member, I want a group-only chat so that members can coordinate without sharing phone numbers. *(Covers: FR-017A)*
+- US-017: As a user, I want RSVP/cutoff controls so events are more reliable.
+- US-037: As a group owner, I want to transfer ownership or dissolve a group.
 
-### MVP++ User Stories (Back-end Ready)
+#### MVP++ User Stories
 
-- **US-028** â€” As a connected user, I want 1-on-1 chat (if enabled) so that I can coordinate privately. *(Covers: FR-021)*
-- **US-030** â€” As a user, I want a Tonight/This Week feed so that I can quickly find active events without searching. *(Covers: FR-023)*
-- **US-031** â€” As a restaurant admin, I want to manage my restaurant profile so that it is accurate in the system. *(Covers: FR-029)*
-- **US-032** â€” As a restaurant admin, I want to open time-window slots with a capacity so that groups can reserve a dining window. *(Covers: FR-030)*
-- **US-033** â€” As a user, I want to select a restaurant slot when creating an event so that our plan aligns with restaurant availability. *(Covers: FR-031)*
-- **US-034** â€” As a group, I want a discount to activate when enough people confirm so that weâ€™re rewarded for organizing a larger dinner. *(Covers: FR-032)*
-- **US-035** â€” As a restaurant admin, I want to cancel a slot and have linked events handled correctly so that capacity stays correct. *(Covers: FR-033)*
-
----
+- US-028: As a connected user, I want 1-on-1 chat when enabled.
+- US-030: As a user, I want a Tonight/This Week feed.
+- US-031: As a restaurant admin, I want to manage my restaurant profile.
+- US-032: As a restaurant admin, I want to create slots with capacity/timing.
+- US-033: As a user, I want to reserve a restaurant slot for an event.
+- US-034: As a group, I want a discount to activate once enough people confirm.
+- US-035: As a restaurant admin, I want to cancel a slot and handle linked events correctly.
 
 ### FR-001 Authentication (Register / Login / Logout)
 
@@ -115,14 +113,12 @@ User wants food â†’ discovers Budz, a group, or an event â†’ restauran
 
 **Description:** The system shall allow users to create accounts and authenticate.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Users can register with required fields (at minimum: username/email + password); ZIP code may be collected during registration or required immediately in first-run onboarding.
+- Users can register with required fields including username or email plus password; ZIP code may be collected during registration or first-run onboarding.
 - Users can log in with valid credentials.
-- Users can log out and the session/token is invalidated client-side.
-- Invalid credentials result in an error without revealing whether the account exists.
-
----
+- Users can log out and invalidate the active client session/token.
+- Invalid credentials return an error without revealing whether the account exists.
 
 ### FR-002 Account and Profile Management
 
@@ -130,14 +126,12 @@ User wants food â†’ discovers Budz, a group, or an event â†’ restauran
 
 **Description:** Users shall be able to view and update their profile.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Users can edit profile fields: display name/username, bio (â‰¤ 255 chars), ZIP code, social goal.
-- Users can view a personal profile page/dashboard that includes their profile information plus summaries of current events, joined groups, and Budz/connections.
-- Users can delete their account.
-- Users can update profile without affecting other usersâ€™ data.
-
----
+- Users can edit profile fields including display name/username, bio, ZIP code, and social goal.
+- Users can view a personal dashboard with profile info plus summaries of active events, groups, and Budz.
+- Users can request account deletion.
+- Profile changes only affect the current user's data.
 
 ### FR-003 Food Preferences, Dietary Flags, and Allergies
 
@@ -145,27 +139,24 @@ User wants food â†’ discovers Budz, a group, or an event â†’ restauran
 
 **Description:** Users shall be able to store cuisine preferences, spice tolerance, and dietary compatibility information.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
 - Users can select one or more cuisine tags.
-- Users can set a spice preference/tolerance value.
-- Users can set dietary flags (e.g., vegetarian/vegan) and allergy warnings.
-- Preferences are used as filters for matching/event discovery.
-
----
+- Users can set spice tolerance.
+- Users can set dietary flags and allergy warnings.
+- Preferences are available for matching and discovery filters.
 
 ### FR-004 Availability Windows
 
 **Priority:** MVP
 
-**Description:** Users shall be able to define time windows when they are available for dining.
+**Description:** Users shall be able to define recurring and one-off time windows when they are available for dining.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Users can create, edit, and delete availability windows.
+- Users can create, edit, and delete recurring weekly availability windows.
+- Users can create, edit, and delete one-off availability windows.
 - Availability windows can be used as filters for event matching and event search.
-
----
 
 ### FR-005 Privacy Settings
 
@@ -173,41 +164,36 @@ User wants food â†’ discovers Budz, a group, or an event â†’ restauran
 
 **Description:** Users shall be able to control basic discovery/contact visibility.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Users can disable discovery (hidden from people discovery/search).
-- Users can block other users (see FR-024).
-
----
+- Users can disable discovery so they are hidden from people discovery/search.
+- Users can block other users as defined in FR-024.
+- Privacy rules are enforced by the backend, not only the UI.
 
 ### FR-006 Restaurant Entity with Optional External PlaceId
 
 **Priority:** MVP
 
-**Description:** The system shall store restaurants internally and may link them to an external provider identifier. *(Downscope/backup options: Appendix C1).*
+**Description:** The system shall store restaurants internally and may optionally link them to an external provider identifier.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Restaurants are stored with: name, location, cuisine tags, price tier.
-- A restaurant may optionally store an external **PlaceId** (e.g., Google PlaceId).
-- Restaurant records can be referenced by Events and Restaurant Slots.
-
----
+- Restaurants are stored with name, city/state/ZIP, cuisine tags, and price tier.
+- Restaurants may optionally store latitude/longitude and an external PlaceId.
+- Restaurant records can be referenced by events and later slot entities.
 
 ### FR-007 Restaurant Discovery and Filtering
 
 **Priority:** MVP
 
-**Description:** Users shall be able to browse/search restaurants and apply basic filters. *(Downscope/backup options: Appendix C1).*
+**Description:** Users shall be able to browse/search restaurants and apply basic filters.
 
-**Acceptance Criteria:**
-- Users can filter restaurants by cuisine, price tier ($/$$/$$$), and distance. **[MVP]**
-- Dietary flags/allergies are used for **people/event compatibility** and do not require restaurant dietary metadata in MVP. **[MVP]**
-- The system shall suggest restaurants using the **seeded internal restaurant list** (MVP) and may additionally use a lightweight external search (e.g., Google Places) when enabled. **[MVP/MVP++]**
-- Restaurant selection may be reused during event creation and may be presented in list and/or map form when location coordinates are available. **[MVP/MVP+]**
-- Restaurant suggestions may support a midpoint suggestion approach for group members. **[MVP+]**
+**Acceptance Criteria**
 
----
+- Users can filter restaurants by cuisine, price tier, and distance.
+- MVP restaurant discovery uses the seeded internal catalog only.
+- Restaurant selection is reusable during event creation and may be shown in search/list form; map presentation is optional when coordinates exist.
+- Midpoint or group-aware suggestion logic remains lightweight service behavior over the internal catalog.
 
 ### FR-008 Create Events (Open and Closed)
 
@@ -215,334 +201,199 @@ User wants food â†’ discovers Budz, a group, or an event â†’ restauran
 
 **Description:** Users shall be able to create dining events.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- An Event includes: optional title/name, time/date, capacity, event type (Open/Closed), and either a selected restaurant or cuisine target.
-- Open events are discoverable/joinable by eligible users.
+- An event includes optional title, event type (Open/Closed), start time, capacity, and exactly one of selected restaurant or cuisine target.
+- The host automatically becomes a `JOINED` participant and counts toward capacity.
+- Open events are discoverable and joinable by eligible users.
 - Closed events are invite-only.
-- Closed events allow invite acceptance until `DecisionAt` (MVP); optional configurable invite cutoff `CutoffAt` (default `EventStartAt - 24h`) when FR-015 is enabled (MVP+).
+- Closed-event invites remain actionable until `DecisionAt` in MVP.
+- Closed-event invites do not reserve seats.
 
-#### MVP Closed Event Invite Flow (Closed events only)
+**Closed Event Invite Flow**
 
-- **Host creates** an event with `EventType = Closed`, `Capacity`, and `EventStartAt` (and restaurant or cuisine target).
-- **Host selects invitees by exact username** (must match an existing user account).
-- The system creates (or updates) an **EventParticipant** record per invitee with state `INVITED` and generates `EVENT_INVITE_RECEIVED` for each.
-- Invitees **accept** (state transitions to `JOINED`) or **decline** (state transitions to `DECLINED`) **until `DecisionAt`**.
-- Capacity is enforced on **accept/join**: invites do **not** reserve seats. If accepting would exceed `Capacity`, the action is rejected (â€œevent fullâ€).
-- At `DecisionAt`, the system blocks further accept/decline/join/leave changes (except Admin support override) and applies the FR-014 decision rule to **confirm or cancel** the event.
+- Host creates a closed event.
+- Host invites users by exact username.
+- The system creates or updates one `EventParticipant` record per invited user in `INVITED` state.
+- Invitees can accept (`JOINED`) or decline (`DECLINED`) until `DecisionAt`.
+- Capacity is enforced on accept/join, not on invite creation.
 
----
-
-### FR-009 Event Participation (Join / Leave)
+### FR-009 Event Participation (Join / Leave / Remove)
 
 **Priority:** MVP
 
-**Description:** Eligible users shall be able to join or leave events.
+**Description:** Eligible users shall be able to join or leave events under server-controlled rules.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Joining an event creates a participant record.
-- Leaving an event removes participation (or marks as left) and updates capacity.
-- Duplicate joins are prevented (idempotent join).
-- **Event capacity shall be enforced under concurrent joins.**
-- The system shall guarantee that **ActiveParticipants never exceeds Capacity**, even under simultaneous join requests.
-- The join operation shall use a **transactional or atomic mechanism** (e.g., database transaction/locking strategy, constraint-based guard, or equivalent safeguard).
-- After `DecisionAt`, joining and leaving are blocked except Admin support override.
+- Joining creates or reactivates a participant record.
+- Leaving preserves history while freeing capacity.
+- Duplicate joins are prevented.
+- Capacity is enforced safely under concurrent joins/accepts.
+- `ActiveParticipants` never exceeds `Capacity`.
+- After `DecisionAt`, join/leave changes are blocked except admin/support override.
+- A host may remove a non-host participant before `DecisionAt`.
+- A moderator/admin may remove a participant at any time as a safety/support override.
 
----
-
-### FR-010 Group Size Defaults and Limits
+### FR-010 Event Size Defaults and Limits
 
 **Priority:** MVP
 
-**Description:** The system shall support small group coordination with defined defaults and caps.
+**Description:** The system shall support small-group dining with explicit event defaults and hard capacity limits.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Typical recommended group size is **4â€“6**.
-- The maximum event capacity is **12**.
-- The system prevents joining beyond the capacity.
-
----
+- Typical recommended event size is 4-6 participants.
+- Event capacity must be between 2 and 8 inclusive.
+- The host counts toward capacity.
+- Groups do not have a hard maximum member cap in MVP.
 
 ### FR-011 Persistent Groups (Create / Join / Leave)
 
 **Priority:** MVP
 
-**Description:** The system shall support persistent Groups (in addition to event-based groups). *(Downscope/backup options: Appendix C4).*
+**Description:** The system shall support persistent groups in addition to event-based coordination.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Users can create a Group with name and short description.
-- Groups have visibility: **Public** (discoverable) or **Private** (invite-only).
-- Users can join/leave Groups (if allowed by visibility/invite rules).
+- Users can create a group with name, description, and visibility.
+- Groups support `Public` and `Private` visibility.
+- Public groups allow direct join when active.
+- Private groups require invitation in MVP.
 - Group members can view basic group details and the current member list.
-
----
 
 ### FR-012 Group Roles
 
 **Priority:** MVP
 
-**Description:** Groups shall have basic roles for management. *(Downscope/backup options: Appendix C4).*
+**Description:** Groups shall have a simple owner/member model in MVP.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Each Group has an **Owner**.
-- Owners can manage group settings (name/description/visibility).
-- Owners can remove members.
-- Owners can access a management view that lists current members and available owner actions.
-
----
+- Each group has exactly one owner.
+- The owner is auto-created as an active member.
+- Owners can manage group settings and remove members.
+- `Group.OwnerUserId` is the canonical ownership source; membership is tracked separately.
 
 ### FR-012A Group Ownership Transfer and Dissolution
 
 **Priority:** MVP+
 
-**Description:** Groups may support explicit ownership transfer and dissolution actions for long-term maintainability. *(Downscope/backup options: Appendix C4).*
+**Description:** Groups may support explicit ownership transfer and dissolution for long-term maintainability.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- A Group Owner can transfer ownership to another current group member.
-- A Group Owner can dissolve/delete a group with explicit confirmation.
-- Ownership transfer and dissolution update membership/discoverability state consistently and are timestamped.
-
----
+- A group owner can transfer ownership to another current active member.
+- A group owner can dissolve a group with explicit confirmation.
+- Ownership transfer and dissolution are timestamped and auditable.
 
 ### FR-013 Link Events to Groups
 
 **Priority:** MVP
 
-**Description:** Events may optionally be associated with a Group. *(Downscope/backup options: Appendix C4).*
+**Description:** Events may optionally be associated with a group.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- An event may store an optional GroupId.
-- Group members can view group-linked events via group context.
-
----
+- An event may store an optional `GroupId`.
+- Group-linked events are viewable in group context.
+- Group membership does not replace event participation rules.
 
 ### FR-014 Event Status Lifecycle
 
 **Priority:** MVP
 
-#### MVP Summary
-
-- Event status is **server-controlled**; clients cannot set status directly.
-- `DecisionAt` determines whether the event proceeds and locks participation changes (default: Open = `EventStartAt - 15m`, Closed = `EventStartAt - 24h`, configurable).
-- `OPEN`/`FULL` reflect current capacity; at `DecisionAt` the event becomes `CONFIRMED` or `CANCELLED`.
-- Joining/leaving is allowed only **before `DecisionAt`** (except Admin support override).
-- `CANCELLED` and `COMPLETED` are terminal statuses.
-
 **Description:** Each event shall follow a server-controlled status lifecycle that reflects capacity and ensures events do not occur if there are not enough participants.
 
-#### Mini Glossary (Event Lifecycle)
+**MVP Summary**
 
-- **DecisionAt** â€” The datetime when the system evaluates whether the event should proceed and locks participation changes.
-  - Default: **Open events** = `EventStartAt - 15m`
-  - Default: **Closed events** = `EventStartAt - 24h` (configurable)
-  - After `DecisionAt`, join/leave and invite accept/decline are blocked except Admin support override.
-- **CutoffAt** â€” RSVP/invite cutoff datetime **only when FR-015 is enabled (MVP+)** (default `EventStartAt - 24h`). In MVP, â€œcutoffâ€ refers to `DecisionAt`.
-- **ActiveParticipants** â€” The participant count used for capacity/decision rules:
-  - In **FR-014 (MVP)**: count of participants in state `JOINED` (excluding `LEFT/REMOVED/DECLINED`).
-  - In **FR-015 (MVP+)**: expands as defined in FR-015.
-- **Canonical EventStatus values (stored)** â€” `OPEN`, `FULL`, `CONFIRMED`, `CANCELLED`, `COMPLETED`.
-  - UI may label **CONFIRMED** as â€œLocked/Closedâ€ for readability, but stored value remains `CONFIRMED`.
+- Event status is server-controlled; clients cannot set status directly.
+- `DecisionAt` locks participation changes and determines whether the event proceeds.
+- `OPEN` and `FULL` reflect current capacity.
+- At `DecisionAt`, the event becomes `CONFIRMED` or `CANCELLED`.
+- `CANCELLED` and `COMPLETED` are terminal statuses.
+- Hosts may edit event details before an event is cancelled/completed; material changes notify participants.
+- Confirmed events auto-complete after the scheduled time passes according to server policy.
 
+**Definitions**
 
-#### Definitions
+- `DecisionAt`: default is `EventStartAt - 15 minutes` for open events and `EventStartAt - 24 hours` for closed events.
+- `MinParticipantsToRun`: default is `2`.
+- `ActiveParticipants`: count of participants in `JOINED` state.
 
-- `EventStartAt` = scheduled start date/time.
-- `DecisionAt` = time when the system determines whether the event should proceed (defaults: Open = `EventStartAt - 15m`, Closed = `EventStartAt - 24h`; configurable).
-- `Capacity` = max participants allowed.
-- `MinParticipantsToRun` = minimum participants required at `DecisionAt` (default **2**).
-- `ActiveParticipants` = count of participants in state `JOINED` (excluding LEFT/REMOVED).
-- If FR-015 reliability controls are enabled, participant-state metrics may expand as defined in FR-015.
+**Canonical statuses**
 
-#### Statuses
+- `OPEN`
+- `FULL`
+- `CONFIRMED`
+- `CANCELLED`
+- `COMPLETED`
 
-`OPEN`, `FULL`, `CONFIRMED`, `CANCELLED`, `COMPLETED`
+**Acceptance Criteria**
 
-#### Transition rules (server-controlled)
+- Server updates event status deterministically.
+- Joining/leaving toggles between `OPEN` and `FULL` safely under concurrency.
+- At `DecisionAt`, `OPEN` or `FULL` becomes `CONFIRMED` when minimum participants is met; otherwise it becomes `CANCELLED`.
+- Hosts can cancel events with a reason.
+- Hosts can edit material event details before completion/cancellation; participants receive an update notification.
+- Events automatically become `COMPLETED` after the scheduled time passes according to server policy.
 
-| From | To | Trigger |
-|---|---|---|
-| OPEN | FULL | Active participants count reaches `Capacity` |
-| FULL | OPEN | Active participants drops below `Capacity` |
-| OPEN/FULL | CANCELLED | Host/admin cancels OR slot cancelled (if slot-linked) |
-| OPEN/FULL | CONFIRMED | At `DecisionAt`, `ActiveParticipants >= MinParticipantsToRun` |
-| OPEN/FULL | CANCELLED | At `DecisionAt`, `ActiveParticipants < MinParticipantsToRun` |
-| CONFIRMED | COMPLETED | After `EventStartAt + GracePeriod` (default **6h**) OR host marks completed |
-
-#### Invariants
-
-- `CANCELLED` and `COMPLETED` are terminal.
-- Status updates must be executed server-side only (clients cannot set status directly).
-
-**Acceptance Criteria:**
-
-- Event supports statuses: OPEN, FULL, CONFIRMED, CANCELLED, COMPLETED. **[MVP]**
-- Server updates status deterministically based on rules above. **[MVP]**
-- Joining/leaving updates status between OPEN/FULL correctly and safely under concurrency. **[MVP]**
-- Event creator (host) can cancel an event; cancellation records a reason and timestamps. **[MVP]**
-- Host can manually mark COMPLETED (otherwise automatic completion based on time rule). **[MVP+]**
-- If slot-linked, slot cancellation forces event to CANCELLED (default), or may require reselection if introduced later. **[MVP++]**
-
----
 ### FR-015 Advanced Reliability Controls (RSVP, Cutoffs, Auto-Cancel)
 
 **Priority:** MVP+
 
-#### MVP+ Summary
+**Description:** The system may introduce advanced reliability controls to reduce last-minute collapses.
 
-- Adds `CutoffAt` (invite/RSVP deadline), optional per-event thresholds, and RSVP participant states.
-- After `CutoffAt`, joining and RSVP changes are blocked except Admin support override.
-- At `CutoffAt`, the system auto-**CONFIRMS** or auto-**CANCELS** based on `ConfirmedCount`.
-- Capacity enforcement remains atomic under concurrency.
-- This layer is optional; MVP behavior uses `DecisionAt` rules from FR-014.
+**Acceptance Criteria**
 
-**Description:** The system may introduce advanced reliability controls to reduce last-minute collapses by requiring confirmations, enforcing RSVP deadlines, and optionally auto-cancelling events that lack minimum confirmed participants.
+- The backend may store `CutoffAt`, RSVP requirements, and a minimum confirmed threshold per event.
+- RSVP state can be tracked per participant when this feature is enabled.
+- Auto-confirm/auto-cancel may occur at `CutoffAt` based on confirmed count.
+- Capacity enforcement remains concurrency-safe.
+- Admin/support override may extend cutoff or force a decision when enabled.
 
-#### Participant states (per event)
-
-A participant record has one of:
-
-`INVITED`, `JOINED`, `CONFIRMED`, `DECLINED`, `LEFT`, `REMOVED`
-
-- **ActiveParticipants** = `INVITED + JOINED + CONFIRMED` (excluding LEFT/REMOVED)
-- **ConfirmedCount** = count of `CONFIRMED` only
-
-#### Optional event fields (when reliability controls are enabled)
-
-- `CutoffAt` = RSVP/invite cutoff datetime (default `EventStartAt - 24h`, allowed range: **2hâ€“72h**)
-- `MinConfirmedToRun` = minimum confirmed participants required at cutoff (default **3**, allowed range: **2â€“6**)
-- `RSVPRequired` = whether RSVP confirmation is required (default `true` for Open events)
-
-#### Optional rules (when enabled)
-
-1) **Join rules**
-
-- Joining creates or reactivates a participant record (idempotent).
-- If `now >= CutoffAt`, joining is blocked (returns â€œjoin closedâ€).
-- If capacity full, joining is blocked (returns â€œevent fullâ€).
-
-2) **RSVP rules**
-
-- Participants can set RSVP to `CONFIRMED` or `DECLINED` once invited/joined.
-- After `CutoffAt`, RSVP changes are blocked except by Admin support override.
-
-3) **Auto-cancel / auto-confirm rule**
-
-- At `CutoffAt`, if `ConfirmedCount < MinConfirmedToRun`, event becomes `CANCELLED` with reason `INSUFFICIENT_CONFIRMATIONS`.
-- At `CutoffAt`, if `ConfirmedCount >= MinConfirmedToRun`, event becomes `CONFIRMED`.
-
-4) **Seat computations**
-
-- System displays: `SeatsFilled = ActiveParticipantsCount`, `SeatsRemaining = Capacity - ActiveParticipantsCount`.
-
-**Acceptance Criteria:**
-
-- System may store cutoff time, RSVP requirement, and min-confirmed threshold per event. **[MVP+]**
-- System may track RSVP per participant with the state model above. **[MVP+]**
-- Auto-cancel/confirm may occur at cutoff time based on confirmed count. **[MVP+]**
-- Join/leave operations remain safe under concurrency (capacity cannot be exceeded). **[MVP+]**
-- Admin support override may extend cutoff (within allowed range) and/or manually cancel/confirm. **[MVP++]**
-- Optional: no-show scoring/reputation is out of scope unless defined later. **[MVP++]**
-
----
-### FR-016 Notifications and Reminders (Tight)
+### FR-016 Notifications and Reminders
 
 **Priority:** MVP
 
-#### MVP Summary
+**Description:** The system shall notify users about important event activity and state changes.
 
-- Provide an **in-app notification center** backed by persisted notification records.
-- Generate notifications on **state changes** (invite received, joined/left, confirmed/cancelled).
-- **No scheduled reminders/jobs in MVP**; clients can display upcoming `DecisionAt`/start countdowns using event timestamps.
-- Email and push are optional, deferred layers.
+**Acceptance Criteria**
 
-**Description:** The system shall notify users about event activity and state changes. Notifications shall be persisted and user read-state tracked. Scheduled reminders may be added in later layers. *(Downscope/backup options: Appendix C2).*
+- Notifications are persisted and retrievable via API.
+- Users can mark notifications as read.
+- MVP notification types include invite received, joined/left, confirmed/cancelled, and material event updates.
+- MVP notifications are in-app only.
+- Event timestamps are exposed so clients can show countdowns without scheduled reminder jobs.
+- Email, push, and scheduled reminders remain optional later layers.
 
-#### Cutoff terminology (MVP vs MVP+)
-
-- In MVP, â€œcutoffâ€ refers to `DecisionAt` (see FR-014).
-- If FR-015 is enabled (MVP+), â€œcutoffâ€ refers to `CutoffAt`.
-
-#### Notification channels by layer
-
-- **MVP:** in-app notification center only (persisted; UI reads from API)
-- **MVP+:** optional email notifications (transactional)
-- **MVP++:** push notifications (APNs/FCM) feature-flagged
-
-#### Notification types (minimum set)
-
-- `EVENT_INVITE_RECEIVED` **[MVP]**
-- `EVENT_JOINED` / `EVENT_LEFT` **[MVP]**
-- `EVENT_CONFIRMED` / `EVENT_CANCELLED` **[MVP]**
-- `RSVP_REQUESTED` **[MVP+]** (only when FR-015 is enabled)
-- `CUTOFF_REMINDER` **[MVP+]** (only if scheduled reminders are implemented)
-- `EVENT_REMINDER` **[MVP+]** (only if scheduled reminders are implemented)
-
-#### Scheduling defaults (configurable)
-
-- **MVP:** No scheduled reminders (see **MVP Decisions**). Countdown messaging is computed/displayed by the client from `DecisionAt` / `EventStartAt`.
-- **MVP+:** If scheduled reminders are implemented:
-  - `CutoffReminderOffset = 2h before CutoffAt` (fallback to **15m** if too soon)
-  - `EventReminderOffset = 2h before EventStartAt`
-  - Optional second reminder `30m before EventStartAt` **[MVP++]**
-
-#### Delivery state model
-
-Each notification has:
-
-- `CreatedAt`, `UserId`, `Type`, `Payload`, `ReadAt?`
-- `DeliveryState`:
-  - MVP: `PERSISTED` only (delivered via API fetch)
-  - MVP+: `QUEUED/SENT/FAILED` for email
-
-**Acceptance Criteria:**
-
-- Notifications are persisted in the database and retrievable via API. **[MVP]**
-- Users can mark notifications as read. **[MVP]**
-- System generates notifications for: invite received, joined/left, confirmed/cancelled. **[MVP]**
-- System exposes event timestamps (including `DecisionAt`) so clients can display upcoming cutoff/start timing without scheduled reminders. **[MVP]**
-- If FR-015 is enabled, system generates `RSVP_REQUESTED` and CutoffAt-based reminders. **[MVP+]**
-- If scheduled reminders are implemented, they should be triggered by a server-side background job runner and be idempotent (no duplicate sends). **[MVP+]**
-- Users can opt out of non-critical reminders (cannot opt out of confirmed/cancelled). **[MVP+]**
-- Email delivery is optional and feature-flagged. **[MVP+]**
-- Push notifications are feature-flagged and may be deferred. **[MVP++]**
-
----
-
-### FR-017 Event Chat (Event-Only)
+### FR-017 Event Chat
 
 **Priority:** MVP
 
-**Description:** Event participants shall be able to communicate in an event-linked group chat. *(Downscope/backup options: Appendix C3).*
+**Description:** Event participants shall be able to communicate in an event-linked chat thread.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Each Event has an associated chat thread.
-- Only event participants can read/write messages.
-- Messages are stored with sender + timestamps.
-- **No 1-on-1 messaging in MVP UI**.
+- Each event has an associated chat thread.
+- Only current `JOINED` participants can read/write event chat.
+- Leaving or removal revokes event-chat access immediately.
+- MVP event chat is text-only.
+- MVP transport uses SignalR/WebSockets for real-time delivery plus paged history retrieval.
+- Direct 1-on-1 messaging remains outside MVP UI.
 
----
+### FR-017A Group Chat
 
-### FR-017A Group Chat (Group-Only)
+**Priority:** MVP
 
-**Priority:** MVP+
+**Description:** Group members shall be able to communicate in a group-linked chat thread without sharing phone numbers.
 
-**Description:** Group members may be able to communicate in a group-linked chat thread without sharing phone numbers. *(Downscope/backup options: Appendix C3/C4).*
+**Acceptance Criteria**
 
-**Acceptance Criteria:**
-
-- A Group may have an associated chat thread.
-- Only current group members can read/write messages.
-- Messages are stored with sender + timestamps.
-- MVP+ delivery may use the same basic text-only/polling model as event chat.
-
----
+- Each group has an associated chat thread.
+- Only current active group members can read/write group chat.
+- Leaving or removal revokes group-chat access immediately.
+- MVP group chat is text-only and uses the same basic SignalR plus history-retrieval model as event chat.
 
 ### FR-018 People Discovery (Search)
 
@@ -550,14 +401,12 @@ Each notification has:
 
 **Description:** Users shall be able to discover other users via search.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
 - Users can search by username/display name.
-- Discovery displays only a limited public profile preview.
-- Search respects privacy settings and blocking rules.
+- Discovery exposes only a limited public profile preview.
+- Search respects privacy settings, blocks, and moderation restrictions.
 - Users can block/report from discovery.
-
----
 
 ### FR-019 People Discovery (Swipe / Like / Pass)
 
@@ -565,72 +414,63 @@ Each notification has:
 
 **Description:** Users shall be able to discover people through a swipe-based flow.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
 - The system can present candidate profiles in a swipe queue.
 - Users can Like or Pass.
-- Swipe decisions are stored.
-- Mutual Like produces a Budz/connection outcome as defined by FR-020.
+- One effective directional swipe decision exists per actor/subject pair.
+- Mutual Like produces the Budz outcome defined in FR-020.
 
----
-
-### FR-020 Mutual Connections (â€œBudzâ€) and Requests
+### FR-020 Mutual Connections ("Budz")
 
 **Priority:** MVP
 
 **Description:** The system shall support a Budz connection model for the social layer.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- The system stores connection requests and final Budz connections.
-- Connections are **mutual** (both users agree or match).
-- Users can view a list of their current Budz/connections.
-- Users can view pending Bud requests or pending connection state where applicable.
+- The system stores directional swipe decisions and resulting mutual Budz connections.
+- A Budz connection is created only when both users have an effective Like decision toward each other.
+- Budz connections are mutual, not directional.
+- Users can view a list of their current Budz.
+- MVP does not expose pending Bud requests or pending Bud connection state.
 
----
-
-### FR-021 1-on-1 Messaging (Back-end Ready, Feature-Flagged)
+### FR-021 1-on-1 Messaging (Feature-Flagged)
 
 **Priority:** MVP++
 
-**Description:** The backend may implement 1-on-1 messaging structures/endpoints, but the feature may remain disabled in production until enabled.
+**Description:** The backend may implement direct messaging structures/endpoints while keeping the feature disabled until enabled.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- 1-on-1 chats exist as separate threads/messages.
-- 1-on-1 is allowed only between mutual connections or via request/accept.
-- A feature flag can disable creation/sending in production.
-- Block/report and moderation policies apply.
-
----
+- Direct chats exist as separate threads/messages.
+- Direct messaging is allowed only when policy allows it, such as between Budz.
+- Feature flags can disable creation/sending in production.
+- Blocking, moderation, and reporting policies apply.
 
 ### FR-022 Event and Group Browse/Search
 
 **Priority:** MVP
 
-**Description:** Users shall be able to browse and search open events and public groups using basic query-based filters. *(Downscope/backup options: Appendix C6).*
+**Description:** Users shall be able to browse and search open events and public groups using basic query-based filters.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
 - Users can browse open events that match cuisine, time window, distance, price tier, and availability filters.
 - Users can filter events by status.
-- Users can browse/search public groups by name/visibility.
-- MVP implementation may be simple database queries without a dedicated cached feed.
+- Users can browse/search public groups by name and visibility.
+- MVP implementation may be pure database queries without a dedicated cached feed.
 
----
-
-### FR-023 Feed Support (â€œTonight / This Weekâ€) â€” Both Approaches
+### FR-023 Feed Support ("Tonight / This Week")
 
 **Priority:** MVP++
 
-**Description:** The system shall support both query-based feeds and optional cached feeds. *(Downscope/backup options: Appendix C6).*
+**Description:** The system may support both query-based feeds and optional cached feeds later.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Feed can be generated as filtered queries over events.
-- The backend may maintain an optional cached/indexed feed for performance.
-
----
+- Feed output can be generated from filtered event queries.
+- The backend may maintain optional cached/indexed feed views later.
 
 ### FR-024 Block Users
 
@@ -638,83 +478,73 @@ Each notification has:
 
 **Description:** Users shall be able to block other users.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Blocked users cannot message the blocker.
-- Blocked users do not appear in discovery for the blocker.
+- Blocking is directional.
+- Blocked users do not appear in people discovery for each other.
+- Blocking prevents new direct interaction paths such as new Bud interactions, direct/private messaging, and event/group invitations between the pair.
+- Blocking does not automatically remove users from already shared groups/events or split existing shared-context chat.
 - Blocking is reversible by the blocker.
-
----
 
 ### FR-025 Report Users/Content
 
 **Priority:** MVP
 
-**Description:** Users shall be able to report inappropriate behavior or content. *(Downscope/backup options: Appendix C5).*
+**Description:** Users shall be able to report inappropriate behavior or content.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Users can submit a report with a reason/category.
-- Reports can target a user and may optionally target an event or message.
+- Users can submit a report with category/reason and optional explanation.
+- Reports can target a user and may include related event/message context.
 - Reports are stored and accessible to moderators.
-
----
 
 ### FR-026 Moderation Workflow
 
 **Priority:** MVP
 
-**Description:** Moderators shall be able to review reports and take actions. *(Downscope/backup options: Appendix C5).*
+**Description:** Moderators shall be able to review reports and take actions.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
 - Moderators can view reports in a review queue.
 - Moderators can resolve reports with a recorded decision.
 - Moderation actions are stored.
 
----
-
-### FR-027 Soft Bans
+### FR-027 Scoped Restrictions ("Soft Bans")
 
 **Priority:** MVP
 
-**Description:** Moderators shall be able to apply temporary restrictions to users. *(Downscope/backup options: Appendix C5).*
+**Description:** Moderators shall be able to apply temporary scoped restrictions to users.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- A soft ban can restrict posting/chat/event participation (scope-based).
-- Soft bans can have an expiration time (default: 7 days).
-- Soft-banned users are prevented from restricted actions.
+- Restrictions can target specific capabilities such as chat send, event join, or event create.
+- Restrictions can have an expiration time.
+- Restricted users are prevented from restricted actions while the restriction is active.
 
----
-
-### FR-028 Audit Logging (Sensitive Actions)
+### FR-028 Audit Logging
 
 **Priority:** MVP
 
-**Description:** The system shall record an immutable audit trail for sensitive actions. *(Downscope/backup options: Appendix C5).*
+**Description:** The system shall record an immutable audit trail for sensitive actions.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Moderation actions shall write an audit log entry.
-- Restaurant slot cancellations/discount changes (if enabled) shall write audit log entries.
-- Audit logs shall be append-only (immutable once written).
-
----
+- Moderation actions write audit log entries.
+- Group ownership transfer/dissolution writes audit log entries when enabled.
+- Audit logs are append-only.
 
 ### FR-029 Restaurant Admin Accounts
 
 **Priority:** MVP++
 
-**Description:** The system shall support Restaurant Admin accounts that manage restaurants and slots.
+**Description:** The system shall support restaurant admin accounts that manage restaurants and slots.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
 - A restaurant may have multiple admins.
 - A restaurant admin may manage one or more restaurants.
 - Restaurant admins can create/update restaurant profiles.
-
----
 
 ### FR-030 Restaurant Slots (Create/Manage)
 
@@ -722,13 +552,11 @@ Each notification has:
 
 **Description:** Restaurant admins may create availability slots with capacity and timing.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- A slot contains: restaurant, start/end time window, max participants, cutoff.
-- A slot may define a minimum threshold to unlock a discount.
+- A slot contains restaurant, start/end time window, max participants, and cutoff.
+- A slot may define a minimum threshold for discount activation.
 - Restaurant admins can edit/cancel slots.
-
----
 
 ### FR-031 Slot Selection and Reservation
 
@@ -736,13 +564,11 @@ Each notification has:
 
 **Description:** Events may select a restaurant slot, reserving it immediately.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- An event can select a slot only if the event time fits the slot window.
+- An event can select a slot only if event time fits the slot window.
 - Event capacity cannot exceed slot capacity.
-- Selecting a slot reserves it immediately for that event.
-
----
+- Selecting the slot reserves it immediately for that event.
 
 ### FR-032 Discount Threshold Activation
 
@@ -750,13 +576,11 @@ Each notification has:
 
 **Description:** Slots may activate discounts once a confirmed threshold is met.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Discount activates when **confirmed** participants meet/exceed threshold before cutoff.
-- Discount activation is stored as a state (active/inactive) for the event.
-- If threshold is not met by cutoff, discount remains inactive.
-
----
+- Discount activates when confirmed participants meet/exceed the threshold before cutoff.
+- Discount activation is stored as active/inactive state.
+- If the threshold is not met by cutoff, discount remains inactive.
 
 ### FR-033 Restaurant Admin Controls on Slot-Linked Events
 
@@ -764,18 +588,16 @@ Each notification has:
 
 **Description:** Restaurant admins may manage slot-linked event outcomes.
 
-**Acceptance Criteria:**
+**Acceptance Criteria**
 
-- Restaurant admin can cancel a slot; linked events are cancelled or forced to reselect a slot.
-- Optional: restaurant admin may approve/deny slot-linked events (off by default).
-
----
+- Restaurant admins can cancel a slot and linked events are cancelled or forced to reselect a slot.
+- Optional restaurant approval/denial flows remain disabled by default.
 
 ## 3. Non-Functional Requirements
 
 ### NFR-001 Performance
 
-- Support at least **100 concurrent users** during testing.
+- Support at least 100 concurrent users during testing.
 
 ### NFR-002 Security
 
@@ -789,199 +611,152 @@ Each notification has:
 
 ### NFR-004 Usability
 
-- Users should be able to create or join a dining event within **2 minutes**.
+- Users should be able to create or join a dining event within 2 minutes.
 
 ### NFR-005 Reliability and Data Integrity
 
-- Prevent duplicate joins (unique participant constraint).
+- Prevent duplicate joins.
 - Ensure event status transitions are consistent and server-controlled.
+- Keep capacity enforcement atomic under contention.
 
 ### NFR-006 Simplicity and No Overengineering
 
-- The solution should remain **relatively simple** and appropriate for a capstone timeline.
-- Prefer a **modular monolith** over microservices.
-- Avoid unnecessary frameworks, complex distributed patterns, or premature optimizations.
+- The solution should remain appropriate for a capstone timeline.
+- Prefer a modular monolith over microservices.
+- Avoid unnecessary distributed patterns or premature optimization.
 
-### NFR-007 Modularity, Scalability, and Best Practices
+### NFR-007 Modularity and Best Practices
 
-- The backend must be organized into clear modules (folders/namespaces) with separation of concerns (e.g., Identity, Profiles, Events, Groups, Messaging, Restaurants, Moderation, Notifications).
-- Business rules must be implemented in services/domain logic (not duplicated across controllers/UI).
-- New features should be addable with minimal changes to existing modules (extension-friendly design).
-- The system should support feature flags for MVP++ capabilities (e.g., 1-on-1 messaging, push notifications).
+- The backend must be organized into clear modules such as Auth, Profiles, Restaurants, Events, Groups, Messaging, Discovery, Notifications, and Moderation.
+- Business rules must live in services/domain logic, not duplicated across controllers/UI.
+- Later capabilities should be addable with minimal redesign.
 
 ### NFR-008 Project Structure Constraint
 
-- Use **one backend project** (organized by folders/namespaces) for the API and business logic.
-- Use **one frontend project** (technology TBD).
-- The design should keep boundaries internal (modules), not separate deployable services.
+- Use one backend project for the API and business logic.
+- Keep boundaries internal to the monolith rather than separate deployable services.
 
 ### NFR-009 Database Separation and Stored Procedures
 
-- The system shall use a **separate SQL database** (e.g., SQL Server/Azure SQL) from the application runtime.
-- Stored procedures may be used for performance-critical operations or complex queries/transactions.
-- Stored procedures and schema changes must be versioned (source-controlled) and deployable.
-- Data-access must follow best practices: parameterized queries, transactional integrity for multi-step operations, and least-privilege DB access.
-
----
+- Use a separate SQL database from the application runtime.
+- Stored procedures may be used for complex queries/transactions when justified.
+- Schema and SQL artifacts must be source-controlled and deployable.
 
 ## Appendix A: Design Decisions
 
 ### A1. Locked Design Decisions (MVP)
 
-1. Groups and Events both exist; Events may optionally link to a Group.
-2. People discovery includes **search + swipe + mutual Budz** in MVP, while **no 1-on-1 messaging appears in MVP UI**.
-3. Event chat is event-only in MVP; group chat is a controlled extension layer.
-4. Event status lifecycle includes cancellation and server-side transitions.
+1. Groups and events both exist; events may optionally link to a group.
+2. People discovery includes search + swipe + mutual Budz in MVP, while direct 1-on-1 messaging remains out of MVP UI.
+3. Event chat and group chat are both part of MVP.
+4. Event status lifecycle is server-controlled and includes cancellation plus automatic time-based completion.
 5. Restaurants are stored internally with optional external PlaceId.
 6. Basic query-based browse/search exists for open events and public groups in MVP.
+7. Event invitations do not reserve seats.
+8. Event capacity is 2 to 8 inclusive and the host counts toward capacity.
 
-### A2. Planned (MVP++) Decisions (Feature-Flagged / Back-end Ready)
+### A2. Planned or Later Decisions
 
-1. 1-on-1 messaging is back-end ready but may be disabled in production initially.
-2. Event discovery may support a dedicated Tonight/This Week feed and/or cached index.
-3. Restaurants may have multiple admins; admins may manage multiple restaurants.
+1. 1-on-1 messaging is backend-ready but may stay disabled initially.
+2. Event discovery may support a dedicated feed and/or cached index later.
+3. Restaurants may have multiple admins and slot operations later.
 4. Slots are reserved immediately upon selection.
 5. Discount thresholds activate based on confirmed participants.
 
----
+## Appendix C: Risk-Based Downscopes
 
-## Appendix C: Risk-Based Downscopes (Backup Simpler Requirements)
+This appendix defines safe fallback variants for higher-risk features.
 
-This appendix defines **safe â€œPlan Bâ€ requirement variants** for features that tend to become high-risk in a capstone timeline. If time/integration issues occur, apply the downscope without breaking the core product flow.
+### C1. Restaurants (FR-006 / FR-007)
 
-### C1. Restaurants: External integration + midpoint suggestion (FR-006 / FR-007)
+- Default: use the internal Restaurant entity and seeded catalog with search/list selection in MVP.
+- Downscope: keep filters to cuisine + price tier + distance; midpoint logic stays lightweight and optional.
+- Backup: store cuisine target plus optional free-text restaurant name/address on the event and move Restaurant-heavy work later.
 
-**Why risky:** external API keys/billing, rate limits, unpredictable data, geospatial edge cases.
+### C2. Notifications (FR-016)
 
-**Default (current requirement):** internal Restaurant entity + optional PlaceId; discovery supports filters + optional midpoint suggestion; may use Google Places.
+- Default: in-app notifications only for state changes and event updates.
+- Downscope: compute reminder timing on read instead of scheduling jobs.
+- Backup: no reminders at all; rely on event UI plus "My events" pages.
 
-**Downscope (keep it Medium risk) â€” MVP/MVP+ compatible**
-- **MVP:** Use an **internal seeded restaurant catalog only** (import CSV/manual admin seeding).
-- **MVP:** Filters limited to **cuisine + price tier + distance** (distance can be ZIP-to-ZIP or simple lat/long if stored).
-- **MVP+:** Midpoint suggestion becomes **â€œclosest-to-group averageâ€** using ZIP centroids (no full geo routing).
-- **MVP+:** PlaceId stored but **not required** for operation.
+### C3. Chat Complexity (FR-017 / FR-017A)
 
-**Backup (simplest) â€” if restaurant data becomes a blocker**
-- **MVP fallback:** Event stores **cuisine target + optional free-text restaurant name/address link** (no Restaurant entity required for MVP UI).
-- Restaurants can be added later; event can still proceed using â€œchosen place textâ€.
+- Default: SignalR/WebSockets for real-time delivery plus paged history retrieval; no typing indicators, attachments, edits, or reactions.
+- Backup: replace chat with comment-thread style posting if real-time delivery becomes too risky.
 
-**What changes in FR text (if you apply backup):**
-- FR-006 becomes **MVP++** (schema-ready only).
-- FR-007 MVP acceptance removes external search + midpoint and becomes â€œlist from seeded catalog OR free-text selection.â€
+### C4. Groups and Invites (FR-011 to FR-013, FR-017A)
 
----
+- Default: owner/member model only, public/private visibility, and basic invites by username.
+- Downscope: keep ownership transfer/dissolution later even if groups remain in MVP.
+- Backup: remove groups from MVP UI and keep them schema-ready only.
 
-### C2. Notifications + reminders (FR-016)
+### C5. Moderation and Restrictions (FR-025 to FR-028)
 
-**Why risky:** background scheduling reliability, time zones, duplicates.
+- Default: reporting, moderation queue, scoped restrictions, and audit logging.
+- Downscope: keep moderation UI minimal and restriction scopes small.
+- Backup: store reports and let admins resolve manually without automated in-app restrictions.
 
-**Terminology note:** In MVP, â€œcutoffâ€ refers to `DecisionAt` (FR-014). If FR-015 is enabled (MVP+), â€œcutoffâ€ refers to `CutoffAt`.
+### C6. Search and Feed (FR-022 / FR-023)
 
-**Downscope (Medium risk)**
-- **MVP:** In-app notifications only for **state changes**: invite received, joined/left, confirmed/cancelled.
-- **MVP:** Reminders are **computed on read** (event page shows â€œCutoff in X hoursâ€) and optionally emitted by a **single periodic job** (e.g., runs every 5â€“15 minutes).
-- **MVP+:** Add one reminder type only: **cutoff reminder** (drop â€œevent reminderâ€).
+- Default: pure DB-query browse/search in MVP.
+- Backup: defer feed/index/cache work entirely until needed.
 
-**Backup (simplest)**
-- **MVP fallback:** No scheduled reminders. Only:
-  - status changes shown in event UI,
-  - â€œMy eventsâ€ page highlights upcoming cutoff/start.
+### C7. People Discovery and Budz (FR-018 / FR-019 / FR-020)
 
----
+- Default: username/display-name search plus a simple swipe queue.
+- Mutual Like creates Budz directly in MVP; no pending Bud-request state is exposed.
+- Backup: keep username search plus a later Bud request/accept workflow if swipe must be hidden.
 
-### C3. Chat complexity (FR-017 / FR-017A)
+## Appendix B: Data Model Readiness
 
-**Why risky:** real-time transport (SignalR/WebSockets), auth, reconnect, scaling.
+**MVP entities**
 
-**Downscope (Medium risk)**
-- **MVP / MVP+:** Chat is **HTTP-based** (polling/refresh) with pagination; no real-time typing/online indicators.
-- **MVP / MVP+:** Limit message features: **text-only**, no attachments, no edits, no reactions.
+- UserAccount
+- UserProfile
+- UserPreferences
+- UserCuisinePreference
+- UserDietaryFlag
+- UserAllergy
+- RecurringAvailabilityWindow
+- OneOffAvailabilityWindow
+- PrivacySettings
+- UserBlock
+- Restaurant
+- Event
+- EventParticipant
+- Group
+- GroupMember
+- GroupInvite
+- ChatThread
+- ChatMessage
+- Notification
+- SwipeDecision
+- BudConnection
+- ModerationReport
+- ModerationAction
+- UserRestriction
+- AuditLogEntry
 
-**Backup (simplest)**
-- **MVP fallback:** Replace chat with an **Event Comments** thread:
-  - participants can post,
-  - newest-first list,
-  - no live updates.
-- **MVP+ fallback:** Group chat can use the same comments/thread model or remain hidden until later.
+**MVP+ entities**
 
----
+- BudRequest
+- Optional RSVP/cutoff fields on Event/EventParticipant
+- Notification preference toggles if needed
 
-### C4. Groups + invites + role rules (FR-011 / FR-012 / FR-012A / FR-013 / FR-017A)
+**MVP++ entities**
 
-**Why risky:** permissions/visibility rules and invite edge cases across many screens.
-
-**Downscope (Medium risk)**
-- **MVP:** Keep Groups but simplify:
-  - **Owner only** role (no admins/moderators),
-  - visibility only affects **discoverability**, not complex permission trees.
-- **MVP:** Group invites are **basic** (invite by username; no shareable links).
-- **MVP+:** Ownership transfer/dissolution may be limited to a simple confirmation flow; group chat may remain basic text-only.
-
-**Backup (simplest)**
-- **MVP fallback:** Remove persistent groups from MVP UI.
-  - Events still exist.
-  - Users can create events as open/closed.
-  - â€œGroupâ€ becomes a **Phase/MVP++ concept** (schema-ready only).
-
-**What changes in FR text (if you apply backup):**
-- FR-011â€“FR-013 and FR-012A/FR-017A move to **MVP+ or MVP++**.
-- US-013â€“US-015 and any group-extension stories move out of MVP.
-
----
-
-### C5. Moderation + soft bans + audit logging (FR-025â€“FR-028)
-
-**Why risky:** cross-cutting enforcement and policy consistency.
-
-**Downscope (Medium risk)**
-- **MVP:** Reporting exists; moderation UI is **minimal list + resolve**.
-- **MVP:** Soft ban is a **single restriction flag**: `CanCreateEvents/CanChat` with expiration.
-- **MVP:** Audit log only records **moderation actions** (not every admin change).
-
-**Backup (simplest)**
-- **MVP fallback:** Reports are stored and viewable by admins, but **no in-app bans**.
-  - Admin resolution is â€œmark reviewedâ€; enforcement is manual.
-
----
-
-### C6. Search/feed (FR-022 / FR-023)
-
-**Why risky (if overbuilt):** caching/indexing adds complexity.
-
-**Downscope (Medium risk)**
-- **MVP:** Implement browse/search as **pure DB queries only**.
-- **MVP++:** Do **not** build EventFeedCache until performance requires it.
-
----
-
-### C7. People discovery + Budz (FR-018 / FR-019 / FR-020)
-
-**Why risky:** recommendation quality, moderation edge cases, and network-effect pressure can encourage overbuilding.
-
-**Downscope (Medium risk)**
-- **MVP:** Keep people discovery to **username/display-name search + a simple swipe queue**.
-- **MVP:** Mutual Like creates a Budz connection; pending Bud request state can remain minimal/read-only if needed.
-- Avoid complex ranking, compatibility scoring, or reputation logic in the first release.
-
-**Backup (simplest)**
-- **MVP fallback:** Keep **username search + Bud request/accept only**, and hide swipe until later without breaking the social graph.
-
----
-
-## Appendix B: Data Model Readiness (Entity Checklist)
-
-**MVP entities:** UserAccount, UserProfile, UserPreferences, UserAllergies, AvailabilityWindow, PrivacySettings, Restaurant, Event, EventParticipant, ChatThread, ChatMessage, Notification, UserReport, ModerationAction, UserBan, AuditLog, Group, GroupMember, GroupInvite, UserDiscoveryIndex, SwipeDecision, MutualMatch, FriendRequest, Friendship.
-
-**MVP++ entities:** DirectChatThread, DirectChatMessage, MessageRequest, EventSearchIndex, GroupSearchIndex, EventFeedCache, RestaurantAdminAccount, RestaurantSlot, SlotEventLink, DiscountRule, DiscountActivation.
+- RestaurantAdminAssignment
+- RestaurantSlot
+- EventSlotReservation
+- DiscountActivation
+- Direct-chat scope over ChatThread/ChatMessage
+- Search/feed projections as read models
 
 ## Change Log
 
-- Synced the requirements with the prototype/design document so that all design-defined feature areas now exist explicitly in the FR set.
-- Promoted core design-driven features into priority scope: **People Discovery/Search**, **Swipe/Like/Pass**, **Budz**, and **basic Event/Group browse/search**.
-- Added profile/dashboard language so the profile page now explicitly includes summaries for active events, groups, and Budz.
-- Added missing design-level details: **spice preference**, **optional event title/name**, and reuse of restaurant discovery during event creation (including optional map/list presentation).
-- Added **FR-012A Group Ownership Transfer and Dissolution**.
-- Added **FR-017A Group Chat (Group-Only)** as a controlled extension aligned to the design intent.
-- Updated locked design decisions, downscope appendix, and entity checklist so priority changes remain internally consistent.
-- Preserved the original structure and tone while tightening wording and improving cross-section consistency.
-
+- Normalized the requirements around the canonical TasteBudz name used by the repository.
+- Promoted group chat to MVP and aligned MVP chat on SignalR plus paged history retrieval.
+- Clarified Budz as reciprocal Like only in MVP, with no pending Bud-request state.
+- Corrected event sizing to a typical 4-6 participants with a hard maximum capacity of 8 and no hard maximum group-member cap in MVP.
+- Added explicit host event-edit and automatic event-completion rules so the requirements match the backend architecture and decision log.
+- Refreshed the data model checklist so it matches the standalone backend domain model.
