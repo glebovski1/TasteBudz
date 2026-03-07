@@ -1,4 +1,4 @@
-# TasteMatch — Functional Requirements (FR) with Acceptance Criteria
+﻿# TasteBudz â€” Functional Requirements (FR) with Acceptance Criteria
 
 ## 0. MVP Build Checklist
 
@@ -18,33 +18,33 @@ Implement the following MVP items first (rough order). Each item references the 
 - **Event status lifecycle + DecisionAt evaluation** (FR-014)
 - **In-app notifications for state changes (invite/join/leave/confirmed/cancelled)** (FR-016)
 - **Event-only chat (basic, non-1:1)** (FR-017)
-- **Safety stack: report → moderation queue → soft bans → audit log** (FR-025, FR-026, FR-027, FR-028)
+- **Safety stack: report â†’ moderation queue â†’ soft bans â†’ audit log** (FR-025, FR-026, FR-027, FR-028)
 
 > **MVP Decisions (Locked for Capstone)**
 > - **Restaurant data source (MVP):** **Seeded internal restaurant list** (no external API dependency). (FR-006/FR-007, Appendix C1)
 > - **Notifications (MVP):** **State-change notifications only** (no scheduled reminders/jobs). (FR-016, Appendix C2)
-> - **People discovery (MVP):** **Search + swipe + mutual Budz core are included**, while **1-on-1 messaging remains out of MVP UI**. (FR-018–FR-021, Appendix C7)
+> - **People discovery (MVP):** **Search + swipe + mutual Budz core are included**, while **1-on-1 messaging remains out of MVP UI**. (FR-018â€“FR-021, Appendix C7)
 > - **Browse/search scope (MVP):** **Basic query-based browsing/search for open events and public groups is in scope**; advanced feed/caching remains a later layer. (FR-022/FR-023, Appendix C6)
 
 ## 1. System Overview
 
-TasteMatch is a web-based social dining coordination platform that connects people who want to try restaurants together based on cuisine preferences, dietary compatibility, location proximity, and availability. The goal is to let users form small dining groups, discover compatible people, and coordinate restaurant visits quickly and safely.
+TasteBudz is a web-based social dining coordination platform that connects people who want to try restaurants together based on cuisine preferences, dietary compatibility, location proximity, and availability. The goal is to let users form small dining groups, discover compatible people, and coordinate restaurant visits quickly and safely.
 
 For MVP UX, the product is organized around three core surfaces reflected in the prototype/design work: **Profile Creation**, **Budz and Groups**, and **Events**.
 
 Core value flow:
 
-User wants food → discovers Budz, a group, or an event → restaurant is suggested → participants confirm → dinner happens.
+User wants food â†’ discovers Budz, a group, or an event â†’ restaurant is suggested â†’ participants confirm â†’ dinner happens.
 
 ### 1.1 Roles & Permissions (MVP)
 
 | Role | Allowed actions (MVP; non-exhaustive) |
 |---|---|
-| **User** | Register/login/logout (FR-001)<br>Update profile/preferences/availability/privacy (FR-002–FR-005)<br>Browse/filter restaurants (FR-007)<br>Search/swipe people and view Budz (FR-018–FR-020)<br>Browse/search open events and public groups (FR-022)<br>Join/leave **Open** events; accept/decline **Closed** invites (FR-008–FR-009)<br>Use event chat if participating (FR-017)<br>Block/report users (FR-024–FR-025) |
-| **Host** | Create Open/Closed events (FR-008)<br>Invite users to Closed events (FR-008)<br>Cancel own event with reason (FR-014)<br>View participants and event details (FR-008–FR-014) |
-| **Group Owner** | Create group; manage name/description/visibility (FR-011–FR-012)<br>Remove group members (FR-012)<br>Transfer ownership or dissolve group (FR-012A)<br>Create/view group-linked events (FR-013)<br>Use group chat if enabled (FR-017A) |
+| **User** | Register/login/logout (FR-001)<br>Update profile/preferences/availability/privacy (FR-002â€“FR-005)<br>Browse/filter restaurants (FR-007)<br>Search/swipe people and view Budz (FR-018â€“FR-020)<br>Browse/search open events and public groups (FR-022)<br>Join/leave **Open** events; accept/decline **Closed** invites (FR-008â€“FR-009)<br>Use event chat if participating (FR-017)<br>Block/report users (FR-024â€“FR-025) |
+| **Host** | Create Open/Closed events (FR-008)<br>Invite users to Closed events (FR-008)<br>Cancel own event with reason (FR-014)<br>View participants and event details (FR-008â€“FR-014) |
+| **Group Owner** | Create group; manage name/description/visibility (FR-011â€“FR-012)<br>Remove group members (FR-012)<br>Transfer ownership or dissolve group (FR-012A)<br>Create/view group-linked events (FR-013)<br>Use group chat if enabled (FR-017A) |
 | **Moderator** | View report queue; resolve reports with recorded decision (FR-026)<br>Apply/expire soft bans (FR-027)<br>Actions are audit-logged (FR-028) |
-| **Admin** | All Moderator actions (FR-026–FR-027)<br>Cancel events as needed (FR-014)<br>View audit log for sensitive actions (FR-028)<br>May perform support overrides (e.g., unlock participation) only when required to resolve errors or abuse cases (FR-009/FR-014) |
+| **Admin** | All Moderator actions (FR-026â€“FR-027)<br>Cancel events as needed (FR-014)<br>View audit log for sensitive actions (FR-028)<br>May perform support overrides (e.g., unlock participation) only when required to resolve errors or abuse cases (FR-009/FR-014) |
 
 ---
 
@@ -53,7 +53,7 @@ User wants food → discovers Budz, a group, or an event → restaurant is sugge
 > **Feature layers (priority legend)**
 >
 > - **MVP**: required for initial release (capstone demo scope)
-> - **MVP+**: optional “nice-to-have” improvements if time permits (moderate effort, high UX/reliability value)
+> - **MVP+**: optional â€œnice-to-haveâ€ improvements if time permits (moderate effort, high UX/reliability value)
 > - **MVP++**: back-end ready (data model/endpoints may exist) and feature-flagged; may be disabled or not exposed in UI initially
 
 ---
@@ -62,50 +62,50 @@ User wants food → discovers Budz, a group, or an event → restaurant is sugge
 
 ### MVP User Stories
 
-- **US-001** — As a user, I want to register an account so that I can use TasteMatch. *(Covers: FR-001)*
-- **US-002** — As a user, I want to log in and log out so that my account stays secure. *(Covers: FR-001)*
-- **US-003** — As a user, I want to edit my profile (bio, ZIP, goal) so that others can understand my vibe and location area. *(Covers: FR-002)*
-- **US-004** — As a user, I want to manage my cuisine preferences, spice tolerance, and dietary/allergy flags so that recommendations and matches fit my needs. *(Covers: FR-003)*
-- **US-005** — As a user, I want to define when I’m available so that I can find events I can actually attend. *(Covers: FR-004)*
-- **US-006** — As a user, I want to control whether people can discover me so that I can manage privacy. *(Covers: FR-005)*
-- **US-007** — As a user, I want to browse and filter restaurants by cuisine, price, and distance so that I can choose a practical place. *(Covers: FR-006, FR-007)*
-- **US-008** — As a user, I want the app to suggest a restaurant (optionally midpoint) so that my group can decide faster. *(Covers: FR-007)*
-- **US-009** — As a user, I want to create an **open event** so that people nearby can join my dining plan. *(Covers: FR-008)*
-- **US-010** — As a user, I want to create a **closed event** and invite specific people so that I can plan privately. *(Covers: FR-008)*
-- **US-011** — As a user, I want to join and leave events so that I can commit or change plans without breaking the system. *(Covers: FR-009, FR-010)*
-- **US-012** — As a user, I want events to prevent overfilling so that capacity is respected. *(Covers: FR-010, FR-014)*
-- **US-013** — As a user, I want to create and join persistent groups so that I can build recurring circles for dining. *(Covers: FR-011)*
-- **US-014** — As a group owner, I want to manage group settings and members so that the group stays healthy. *(Covers: FR-012)*
-- **US-015** — As a user, I want to link an event to a group so that the group can coordinate around it. *(Covers: FR-013)*
-- **US-016** — As a user, I want event statuses (open/full/confirmed/cancelled) so that I know whether a dinner is happening. *(Covers: FR-014)*
-- **US-018** — As a user, I want notifications so that I don’t miss important event changes. *(Covers: FR-016)*
-- **US-019** — As an event participant, I want an event-only group chat so that I can coordinate logistics safely. *(Covers: FR-017)*
-- **US-020** — As a user, I want to block someone so that they cannot contact or appear to me again. *(Covers: FR-024)*
-- **US-021** — As a user, I want to report inappropriate behavior so that moderators can keep the community safe. *(Covers: FR-025)*
-- **US-022** — As a moderator, I want a queue of reports so that I can review and resolve issues consistently. *(Covers: FR-026)*
-- **US-023** — As a moderator, I want to apply temporary restrictions (soft bans) so that harmful users are limited without permanent deletion. *(Covers: FR-027)*
-- **US-024** — As an admin/moderator, I want sensitive actions to be audit-logged so that decisions are traceable. *(Covers: FR-028)*
-- **US-025** — As a user, I want to search people by username so that I can find someone I met. *(Covers: FR-018)*
-- **US-026** — As a user, I want to swipe Like/Pass on suggested profiles so that discovery feels fast and fun. *(Covers: FR-019)*
-- **US-027** — As a user, I want a mutual-like connection (Budz) so that the social layer feels explicit and trackable. *(Covers: FR-020)*
-- **US-029** — As a user, I want to browse and search events and groups so that I can discover plans that match my schedule and preferences. *(Covers: FR-022)*
-- **US-036** — As a user, I want my profile page to show my active events, groups, and Budz so that I can quickly understand my current activity. *(Covers: FR-002)*
+- **US-001** â€” As a user, I want to register an account so that I can use TasteBudz. *(Covers: FR-001)*
+- **US-002** â€” As a user, I want to log in and log out so that my account stays secure. *(Covers: FR-001)*
+- **US-003** â€” As a user, I want to edit my profile (bio, ZIP, goal) so that others can understand my vibe and location area. *(Covers: FR-002)*
+- **US-004** â€” As a user, I want to manage my cuisine preferences, spice tolerance, and dietary/allergy flags so that recommendations and matches fit my needs. *(Covers: FR-003)*
+- **US-005** â€” As a user, I want to define when Iâ€™m available so that I can find events I can actually attend. *(Covers: FR-004)*
+- **US-006** â€” As a user, I want to control whether people can discover me so that I can manage privacy. *(Covers: FR-005)*
+- **US-007** â€” As a user, I want to browse and filter restaurants by cuisine, price, and distance so that I can choose a practical place. *(Covers: FR-006, FR-007)*
+- **US-008** â€” As a user, I want the app to suggest a restaurant (optionally midpoint) so that my group can decide faster. *(Covers: FR-007)*
+- **US-009** â€” As a user, I want to create an **open event** so that people nearby can join my dining plan. *(Covers: FR-008)*
+- **US-010** â€” As a user, I want to create a **closed event** and invite specific people so that I can plan privately. *(Covers: FR-008)*
+- **US-011** â€” As a user, I want to join and leave events so that I can commit or change plans without breaking the system. *(Covers: FR-009, FR-010)*
+- **US-012** â€” As a user, I want events to prevent overfilling so that capacity is respected. *(Covers: FR-010, FR-014)*
+- **US-013** â€” As a user, I want to create and join persistent groups so that I can build recurring circles for dining. *(Covers: FR-011)*
+- **US-014** â€” As a group owner, I want to manage group settings and members so that the group stays healthy. *(Covers: FR-012)*
+- **US-015** â€” As a user, I want to link an event to a group so that the group can coordinate around it. *(Covers: FR-013)*
+- **US-016** â€” As a user, I want event statuses (open/full/confirmed/cancelled) so that I know whether a dinner is happening. *(Covers: FR-014)*
+- **US-018** â€” As a user, I want notifications so that I donâ€™t miss important event changes. *(Covers: FR-016)*
+- **US-019** â€” As an event participant, I want an event-only group chat so that I can coordinate logistics safely. *(Covers: FR-017)*
+- **US-020** â€” As a user, I want to block someone so that they cannot contact or appear to me again. *(Covers: FR-024)*
+- **US-021** â€” As a user, I want to report inappropriate behavior so that moderators can keep the community safe. *(Covers: FR-025)*
+- **US-022** â€” As a moderator, I want a queue of reports so that I can review and resolve issues consistently. *(Covers: FR-026)*
+- **US-023** â€” As a moderator, I want to apply temporary restrictions (soft bans) so that harmful users are limited without permanent deletion. *(Covers: FR-027)*
+- **US-024** â€” As an admin/moderator, I want sensitive actions to be audit-logged so that decisions are traceable. *(Covers: FR-028)*
+- **US-025** â€” As a user, I want to search people by username so that I can find someone I met. *(Covers: FR-018)*
+- **US-026** â€” As a user, I want to swipe Like/Pass on suggested profiles so that discovery feels fast and fun. *(Covers: FR-019)*
+- **US-027** â€” As a user, I want a mutual-like connection (Budz) so that the social layer feels explicit and trackable. *(Covers: FR-020)*
+- **US-029** â€” As a user, I want to browse and search events and groups so that I can discover plans that match my schedule and preferences. *(Covers: FR-022)*
+- **US-036** â€” As a user, I want my profile page to show my active events, groups, and Budz so that I can quickly understand my current activity. *(Covers: FR-002)*
 
 ### MVP+ User Stories
 
-- **US-017** — As a user, I want RSVP confirmations and deadlines so that I can trust events won’t collapse last minute. *(Covers: FR-015)*
-- **US-037** — As a group owner, I want to transfer ownership or dissolve a group so that group administration remains manageable over time. *(Covers: FR-012A)*
-- **US-038** — As a group member, I want a group-only chat so that members can coordinate without sharing phone numbers. *(Covers: FR-017A)*
+- **US-017** â€” As a user, I want RSVP confirmations and deadlines so that I can trust events wonâ€™t collapse last minute. *(Covers: FR-015)*
+- **US-037** â€” As a group owner, I want to transfer ownership or dissolve a group so that group administration remains manageable over time. *(Covers: FR-012A)*
+- **US-038** â€” As a group member, I want a group-only chat so that members can coordinate without sharing phone numbers. *(Covers: FR-017A)*
 
 ### MVP++ User Stories (Back-end Ready)
 
-- **US-028** — As a connected user, I want 1-on-1 chat (if enabled) so that I can coordinate privately. *(Covers: FR-021)*
-- **US-030** — As a user, I want a Tonight/This Week feed so that I can quickly find active events without searching. *(Covers: FR-023)*
-- **US-031** — As a restaurant admin, I want to manage my restaurant profile so that it is accurate in the system. *(Covers: FR-029)*
-- **US-032** — As a restaurant admin, I want to open time-window slots with a capacity so that groups can reserve a dining window. *(Covers: FR-030)*
-- **US-033** — As a user, I want to select a restaurant slot when creating an event so that our plan aligns with restaurant availability. *(Covers: FR-031)*
-- **US-034** — As a group, I want a discount to activate when enough people confirm so that we’re rewarded for organizing a larger dinner. *(Covers: FR-032)*
-- **US-035** — As a restaurant admin, I want to cancel a slot and have linked events handled correctly so that capacity stays correct. *(Covers: FR-033)*
+- **US-028** â€” As a connected user, I want 1-on-1 chat (if enabled) so that I can coordinate privately. *(Covers: FR-021)*
+- **US-030** â€” As a user, I want a Tonight/This Week feed so that I can quickly find active events without searching. *(Covers: FR-023)*
+- **US-031** â€” As a restaurant admin, I want to manage my restaurant profile so that it is accurate in the system. *(Covers: FR-029)*
+- **US-032** â€” As a restaurant admin, I want to open time-window slots with a capacity so that groups can reserve a dining window. *(Covers: FR-030)*
+- **US-033** â€” As a user, I want to select a restaurant slot when creating an event so that our plan aligns with restaurant availability. *(Covers: FR-031)*
+- **US-034** â€” As a group, I want a discount to activate when enough people confirm so that weâ€™re rewarded for organizing a larger dinner. *(Covers: FR-032)*
+- **US-035** â€” As a restaurant admin, I want to cancel a slot and have linked events handled correctly so that capacity stays correct. *(Covers: FR-033)*
 
 ---
 
@@ -132,10 +132,10 @@ User wants food → discovers Budz, a group, or an event → restaurant is sugge
 
 **Acceptance Criteria:**
 
-- Users can edit profile fields: display name/username, bio (≤ 255 chars), ZIP code, social goal.
+- Users can edit profile fields: display name/username, bio (â‰¤ 255 chars), ZIP code, social goal.
 - Users can view a personal profile page/dashboard that includes their profile information plus summaries of current events, joined groups, and Budz/connections.
 - Users can delete their account.
-- Users can update profile without affecting other users’ data.
+- Users can update profile without affecting other usersâ€™ data.
 
 ---
 
@@ -228,7 +228,7 @@ User wants food → discovers Budz, a group, or an event → restaurant is sugge
 - **Host selects invitees by exact username** (must match an existing user account).
 - The system creates (or updates) an **EventParticipant** record per invitee with state `INVITED` and generates `EVENT_INVITE_RECEIVED` for each.
 - Invitees **accept** (state transitions to `JOINED`) or **decline** (state transitions to `DECLINED`) **until `DecisionAt`**.
-- Capacity is enforced on **accept/join**: invites do **not** reserve seats. If accepting would exceed `Capacity`, the action is rejected (“event full”).
+- Capacity is enforced on **accept/join**: invites do **not** reserve seats. If accepting would exceed `Capacity`, the action is rejected (â€œevent fullâ€).
 - At `DecisionAt`, the system blocks further accept/decline/join/leave changes (except Admin support override) and applies the FR-014 decision rule to **confirm or cancel** the event.
 
 ---
@@ -259,7 +259,7 @@ User wants food → discovers Budz, a group, or an event → restaurant is sugge
 
 **Acceptance Criteria:**
 
-- Typical recommended group size is **4–6**.
+- Typical recommended group size is **4â€“6**.
 - The maximum event capacity is **12**.
 - The system prevents joining beyond the capacity.
 
@@ -338,16 +338,16 @@ User wants food → discovers Budz, a group, or an event → restaurant is sugge
 
 #### Mini Glossary (Event Lifecycle)
 
-- **DecisionAt** — The datetime when the system evaluates whether the event should proceed and locks participation changes.
+- **DecisionAt** â€” The datetime when the system evaluates whether the event should proceed and locks participation changes.
   - Default: **Open events** = `EventStartAt - 15m`
   - Default: **Closed events** = `EventStartAt - 24h` (configurable)
   - After `DecisionAt`, join/leave and invite accept/decline are blocked except Admin support override.
-- **CutoffAt** — RSVP/invite cutoff datetime **only when FR-015 is enabled (MVP+)** (default `EventStartAt - 24h`). In MVP, “cutoff” refers to `DecisionAt`.
-- **ActiveParticipants** — The participant count used for capacity/decision rules:
+- **CutoffAt** â€” RSVP/invite cutoff datetime **only when FR-015 is enabled (MVP+)** (default `EventStartAt - 24h`). In MVP, â€œcutoffâ€ refers to `DecisionAt`.
+- **ActiveParticipants** â€” The participant count used for capacity/decision rules:
   - In **FR-014 (MVP)**: count of participants in state `JOINED` (excluding `LEFT/REMOVED/DECLINED`).
   - In **FR-015 (MVP+)**: expands as defined in FR-015.
-- **Canonical EventStatus values (stored)** — `OPEN`, `FULL`, `CONFIRMED`, `CANCELLED`, `COMPLETED`.
-  - UI may label **CONFIRMED** as “Locked/Closed” for readability, but stored value remains `CONFIRMED`.
+- **Canonical EventStatus values (stored)** â€” `OPEN`, `FULL`, `CONFIRMED`, `CANCELLED`, `COMPLETED`.
+  - UI may label **CONFIRMED** as â€œLocked/Closedâ€ for readability, but stored value remains `CONFIRMED`.
 
 
 #### Definitions
@@ -414,8 +414,8 @@ A participant record has one of:
 
 #### Optional event fields (when reliability controls are enabled)
 
-- `CutoffAt` = RSVP/invite cutoff datetime (default `EventStartAt - 24h`, allowed range: **2h–72h**)
-- `MinConfirmedToRun` = minimum confirmed participants required at cutoff (default **3**, allowed range: **2–6**)
+- `CutoffAt` = RSVP/invite cutoff datetime (default `EventStartAt - 24h`, allowed range: **2hâ€“72h**)
+- `MinConfirmedToRun` = minimum confirmed participants required at cutoff (default **3**, allowed range: **2â€“6**)
 - `RSVPRequired` = whether RSVP confirmation is required (default `true` for Open events)
 
 #### Optional rules (when enabled)
@@ -423,8 +423,8 @@ A participant record has one of:
 1) **Join rules**
 
 - Joining creates or reactivates a participant record (idempotent).
-- If `now >= CutoffAt`, joining is blocked (returns “join closed”).
-- If capacity full, joining is blocked (returns “event full”).
+- If `now >= CutoffAt`, joining is blocked (returns â€œjoin closedâ€).
+- If capacity full, joining is blocked (returns â€œevent fullâ€).
 
 2) **RSVP rules**
 
@@ -465,8 +465,8 @@ A participant record has one of:
 
 #### Cutoff terminology (MVP vs MVP+)
 
-- In MVP, “cutoff” refers to `DecisionAt` (see FR-014).
-- If FR-015 is enabled (MVP+), “cutoff” refers to `CutoffAt`.
+- In MVP, â€œcutoffâ€ refers to `DecisionAt` (see FR-014).
+- If FR-015 is enabled (MVP+), â€œcutoffâ€ refers to `CutoffAt`.
 
 #### Notification channels by layer
 
@@ -574,7 +574,7 @@ Each notification has:
 
 ---
 
-### FR-020 Mutual Connections (“Budz”) and Requests
+### FR-020 Mutual Connections (â€œBudzâ€) and Requests
 
 **Priority:** MVP
 
@@ -619,7 +619,7 @@ Each notification has:
 
 ---
 
-### FR-023 Feed Support (“Tonight / This Week”) — Both Approaches
+### FR-023 Feed Support (â€œTonight / This Weekâ€) â€” Both Approaches
 
 **Priority:** MVP++
 
@@ -847,7 +847,7 @@ Each notification has:
 
 ## Appendix C: Risk-Based Downscopes (Backup Simpler Requirements)
 
-This appendix defines **safe “Plan B” requirement variants** for features that tend to become high-risk in a capstone timeline. If time/integration issues occur, apply the downscope without breaking the core product flow.
+This appendix defines **safe â€œPlan Bâ€ requirement variants** for features that tend to become high-risk in a capstone timeline. If time/integration issues occur, apply the downscope without breaking the core product flow.
 
 ### C1. Restaurants: External integration + midpoint suggestion (FR-006 / FR-007)
 
@@ -855,19 +855,19 @@ This appendix defines **safe “Plan B” requirement variants** for features th
 
 **Default (current requirement):** internal Restaurant entity + optional PlaceId; discovery supports filters + optional midpoint suggestion; may use Google Places.
 
-**Downscope (keep it Medium risk) — MVP/MVP+ compatible**
+**Downscope (keep it Medium risk) â€” MVP/MVP+ compatible**
 - **MVP:** Use an **internal seeded restaurant catalog only** (import CSV/manual admin seeding).
 - **MVP:** Filters limited to **cuisine + price tier + distance** (distance can be ZIP-to-ZIP or simple lat/long if stored).
-- **MVP+:** Midpoint suggestion becomes **“closest-to-group average”** using ZIP centroids (no full geo routing).
+- **MVP+:** Midpoint suggestion becomes **â€œclosest-to-group averageâ€** using ZIP centroids (no full geo routing).
 - **MVP+:** PlaceId stored but **not required** for operation.
 
-**Backup (simplest) — if restaurant data becomes a blocker**
+**Backup (simplest) â€” if restaurant data becomes a blocker**
 - **MVP fallback:** Event stores **cuisine target + optional free-text restaurant name/address link** (no Restaurant entity required for MVP UI).
-- Restaurants can be added later; event can still proceed using “chosen place text”.
+- Restaurants can be added later; event can still proceed using â€œchosen place textâ€.
 
 **What changes in FR text (if you apply backup):**
 - FR-006 becomes **MVP++** (schema-ready only).
-- FR-007 MVP acceptance removes external search + midpoint and becomes “list from seeded catalog OR free-text selection.”
+- FR-007 MVP acceptance removes external search + midpoint and becomes â€œlist from seeded catalog OR free-text selection.â€
 
 ---
 
@@ -875,17 +875,17 @@ This appendix defines **safe “Plan B” requirement variants** for features th
 
 **Why risky:** background scheduling reliability, time zones, duplicates.
 
-**Terminology note:** In MVP, “cutoff” refers to `DecisionAt` (FR-014). If FR-015 is enabled (MVP+), “cutoff” refers to `CutoffAt`.
+**Terminology note:** In MVP, â€œcutoffâ€ refers to `DecisionAt` (FR-014). If FR-015 is enabled (MVP+), â€œcutoffâ€ refers to `CutoffAt`.
 
 **Downscope (Medium risk)**
 - **MVP:** In-app notifications only for **state changes**: invite received, joined/left, confirmed/cancelled.
-- **MVP:** Reminders are **computed on read** (event page shows “Cutoff in X hours”) and optionally emitted by a **single periodic job** (e.g., runs every 5–15 minutes).
-- **MVP+:** Add one reminder type only: **cutoff reminder** (drop “event reminder”).
+- **MVP:** Reminders are **computed on read** (event page shows â€œCutoff in X hoursâ€) and optionally emitted by a **single periodic job** (e.g., runs every 5â€“15 minutes).
+- **MVP+:** Add one reminder type only: **cutoff reminder** (drop â€œevent reminderâ€).
 
 **Backup (simplest)**
 - **MVP fallback:** No scheduled reminders. Only:
   - status changes shown in event UI,
-  - “My events” page highlights upcoming cutoff/start.
+  - â€œMy eventsâ€ page highlights upcoming cutoff/start.
 
 ---
 
@@ -921,15 +921,15 @@ This appendix defines **safe “Plan B” requirement variants** for features th
 - **MVP fallback:** Remove persistent groups from MVP UI.
   - Events still exist.
   - Users can create events as open/closed.
-  - “Group” becomes a **Phase/MVP++ concept** (schema-ready only).
+  - â€œGroupâ€ becomes a **Phase/MVP++ concept** (schema-ready only).
 
 **What changes in FR text (if you apply backup):**
-- FR-011–FR-013 and FR-012A/FR-017A move to **MVP+ or MVP++**.
-- US-013–US-015 and any group-extension stories move out of MVP.
+- FR-011â€“FR-013 and FR-012A/FR-017A move to **MVP+ or MVP++**.
+- US-013â€“US-015 and any group-extension stories move out of MVP.
 
 ---
 
-### C5. Moderation + soft bans + audit logging (FR-025–FR-028)
+### C5. Moderation + soft bans + audit logging (FR-025â€“FR-028)
 
 **Why risky:** cross-cutting enforcement and policy consistency.
 
@@ -940,7 +940,7 @@ This appendix defines **safe “Plan B” requirement variants** for features th
 
 **Backup (simplest)**
 - **MVP fallback:** Reports are stored and viewable by admins, but **no in-app bans**.
-  - Admin resolution is “mark reviewed”; enforcement is manual.
+  - Admin resolution is â€œmark reviewedâ€; enforcement is manual.
 
 ---
 
@@ -984,3 +984,4 @@ This appendix defines **safe “Plan B” requirement variants** for features th
 - Added **FR-017A Group Chat (Group-Only)** as a controlled extension aligned to the design intent.
 - Updated locked design decisions, downscope appendix, and entity checklist so priority changes remain internally consistent.
 - Preserved the original structure and tone while tightening wording and improving cross-section consistency.
+
