@@ -67,6 +67,9 @@ Agents must consult the relevant project documents before making non-trivial cha
 - `docs/backend/api-endpoints.md`
   Source of truth for API surface and request/response contract expectations.
 
+- `docs/backend/testing-strategy.md`
+  Source of truth for backend validation approach, test layers, coverage priorities, and completion criteria.
+
 ### Secondary and supporting documents
 
 - concept, review, design, research, notes, and report documents
@@ -84,6 +87,7 @@ Prefer the most specific authoritative document for the topic at hand:
 - layering, module ownership, and structural questions -> `docs/backend/backend-architecture.md`
 - entities, lifecycle rules, and invariants -> `docs/backend/domain-model.md`
 - routes and contract shape -> `docs/backend/api-endpoints.md`
+- test layering, required proof, and completion criteria -> `docs/backend/testing-strategy.md`
 
 If the conflict crosses topics or the correct authority is unclear, use this fallback precedence order:
 
@@ -92,7 +96,8 @@ If the conflict crosses topics or the correct authority is unclear, use this fal
 3. `docs/backend/backend-architecture.md`
 4. `docs/backend/domain-model.md`
 5. `docs/backend/api-endpoints.md`
-6. supporting concept, design, and research documents
+6. `docs/backend/testing-strategy.md`
+7. supporting concept, design, and research documents
 
 If the conflict is significant, ambiguous, or materially affects implementation, the agent must report it explicitly before changing code or docs.
 Agents must not silently choose one interpretation when a meaningful contradiction exists.
@@ -124,6 +129,7 @@ Examples:
 - layering or module questions -> architecture
 - entity or invariant questions -> domain model
 - endpoint or contract questions -> API document
+- test strategy, coverage, or done-criteria questions -> testing strategy
 
 ### 3. Check for inconsistency
 
@@ -314,4 +320,6 @@ Unless explicitly instructed otherwise, agents should assume:
 - the simplest implementation that preserves documented invariants is usually the correct starting point
 
 If ambiguity still affects correctness after reviewing the relevant documents, stop and raise the decision explicitly instead of inventing policy in code or docs.
+
+
 

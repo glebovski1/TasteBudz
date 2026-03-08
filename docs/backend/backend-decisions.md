@@ -385,3 +385,20 @@ Hosts, invitees, joiners, removals, and re-entry all revolve around the same eve
 ### Consequences
 - Transaction logic is cleaner.
 - Capacity, chat access, and lifecycle rules all reference the same effective participant state.
+
+## [BD-003] Store Backend Testing Strategy in a Dedicated Document
+
+- Date: 2026-03-08
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+The repository now has detailed requirements, architecture, domain, and API documents, but the backend testing approach also needs a stable written source of truth. Testing decisions are especially important because backend, database, and frontend work are split across teammates.
+
+### Decision
+Store the backend testing strategy in `docs/backend/testing-strategy.md` and treat it as the authoritative source for backend validation approach, test layers, coverage priorities, and completion criteria.
+
+### Consequences
+- Contributors now have one stable place to look for backend testing expectations.
+- Test-related guidance can evolve without overloading architecture or API documents.
+- Future test strategy changes should be reconciled with requirements, architecture, domain, API, and accepted ADRs.
