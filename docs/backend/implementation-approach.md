@@ -37,3 +37,4 @@ For each module:
 - Start with foundation work before feature modules.
 - Do not spread work across many half-built modules.
 - High-risk modules such as Events should usually reach `Backend-complete` before moving too far ahead.
+- Track current implementation progress in `docs/backend/implementation-status.md`.

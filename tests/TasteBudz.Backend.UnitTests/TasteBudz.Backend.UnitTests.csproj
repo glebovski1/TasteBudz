@@ -1,10 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(BuildingSolutionFile)' == 'true'">
+    <BuildProjectReferences>false</BuildProjectReferences>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TasteBudz.Backend\TasteBudz.Backend.csproj" />
+    <ProjectReference Include="..\\..\\src\\TasteBudz.Backend\\TasteBudz.Backend.csproj" />
   </ItemGroup>
 
 </Project>
