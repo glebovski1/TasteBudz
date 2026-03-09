@@ -1,5 +1,6 @@
 // Unit tests for restaurant suggestion context rules.
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Events;

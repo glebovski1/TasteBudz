@@ -5,7 +5,7 @@ This document tracks the current backend implementation state.
 It is a progress tracker, not a source of product or architecture truth.
 Use the primary backend documents for requirements, architecture, domain rules, API contracts, and testing policy.
 
-Last verified: 2026-03-08
+Last verified: 2026-03-09
 
 ## 1. Overall State
 
@@ -65,7 +65,7 @@ Current runtime persistence note:
 
 ## 4. Implemented Endpoint Surface
 
-Implemented controller surface as of 2026-03-08:
+Implemented controller surface as of 2026-03-09:
 
 - `/api/v1/auth/*`
 - `/api/v1/onboarding/status`
@@ -101,11 +101,11 @@ Not yet implemented from the target API shape:
 
 ## 5. Test Status
 
-Current automated test status as of 2026-03-08:
+Current automated test status as of 2026-03-09:
 
-- 16 unit tests
+- 20 unit tests
 - 9 integration tests
-- 25 passing tests total
+- 29 passing tests total
 
 Current covered areas:
 
