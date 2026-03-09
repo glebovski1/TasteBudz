@@ -159,6 +159,63 @@ public sealed class MessagingApiTests(TasteBudzApiFactory factory) : IClassFixtu
             }));
     }
 
+    [Fact]
+    public async Task EventMessages_AfterParticipantRemoval_ReturnNotFound()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createEventResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Removal lockout",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        var eventDetail = await createEventResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+        await guestClient.PostAsync($"/api/v1/events/{eventDetail!.EventId}/participants", null);
+
+        var removalResponse = await hostClient.PostAsync($"/api/v1/events/{eventDetail.EventId}/participants/{guestSession.CurrentUser.UserId}/removal", null);
+        var historyResponse = await guestClient.GetAsync($"/api/v1/events/{eventDetail.EventId}/messages");
+
+        Assert.Equal(HttpStatusCode.NoContent, removalResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, historyResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GroupMessages_AfterMemberLeaves_ReturnNotFound()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Leave lockout",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        await guestClient.PostAsync($"/api/v1/groups/{group!.GroupId}/members", null);
+
+        var leaveResponse = await guestClient.DeleteAsync($"/api/v1/groups/{group.GroupId}/members/me");
+        var historyResponse = await guestClient.GetAsync($"/api/v1/groups/{group.GroupId}/messages");
+
+        Assert.Equal(HttpStatusCode.NoContent, leaveResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, historyResponse.StatusCode);
+    }
+
     private HubConnection CreateConnection(string accessToken) =>
         new HubConnectionBuilder()
             .WithUrl(new Uri(factory.Server.BaseAddress!, "/hubs/chat"), options =>

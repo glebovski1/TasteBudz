@@ -104,4 +104,90 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Contains("application/problem+json", createResponse.Content.Headers.ContentType?.MediaType);
         Assert.Equal(400, createProblem!.Status);
     }
+
+    [Fact]
+    public async Task ClosedEventEndpoints_SupportInvitesResponsesAndHostOnlyGuards()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+        using var samClient = factory.CreateClient();
+        using var intruderClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        var intruderSession = await ApiTestHelpers.RegisterAsync(intruderClient, username: "intruder", email: "intruder@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+        ApiTestHelpers.SetBearer(samClient, samSession.AccessToken);
+        ApiTestHelpers.SetBearer(intruderClient, intruderSession.AccessToken);
+
+        var createResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Invite only dinner",
+            EventType = EventType.Closed,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(2),
+            Capacity = 4,
+            CuisineTarget = "Thai",
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var inviteResponse = await hostClient.PostAsJsonAsync($"/api/v1/events/{created!.EventId}/invites", new InviteUsersRequest
+        {
+            Usernames = new[] { "guest", "sam" },
+        });
+        var invites = await inviteResponse.Content.ReadFromJsonAsync<EventParticipantDto[]>(ApiTestHelpers.JsonOptions);
+
+        var guestJoinResponse = await guestClient.PatchAsJsonAsync($"/api/v1/events/{created.EventId}/participants/me", new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Joined,
+        });
+        var guestJoined = await guestJoinResponse.Content.ReadFromJsonAsync<EventParticipantDto>(ApiTestHelpers.JsonOptions);
+
+        var samDeclineResponse = await samClient.PatchAsJsonAsync($"/api/v1/events/{created.EventId}/participants/me", new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Declined,
+        });
+        var samDeclined = await samDeclineResponse.Content.ReadFromJsonAsync<EventParticipantDto>(ApiTestHelpers.JsonOptions);
+
+        var intruderUpdateResponse = await intruderClient.PatchAsJsonAsync($"/api/v1/events/{created.EventId}", new UpdateEventRequest
+        {
+            Title = "Unauthorized update",
+        });
+        var intruderInviteResponse = await intruderClient.PostAsJsonAsync($"/api/v1/events/{created.EventId}/invites", new InviteUsersRequest
+        {
+            Usernames = new[] { "guest" },
+        });
+        var intruderCancelResponse = await intruderClient.PostAsJsonAsync($"/api/v1/events/{created.EventId}/cancellation", new CancelEventRequest
+        {
+            Reason = "Unauthorized",
+        });
+        var intruderRemovalResponse = await intruderClient.PostAsync($"/api/v1/events/{created.EventId}/participants/{guestSession.CurrentUser.UserId}/removal", null);
+
+        var guestLeaveResponse = await guestClient.PatchAsJsonAsync($"/api/v1/events/{created.EventId}/participants/me", new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Left,
+        });
+        var guestLeft = await guestLeaveResponse.Content.ReadFromJsonAsync<EventParticipantDto>(ApiTestHelpers.JsonOptions);
+        var participantsResponse = await hostClient.GetAsync($"/api/v1/events/{created.EventId}/participants");
+        var participants = await participantsResponse.Content.ReadFromJsonAsync<EventParticipantDto[]>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+        Assert.Equal(2, invites!.Length);
+        Assert.Equal(HttpStatusCode.OK, guestJoinResponse.StatusCode);
+        Assert.Equal(EventParticipantState.Joined, guestJoined!.State);
+        Assert.Equal(HttpStatusCode.OK, samDeclineResponse.StatusCode);
+        Assert.Equal(EventParticipantState.Declined, samDeclined!.State);
+        Assert.Equal(HttpStatusCode.Forbidden, intruderUpdateResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, intruderInviteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, intruderCancelResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, intruderRemovalResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, guestLeaveResponse.StatusCode);
+        Assert.Equal(EventParticipantState.Left, guestLeft!.State);
+        Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
+        Assert.Contains(participants!, participant => participant.UserId == samSession.CurrentUser.UserId && participant.State == EventParticipantState.Declined);
+        Assert.Contains(participants!, participant => participant.UserId == guestSession.CurrentUser.UserId && participant.State == EventParticipantState.Left);
+    }
 }

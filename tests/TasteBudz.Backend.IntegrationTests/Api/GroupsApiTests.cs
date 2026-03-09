@@ -128,4 +128,43 @@ public sealed class GroupsApiTests(TasteBudzApiFactory factory) : IClassFixture<
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GroupEndpoints_EnforceOwnerUpdateAndRemovalRules()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Owner guardrails",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        await guestClient.PostAsync($"/api/v1/groups/{group!.GroupId}/members", null);
+
+        var guestUpdateResponse = await guestClient.PatchAsJsonAsync($"/api/v1/groups/{group.GroupId}", new UpdateGroupRequest
+        {
+            Name = "Guest update attempt",
+        });
+
+        var removeResponse = await ownerClient.PostAsync($"/api/v1/groups/{group.GroupId}/members/{guestSession.CurrentUser.UserId}/removal", null);
+        var guestDetailResponse = await guestClient.GetAsync($"/api/v1/groups/{group.GroupId}");
+        var guestDetail = await guestDetailResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        var rejoinResponse = await guestClient.PostAsync($"/api/v1/groups/{group.GroupId}/members", null);
+        var ownerLeaveResponse = await ownerClient.DeleteAsync($"/api/v1/groups/{group.GroupId}/members/me");
+
+        Assert.Equal(HttpStatusCode.Forbidden, guestUpdateResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, removeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, guestDetailResponse.StatusCode);
+        Assert.False(guestDetail!.IsCurrentUserMember);
+        Assert.Equal(HttpStatusCode.Forbidden, rejoinResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, ownerLeaveResponse.StatusCode);
+    }
 }

@@ -300,6 +300,65 @@ public sealed class EventWorkflowTests
     }
 
     [Fact]
+    public async Task UpdateMyParticipationAsync_AfterDecisionAt_NonPrivilegedLeaveReturnsConflict()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Decision lock",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddMinutes(30),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+
+        await services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId);
+        clock.Advance(TimeSpan.FromMinutes(20));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.UpdateMyParticipationAsync(guest, detail.EventId, new UpdateMyParticipationRequest
+            {
+                State = EventParticipantState.Left,
+            }));
+        var participant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+
+        Assert.Equal(409, exception.StatusCode);
+        Assert.Equal(EventParticipantState.Joined, participant!.State);
+    }
+
+    [Fact]
+    public async Task RemoveParticipantAsync_AfterDecisionAt_HostIsRejected()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Host removal lock",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddHours(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+
+        await services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId);
+        clock.Advance(TimeSpan.FromMinutes(50));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.RemoveParticipantAsync(host, detail.EventId, guest.UserId));
+        var participant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+
+        Assert.Equal(409, exception.StatusCode);
+        Assert.Equal(EventParticipantState.Joined, participant!.State);
+    }
+
+    [Fact]
     public async Task RemoveParticipantAsync_ModeratorCanRemoveAfterDecisionAt()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
