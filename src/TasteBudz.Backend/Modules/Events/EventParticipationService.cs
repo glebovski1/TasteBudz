@@ -5,6 +5,7 @@ using TasteBudz.Backend.Infrastructure.Concurrency;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 
@@ -18,12 +19,19 @@ public sealed class EventParticipationService(
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
     INotificationService notificationService,
+    RestrictionService restrictionService,
     EventLifecycleService lifecycleService,
     IKeyedLockProvider keyedLockProvider,
     IClock clock)
 {
     public async Task<EventParticipantDto> JoinOpenEventAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default)
     {
+        await restrictionService.EnsureNotRestrictedAsync(
+            currentUser.UserId,
+            RestrictionScope.EventJoin,
+            "You are currently restricted from joining events.",
+            cancellationToken);
+
         await using var eventLock = await keyedLockProvider.AcquireAsync(EventPolicy.GetLockKey(eventId), cancellationToken);
 
         var eventRecord = await GetSynchronizedEventAsync(eventId, cancellationToken);
@@ -112,6 +120,12 @@ public sealed class EventParticipationService(
         switch (desiredState)
         {
             case EventParticipantState.Joined:
+                await restrictionService.EnsureNotRestrictedAsync(
+                    currentUser.UserId,
+                    RestrictionScope.EventJoin,
+                    "You are currently restricted from joining events.",
+                    cancellationToken);
+
                 if (eventRecord.EventType != EventType.Closed)
                 {
                     throw ApiException.BadRequest("Use the join endpoint for open events.");

@@ -156,3 +156,63 @@ public enum NotificationType
     GroupInviteReceived,
     BudMatched,
 }
+
+/// <summary>
+/// Supported chat scopes for the MVP messaging core.
+/// </summary>
+public enum ChatScopeType
+{
+    Event,
+    Group,
+    Direct,
+}
+
+/// <summary>
+/// Canonical target types for moderation reports.
+/// </summary>
+public enum ReportTargetType
+{
+    User,
+    Message,
+}
+
+/// <summary>
+/// Review state for a moderation report.
+/// </summary>
+public enum ModerationReportStatus
+{
+    Pending,
+    Resolved,
+}
+
+/// <summary>
+/// Stored moderation action types.
+/// </summary>
+public enum ModerationActionType
+{
+    ReportResolved,
+    RestrictionCreated,
+    RestrictionUpdated,
+    RestrictionRevoked,
+}
+
+/// <summary>
+/// Restriction scopes enforced by MVP workflows.
+/// </summary>
+public enum RestrictionScope
+{
+    DiscoveryVisibility,
+    ChatSend,
+    EventJoin,
+    EventCreate,
+}
+
+/// <summary>
+/// Lifecycle states for a scoped user restriction.
+/// </summary>
+public enum RestrictionStatus
+{
+    Active,
+    Expired,
+    Revoked,
+}

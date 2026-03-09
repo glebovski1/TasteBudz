@@ -296,6 +296,8 @@ Group contract rules:
 
 - Public groups allow direct join when active.
 - Private groups require invitation in MVP.
+- Private-group invites are owner-initiated in MVP.
+- Only the current group owner may create or update an event with that group's `GroupId`.
 - `GroupId` on an event is context only and does not replace event participation rules.
 - Group owner is auto-created as an active member.
 
@@ -319,7 +321,7 @@ Representative request shape:
 
 Contract notes:
 
-- Search respects privacy settings, blocks, and moderation restrictions.
+- Search respects privacy settings, blocks, and moderation restrictions such as `DiscoveryVisibility`.
 - One effective directional swipe decision exists per actor/subject pair.
 - Reciprocal effective Like decisions create Budz.
 - MVP does not expose pending Bud-request state.
@@ -356,8 +358,9 @@ MVP messaging rules:
 SignalR hub expectations:
 
 - authenticate before connection
-- join callers only to authorized event/group channels
-- send text messages into authorized event/group threads
+- `JoinScope(scopeType, scopeId)` joins callers only to authorized event/group channels
+- `SendMessage({ scopeType, scopeId, body })` sends text messages into authorized event/group threads
+- `MessageReceived` is the server event name for broadcast delivery
 - use REST history endpoints for initial backfill and reconnection
 
 ### 3.8 Notifications
@@ -380,12 +383,12 @@ Representative request shape:
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
 | Submit Report | POST | `/api/v1/reports` | Submit moderation report | Yes |
-| List Moderation Reports | GET | `/api/v1/moderation/reports` | Return moderation queue | Yes |
-| Get Moderation Report | GET | `/api/v1/moderation/reports/{reportId}` | Return report detail | Yes |
-| Resolve Moderation Report | PATCH | `/api/v1/moderation/reports/{reportId}` | Resolve report | Yes |
-| Create Restriction | POST | `/api/v1/moderation/restrictions` | Apply scoped restriction | Yes |
-| Update Restriction | PATCH | `/api/v1/moderation/restrictions/{restrictionId}` | Revoke/update restriction | Yes |
-| View Audit Logs | GET | `/api/v1/audit-logs` | Return audit log entries | Yes |
+| List Moderation Reports | GET | `/api/v1/moderation/reports` | Return moderation queue | Moderator/Admin |
+| Get Moderation Report | GET | `/api/v1/moderation/reports/{reportId}` | Return report detail | Moderator/Admin |
+| Resolve Moderation Report | PATCH | `/api/v1/moderation/reports/{reportId}` | Resolve report | Moderator/Admin |
+| Create Restriction | POST | `/api/v1/moderation/restrictions` | Apply scoped restriction | Moderator/Admin |
+| Update Restriction | PATCH | `/api/v1/moderation/restrictions/{restrictionId}` | Revoke/update restriction | Moderator/Admin |
+| View Audit Logs | GET | `/api/v1/audit-logs` | Return audit log entries | Admin |
 
 Representative request shapes:
 
@@ -405,7 +408,7 @@ Representative request shapes:
 ```json
 {
   "subjectUserId": "uuid",
-  "scope": "ChatSend",
+  "scope": "DiscoveryVisibility",
   "reason": "Harassment",
   "expiresAt": "timestamp"
 }

@@ -92,4 +92,19 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Riverfront Grill", restaurant.Name);
     }
+
+    [Fact]
+    public async Task RestaurantDetail_WithUnknownIdReturnsProblemDetails()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+
+        var session = await ApiTestHelpers.RegisterAsync(client, username: "foodie", email: "foodie@example.com");
+        ApiTestHelpers.SetBearer(client, session.AccessToken);
+
+        var response = await client.GetAsync($"/api/v1/restaurants/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
 }

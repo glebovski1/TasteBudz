@@ -9,6 +9,8 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Messaging;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -46,6 +48,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEventRepository, InMemoryEventRepository>();
         services.AddSingleton<IGroupRepository, InMemoryGroupRepository>();
         services.AddSingleton<IDiscoveryRepository, InMemoryDiscoveryRepository>();
+        services.AddSingleton<IMessagingRepository, InMemoryMessagingRepository>();
+        services.AddSingleton<IModerationRepository, InMemoryModerationRepository>();
         services.AddSingleton<INotificationService, InMemoryNotificationService>();
 
         // Business rules live in scoped services so each request gets a clean workflow instance.
@@ -57,6 +61,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PrivacyService>();
         services.AddScoped<BlockingService>();
         services.AddScoped<DashboardService>();
+        services.AddScoped<GroupService>();
+        services.AddScoped<ModerationService>();
+        services.AddScoped<RestrictionService>();
+        services.AddScoped<AuditLogService>();
+        services.AddScoped<DiscoveryService>();
+        services.AddScoped<NotificationCenterService>();
+        services.AddScoped<MessagingService>();
         services.AddScoped<RestaurantSearchService>();
         services.AddScoped<RestaurantRecommendationService>();
         services.AddScoped<EventLifecycleService>();
@@ -64,6 +75,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EventInviteService>();
         services.AddScoped<EventParticipationService>();
         services.AddScoped<EventService>();
+        services.AddSignalR();
 
         // The app uses a custom bearer handler backed by the session repository instead of JWT validation.
         services

@@ -26,20 +26,29 @@ public sealed class SessionAuthenticationHandler(
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var authorizationHeader = Request.Headers.Authorization.ToString();
+        var queryAccessToken = Request.Query["access_token"].ToString();
 
-        if (string.IsNullOrWhiteSpace(authorizationHeader))
+        if (string.IsNullOrWhiteSpace(authorizationHeader) && string.IsNullOrWhiteSpace(queryAccessToken))
         {
             return AuthenticateResult.NoResult();
         }
 
         const string bearerPrefix = "Bearer ";
+        string token;
 
-        if (!authorizationHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(authorizationHeader))
         {
-            return AuthenticateResult.Fail("Unsupported authentication scheme.");
-        }
+            if (!authorizationHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return AuthenticateResult.Fail("Unsupported authentication scheme.");
+            }
 
-        var token = authorizationHeader[bearerPrefix.Length..].Trim();
+            token = authorizationHeader[bearerPrefix.Length..].Trim();
+        }
+        else
+        {
+            token = queryAccessToken.Trim();
+        }
 
         if (string.IsNullOrWhiteSpace(token))
         {

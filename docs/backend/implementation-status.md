@@ -22,14 +22,15 @@ Using the definitions in `docs/backend/implementation-approach.md`:
 
 Current practical assessment:
 
-- Auth and Access: early `Backend-logic ready`
-- Profiles: meaningful `Backend-logic ready` slice
-- Restaurants: meaningful `Backend-logic ready` slice
-- Events: meaningful but still partial `Backend-logic ready` slice
-- Groups: not yet implemented at API/workflow level
-- Discovery / Budz: not yet implemented at API/workflow level
-- Messaging: not yet implemented
-- Moderation and Audit: not yet implemented
+- Auth and Access: `Backend-logic ready`
+- Profiles: `Backend-logic ready`
+- Restaurants: `Backend-logic ready`
+- Events: `Backend-logic ready`
+- Groups: `Backend-logic ready`
+- Discovery / Budz: `Backend-logic ready`
+- Notifications: `Backend-logic ready`
+- Messaging: `Backend-logic ready`
+- Moderation and Audit: `Backend-logic ready`
 - Real SQL persistence: not yet implemented
 
 ## 2. Implemented Runtime Foundation
@@ -53,15 +54,15 @@ Current runtime persistence note:
 
 | Module | Current state | Notes |
 |---|---|---|
-| Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, account deletion |
+| Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion |
 | Profiles | Implemented slice | Onboarding status, profile update/read, preferences, availability, privacy, blocks, dashboard summaries |
 | Restaurants | Implemented slice | Browse, detail, deterministic suggestions, seeded catalog |
-| Events | Implemented slice | Browse, create, detail, update, participants, join, leave/accept/decline, invite, cancel, lifecycle sync |
-| Groups | Partial internals only | Domain/repository scaffolding exists, but no group controller/API workflow surface yet |
-| Discovery / Budz | Internal scaffolding only | Repository interface exists, but no implemented API workflow slice yet |
-| Notifications | Internal support only | Notification creation is used by workflows, but no public notification API exists yet |
-| Messaging | Not started | No controllers, services, or chat workflow implementation yet |
-| Moderation and Audit | Not started | No moderation workflow slice yet |
+| Events | Implemented slice | Browse, create, detail, update, participants, join, leave/accept/decline, invite, cancel, lifecycle sync, owner-only group link, restriction checks |
+| Groups | Implemented slice | Browse/search, create/detail/update, join/leave, owner removal, private invites, linked-event listing |
+| Discovery / Budz | Implemented slice | Search, swipe candidates, Like/Pass decisions, reciprocal Budz creation, privacy/block/restriction filtering |
+| Notifications | Implemented slice | In-app notification center list/read API over existing workflow notifications |
+| Messaging | Implemented slice | Shared SignalR chat hub plus paged event/group message history with scope-derived auth |
+| Moderation and Audit | Implemented slice | Report submission, moderation queue/detail/resolve, scoped restrictions, admin audit-log query |
 
 ## 4. Implemented Endpoint Surface
 
@@ -90,43 +91,72 @@ Implemented controller surface as of 2026-03-09:
 - `/api/v1/events/{eventId}/participants/{userId}/removal`
 - `/api/v1/events/{eventId}/invites`
 - `/api/v1/events/{eventId}/cancellation`
+- `/api/v1/events/{eventId}/messages`
+- `/api/v1/groups`
+- `/api/v1/groups/{groupId}`
+- `/api/v1/groups/{groupId}/events`
+- `/api/v1/groups/{groupId}/members`
+- `/api/v1/groups/{groupId}/members/me`
+- `/api/v1/groups/{groupId}/members/{userId}/removal`
+- `/api/v1/groups/{groupId}/invites`
+- `/api/v1/groups/invites/{inviteId}`
+- `/api/v1/groups/{groupId}/messages`
+- `/api/v1/discovery/people`
+- `/api/v1/discovery/swipe-candidates`
+- `/api/v1/discovery/swipes`
+- `/api/v1/budz`
+- `/api/v1/notifications`
+- `/api/v1/notifications/{notificationId}`
+- `/api/v1/reports`
+- `/api/v1/moderation/reports`
+- `/api/v1/moderation/reports/{reportId}`
+- `/api/v1/moderation/restrictions`
+- `/api/v1/moderation/restrictions/{restrictionId}`
+- `/api/v1/audit-logs`
+- `/hubs/chat`
 
-Not yet implemented from the target API shape:
+Not yet implemented from later/feature-flagged API shape:
 
-- groups endpoints
-- discovery / Budz endpoints
-- messaging endpoints
-- notifications endpoints
-- moderation and audit endpoints
+- group ownership transfer and dissolution endpoints
+- direct chat endpoints
+- restaurant operations/discount endpoints
 
 ## 5. Test Status
 
 Current automated test status as of 2026-03-09:
 
-- 20 unit tests
-- 9 integration tests
-- 29 passing tests total
+- 38 unit tests
+- 23 integration tests
+- 61 passing tests total
 
 Current covered areas:
 
 - password hashing
-- auth registration and protected endpoint access
+- auth registration, login, refresh, logout, duplicate-credential handling, and protected endpoint access
 - profile update workflows
 - recurring and one-off availability edge cases
+- blocks and dashboard behavior
 - restaurant browse and suggestion behavior
+- restaurant detail/not-found behavior
 - event host auto-join behavior
 - closed-event invite acceptance capacity rule
 - event capacity validation
+- event last-seat concurrency guard
+- event group-link authorization
+- moderator participant removal after `DecisionAt`
+- group create/join/invite/detail workflows
+- discovery search/swipe/Budz workflows
+- notification-center read/update behavior
+- event chat and group chat authorization plus hub delivery
+- report, restriction, role-enforcement, and audit-log workflows
 - ProblemDetails behavior for selected failure cases
 
 Important testing gaps still open:
 
 - no real SQL-backed persistence integration tests
-- no dedicated concurrency tests for last-seat joins or invite acceptance races
-- no messaging authorization tests
-- no group workflow tests
-- no discovery / Budz workflow tests
-- no moderation / restriction tests
+- no persistence-backed concurrency proof for event joins or invite acceptance races
+- no SQL-backed messaging/group/discovery/moderation integration tests
+- later/disabled features such as direct chat and group ownership transfer remain intentionally untested at runtime
 
 ## 6. Gaps To Backend-Complete
 
@@ -134,28 +164,22 @@ The largest remaining gaps are:
 
 1. Replace in-memory persistence with the approved SQL Server / Azure SQL path.
 2. Add persistence-backed integration tests for the implemented workflows.
-3. Add concurrency-focused tests for event participation edge cases.
-4. Implement the remaining major MVP modules:
-   - groups
-   - discovery / Budz
-   - messaging
-   - moderation and audit
-5. Expand endpoint coverage to match the documented MVP API surface.
+3. Add persistence-backed concurrency proof for event participation and other race-prone workflows.
+4. Keep later/feature-flagged modules disabled until explicitly promoted:
+   - direct chat
+   - group ownership transfer/dissolution
+   - restaurant operations and discounts
 
 ## 7. Suggested Next Focus
 
 Recommended next implementation focus:
 
-1. Events hardening to `Backend-complete`
-   - real persistence
-   - concurrency proof
-   - persistence-backed lifecycle validation
-2. Groups MVP workflow slice
-3. Discovery / Budz MVP workflow slice
-4. Messaging MVP workflow slice
+1. SQL-backed persistence integration for the current `Backend-logic ready` slices
+2. Persistence-backed concurrency proof for Events and other race-prone workflows
+3. Broader persistence-path validation for messaging, moderation, and notifications
 
 Rationale:
 
-- Events are the most transaction-sensitive current module.
-- The implementation approach document explicitly calls out high-risk modules such as Events as the best candidate to finish deeply before spreading further across the backlog.
+- The documented MVP backend slice surface is now implemented at the logic/API level.
+- The remaining work to reach `Backend-complete` is persistence and persistence-sensitive proof rather than new MVP feature breadth.
 

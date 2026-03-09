@@ -2,6 +2,7 @@
 using System.Text.Json.Serialization;
 using TasteBudz.Backend.Infrastructure.Configuration;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Modules.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
 

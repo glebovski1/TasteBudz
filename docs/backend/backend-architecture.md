@@ -198,7 +198,7 @@ Key responsibilities:
 
 - create open and closed events
 - edit host-owned event details and notify participants of material changes
-- store optional `GroupId`
+- store optional `GroupId` when the current user is the linked group's owner
 - store selected restaurant from the internal catalog in MVP
 - manage closed-event invites
 - manage join/leave/accept/decline flows
@@ -248,6 +248,8 @@ Rules to preserve:
 - the owner must be an active member
 - public groups allow direct join in MVP
 - private groups require invitation in MVP
+- private-group invites are owner-initiated in MVP
+- only the current group owner may associate new events with the group's context
 - group membership does not replace event participation
 
 ### 5.6 Discovery / Budz
@@ -261,7 +263,7 @@ Key responsibilities:
 - swipe / Like / Pass flows
 - mutual Budz creation
 - list current Budz
-- respect privacy, blocking, and moderation restrictions
+- respect privacy, blocking, and moderation restrictions such as `DiscoveryVisibility`
 
 Suggested services:
 
@@ -313,6 +315,13 @@ Suggested services:
 - `DirectChatAccessService`
 - `ChatHub` for SignalR connection/auth plumbing
 
+MVP hub contract:
+
+- one shared `ChatHub`
+- `JoinScope(scopeType, scopeId)` authorizes and subscribes the caller to an event/group channel
+- `SendMessage(request)` persists and broadcasts one text message
+- `MessageReceived` is the broadcast event name for new chat messages
+
 ### 5.8 Notifications
 
 Own persisted in-app notifications for important state changes.
@@ -343,6 +352,7 @@ Key responsibilities:
 - apply/remove restrictions
 - enforce moderation-related restrictions via service checks
 - write immutable audit logs for sensitive actions
+- expose authenticated report submission, moderator/admin restriction workflows, and admin-only audit-log review
 
 Suggested services:
 
@@ -483,6 +493,12 @@ Soft blocking prevents new direct interaction paths such as direct/private messa
 ### 7.6 Moderation and Reports
 
 Lives in `ReportService`, `ModerationService`, and `RestrictionService`.
+
+Auth boundary:
+
+- any authenticated user may submit a report
+- moderation queue and restriction management require `Moderator` or `Admin`
+- audit-log review requires `Admin`
 
 ### 7.7 Notification Triggering
 

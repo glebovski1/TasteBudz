@@ -49,6 +49,18 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<Guid, Notification> Notifications { get; } = new();
 
+    public Dictionary<string, ChatThread> ChatThreads { get; } = new(StringComparer.Ordinal);
+
+    public Dictionary<Guid, ChatMessage> ChatMessages { get; } = new();
+
+    public Dictionary<Guid, ModerationReport> ModerationReports { get; } = new();
+
+    public Dictionary<Guid, ModerationAction> ModerationActions { get; } = new();
+
+    public Dictionary<Guid, UserRestriction> UserRestrictions { get; } = new();
+
+    public Dictionary<Guid, AuditLogEntry> AuditLogEntries { get; } = new();
+
     public InMemoryTasteBudzStore()
     {
         // Restaurants are seeded once so the catalog exists even in a fresh test host.
@@ -76,6 +88,12 @@ public sealed class InMemoryTasteBudzStore
             SwipeDecisions.Clear();
             BudConnections.Clear();
             Notifications.Clear();
+            ChatThreads.Clear();
+            ChatMessages.Clear();
+            ModerationReports.Clear();
+            ModerationActions.Clear();
+            UserRestrictions.Clear();
+            AuditLogEntries.Clear();
             Restaurants.Clear();
             ZipCoordinates.Clear();
 

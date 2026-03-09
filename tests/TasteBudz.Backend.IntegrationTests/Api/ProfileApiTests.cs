@@ -68,4 +68,34 @@ public sealed class ProfileApiTests(TasteBudzApiFactory factory) : IClassFixture
         Assert.False(privacy!.DiscoveryEnabled);
         Assert.Single(recurring!);
     }
+
+    [Fact]
+    public async Task BlocksEndpoint_PersistsListAndRemoval()
+    {
+        factory.ResetState();
+        using var alexClient = factory.CreateClient();
+        using var samClient = factory.CreateClient();
+
+        var alexSession = await ApiTestHelpers.RegisterAsync(alexClient, username: "alex", email: "alex@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        ApiTestHelpers.SetBearer(alexClient, alexSession.AccessToken);
+
+        var createResponse = await alexClient.PostAsJsonAsync("/api/v1/blocks", new CreateBlockRequest
+        {
+            BlockedUserId = samSession.CurrentUser.UserId,
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var listResponse = await alexClient.GetAsync("/api/v1/blocks");
+        var blocks = await listResponse.Content.ReadFromJsonAsync<BlockedUserDto[]>(ApiTestHelpers.JsonOptions);
+
+        var deleteResponse = await alexClient.DeleteAsync($"/api/v1/blocks/{samSession.CurrentUser.UserId}");
+        var listAfterDeleteResponse = await alexClient.GetAsync("/api/v1/blocks");
+        var blocksAfterDelete = await listAfterDeleteResponse.Content.ReadFromJsonAsync<BlockedUserDto[]>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.Contains(blocks!, block => block.UserId == samSession.CurrentUser.UserId);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Empty(blocksAfterDelete!);
+    }
 }

@@ -138,12 +138,14 @@ The following areas are the highest priority for backend testing.
 
 - only authorized actors can edit, remove, moderate, or access protected resources
 - discovery-disabled users are excluded where required
+- `DiscoveryVisibility` restrictions hide users from discovery/search where required
 - blocking prevents new disallowed interaction paths
 - launched-but-forbidden behavior returns the correct status code
 
 ### P1 - Groups and messaging access
 
 - group owner remains canonical and active
+- only the current group owner can associate an event with that group's `GroupId`
 - only active group members can access group chat
 - only joined event participants can access event chat
 - leaving or removal revokes access immediately
@@ -245,6 +247,8 @@ These scenarios should anchor early backend testing work.
 | BT-08 | Private group invite is accepted and membership is created | High | Private-group membership rules are enforced |
 | BT-09 | Reciprocal Like creates one Bud connection | Medium | Matching logic respects the accepted MVP rule |
 | BT-10 | Moderator applies a scoped restriction that blocks a forbidden action | High | Restriction enforcement is active and auditable |
+| BT-11 | Non-owner cannot link an event to group context | High | Group-linked events stay owner-managed |
+| BT-12 | Discovery search excludes a user with an active `DiscoveryVisibility` restriction | High | Discovery filtering respects moderation scope |
 
 ## 14. Module-Specific Test Emphasis
 
@@ -255,7 +259,7 @@ These scenarios should anchor early backend testing work.
 | Restaurants | browse and filter correctness, deterministic suggestions |
 | Events | create, update, cancel, join, leave, invites, lifecycle, concurrency |
 | Groups | create, join, leave, private invites, owner-only actions |
-| Discovery and Budz | search, swipe replacement, reciprocal-like connection creation |
+| Discovery and Budz | search, privacy/block/restriction filters, swipe replacement, reciprocal-like connection creation |
 | Messaging | membership-derived access, history retrieval, restriction-aware send behavior |
 | Notifications | workflow-triggered notifications and read-state updates |
 | Moderation and Audit | reports, restrictions, role enforcement, audit entries |

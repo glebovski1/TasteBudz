@@ -273,6 +273,7 @@ Priority legend:
 - Each group has exactly one owner.
 - The owner is auto-created as an active member.
 - Owners can manage group settings and remove members.
+- Owners initiate private-group invites in MVP.
 - `Group.OwnerUserId` is the canonical ownership source; membership is tracked separately.
 
 ### FR-012A Group Ownership Transfer and Dissolution
@@ -296,6 +297,7 @@ Priority legend:
 **Acceptance Criteria**
 
 - An event may store an optional `GroupId`.
+- Only the current group owner can associate an event with that group's context in MVP.
 - Group-linked events are viewable in group context.
 - Group membership does not replace event participation rules.
 
@@ -362,7 +364,7 @@ Priority legend:
 
 - Notifications are persisted and retrievable via API.
 - Users can mark notifications as read.
-- MVP notification types include invite received, joined/left, confirmed/cancelled, and material event updates.
+- MVP notification types include event invite received, joined/left, confirmed/cancelled, material event updates, group invites, and Bud matches.
 - MVP notifications are in-app only.
 - Event timestamps are exposed so clients can show countdowns without scheduled reminder jobs.
 - Email, push, and scheduled reminders remain optional later layers.
@@ -405,7 +407,7 @@ Priority legend:
 
 - Users can search by username/display name.
 - Discovery exposes only a limited public profile preview.
-- Search respects privacy settings, blocks, and moderation restrictions.
+- Search respects privacy settings, blocks, and active discovery-visibility moderation restrictions.
 - Users can block/report from discovery.
 
 ### FR-019 People Discovery (Swipe / Like / Pass)
@@ -518,7 +520,7 @@ Priority legend:
 
 **Acceptance Criteria**
 
-- Restrictions can target specific capabilities such as chat send, event join, or event create.
+- Restrictions can target specific capabilities such as discovery visibility, chat send, event join, or event create.
 - Restrictions can have an expiration time.
 - Restricted users are prevented from restricted actions while the restriction is active.
 

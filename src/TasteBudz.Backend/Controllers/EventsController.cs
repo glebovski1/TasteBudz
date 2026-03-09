@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Messaging;
 
 namespace TasteBudz.Backend.Controllers;
 
@@ -18,6 +19,7 @@ public sealed class EventsController(
     EventService eventService,
     EventParticipationService eventParticipationService,
     EventInviteService eventInviteService,
+    MessagingService messagingService,
     ICurrentUserAccessor currentUserAccessor) : ControllerBase
 {
     [HttpGet]
@@ -42,6 +44,10 @@ public sealed class EventsController(
     [HttpGet("{eventId:guid}/participants")]
     public Task<IReadOnlyCollection<EventParticipantDto>> ListParticipants(Guid eventId, CancellationToken cancellationToken) =>
         eventService.ListParticipantsAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, eventId, cancellationToken);
+
+    [HttpGet("{eventId:guid}/messages")]
+    public Task<CursorPageResponse<ChatMessageDto>> ListMessages(Guid eventId, [FromQuery] ChatHistoryQuery query, CancellationToken cancellationToken) =>
+        messagingService.ListEventMessagesAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, eventId, query, cancellationToken);
 
     [HttpPost("{eventId:guid}/participants")]
     public Task<EventParticipantDto> Join(Guid eventId, CancellationToken cancellationToken) =>

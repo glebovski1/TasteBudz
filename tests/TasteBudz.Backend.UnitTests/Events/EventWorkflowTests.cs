@@ -7,6 +7,7 @@ using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -178,7 +179,7 @@ public sealed class EventWorkflowTests
     }
 
     [Fact]
-    public async Task CreateAsync_WithActiveGroupMemberLink_Succeeds()
+    public async Task CreateAsync_WithNonOwnerGroupLink_ReturnsForbidden()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
         var services = CreateServices(clock);
@@ -192,9 +193,35 @@ public sealed class EventWorkflowTests
         services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{host.UserId:N}"] = new GroupMember(groupId, host.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
 
-        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventService.CreateAsync(host, new CreateEventRequest
+            {
+                Title = "Unauthorized owner link",
+                EventType = EventType.Open,
+                EventStartAtUtc = clock.UtcNow.AddDays(2),
+                Capacity = 4,
+                SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                GroupId = groupId,
+            }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithOwnerGroupLink_Succeeds()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var ownerSession = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var owner = ToCurrentUser(ownerSession);
+        var groupId = Guid.NewGuid();
+
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
+
+        var detail = await services.EventService.CreateAsync(owner, new CreateEventRequest
         {
-            Title = "Authorized link",
+            Title = "Owner linked event",
             EventType = EventType.Open,
             EventStartAtUtc = clock.UtcNow.AddDays(2),
             Capacity = 4,
@@ -205,23 +232,144 @@ public sealed class EventWorkflowTests
         Assert.Equal(groupId, detail.GroupId);
     }
 
-    /// <summary>
-    /// Registers a deterministic user so event tests can focus on workflow rules instead of auth setup.
-    /// </summary>
-    private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
-        await authService.RegisterAsync(new RegisterUserRequest
+    [Fact]
+    public async Task JoinOpenEventAsync_WhenRestricted_ReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var hostSession = await RegisterAsync(services.AuthService, "host", "host@example.com");
+        var guestSession = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var host = ToCurrentUser(hostSession);
+        var guest = ToCurrentUser(guestSession);
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
         {
-            Username = username,
-            Email = email,
-            Password = "Pa$$w0rd123",
-            ZipCode = "45220",
+            Title = "Restricted join",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
         });
+
+        await services.RestrictionService.CreateAsync(
+            new CurrentUser(host.UserId, host.Username, new[] { UserRole.Moderator }),
+            new CreateRestrictionRequest
+            {
+                SubjectUserId = guest.UserId,
+                Scope = RestrictionScope.EventJoin,
+                Reason = "Too many no-shows",
+            });
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task JoinOpenEventAsync_LastSeatContentionAllowsOnlyOneWinner()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guestOne = ToCurrentUser(await RegisterAsync(services.AuthService, "guest1", "guest1@example.com"));
+        var guestTwo = ToCurrentUser(await RegisterAsync(services.AuthService, "guest2", "guest2@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "One seat left",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(1),
+            Capacity = 2,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+
+        var joinTasks = new[]
+        {
+            TryJoinAsync(services.EventParticipationService, guestOne, detail.EventId),
+            TryJoinAsync(services.EventParticipationService, guestTwo, detail.EventId),
+        };
+
+        await Task.WhenAll(joinTasks);
+
+        Assert.Equal(1, joinTasks.Count(task => task.Result.Succeeded));
+        Assert.Equal(1, joinTasks.Count(task => !task.Result.Succeeded && task.Result.StatusCode == 409));
+
+        var participants = await services.EventRepository.ListParticipantsAsync(detail.EventId);
+        Assert.Equal(2, participants.Count(participant => participant.State == EventParticipantState.Joined));
+    }
+
+    [Fact]
+    public async Task RemoveParticipantAsync_ModeratorCanRemoveAfterDecisionAt()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+        var moderator = ToCurrentUser(await RegisterAsync(services.AuthService, "mod", "mod@example.com", roles: new[] { UserRole.Moderator }));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Moderator removal",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddHours(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+
+        await services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId);
+        clock.Advance(TimeSpan.FromMinutes(50));
+
+        await services.EventParticipationService.RemoveParticipantAsync(moderator, detail.EventId, guest.UserId);
+
+        var participant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+        Assert.Equal(EventParticipantState.Removed, participant!.State);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithBlockedInvitee_ReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+        services.Store.Blocks[$"{host.UserId:N}:{guest.UserId:N}"] = new UserBlock(host.UserId, guest.UserId, clock.UtcNow);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventService.CreateAsync(host, new CreateEventRequest
+            {
+                Title = "Blocked invite",
+                EventType = EventType.Closed,
+                EventStartAtUtc = clock.UtcNow.AddDays(1),
+                Capacity = 4,
+                CuisineTarget = "Sushi",
+                InviteUsernames = new[] { guest.Username },
+            }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
 
     /// <summary>
     /// Converts the auth response into the current-user shape expected by the service layer.
     /// </summary>
     private static CurrentUser ToCurrentUser(SessionDto session) =>
         new(session.CurrentUser.UserId, session.CurrentUser.Username, session.CurrentUser.Roles);
+
+    private static async Task<(bool Succeeded, int? StatusCode)> TryJoinAsync(
+        EventParticipationService service,
+        CurrentUser currentUser,
+        Guid eventId)
+    {
+        try
+        {
+            await service.JoinOpenEventAsync(currentUser, eventId);
+            return (true, null);
+        }
+        catch (ApiException exception)
+        {
+            return (false, exception.StatusCode);
+        }
+    }
 
     /// <summary>
     /// Builds the in-memory service graph used across the event workflow tests.
@@ -236,14 +384,17 @@ public sealed class EventWorkflowTests
         var eventRepository = new InMemoryEventRepository(store);
         var groupRepository = new InMemoryGroupRepository(store);
         var notificationService = new InMemoryNotificationService(store);
+        var moderationRepository = new InMemoryModerationRepository(store);
         var keyedLockProvider = new InMemoryKeyedLockProvider();
         var authService = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock);
+        var auditLogService = new AuditLogService(moderationRepository);
+        var restrictionService = new RestrictionService(moderationRepository, authRepository, auditLogService, clock);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
         var inviteService = new EventInviteService(eventRepository, authRepository, profileRepository, notificationService, lifecycleService, keyedLockProvider, clock);
-        var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, lifecycleService, inviteService, keyedLockProvider, clock);
-        var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, lifecycleService, keyedLockProvider, clock);
+        var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, inviteService, keyedLockProvider, clock);
+        var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, keyedLockProvider, clock);
 
-        return new TestServices(store, authService, eventService, participationService, eventRepository);
+        return new TestServices(store, authService, eventService, participationService, eventRepository, restrictionService);
     }
 
     /// <summary>
@@ -254,5 +405,28 @@ public sealed class EventWorkflowTests
         AuthService AuthService,
         EventService EventService,
         EventParticipationService EventParticipationService,
-        IEventRepository EventRepository);
+        IEventRepository EventRepository,
+        RestrictionService RestrictionService);
+
+    /// <summary>
+    /// Registers a deterministic user so event tests can focus on workflow rules instead of auth setup.
+    /// </summary>
+    private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email, IReadOnlyCollection<UserRole>? roles = null)
+    {
+        var session = await authService.RegisterAsync(new RegisterUserRequest
+        {
+            Username = username,
+            Email = email,
+            Password = "Pa$$w0rd123",
+            ZipCode = "45220",
+        });
+
+        if (roles is null)
+        {
+            return session;
+        }
+
+        var updated = session.CurrentUser with { Roles = roles };
+        return session with { CurrentUser = updated };
+    }
 }

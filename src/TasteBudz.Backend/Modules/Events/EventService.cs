@@ -6,6 +6,7 @@ using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -22,6 +23,7 @@ public sealed class EventService(
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
     INotificationService notificationService,
+    RestrictionService restrictionService,
     EventLifecycleService lifecycleService,
     EventInviteService eventInviteService,
     IKeyedLockProvider keyedLockProvider,
@@ -32,6 +34,12 @@ public sealed class EventService(
     /// </summary>
     public async Task<EventDetailDto> CreateAsync(CurrentUser currentUser, CreateEventRequest request, CancellationToken cancellationToken = default)
     {
+        await restrictionService.EnsureNotRestrictedAsync(
+            currentUser.UserId,
+            RestrictionScope.EventCreate,
+            "You are currently restricted from creating events.",
+            cancellationToken);
+
         // Required inputs are extracted once up front so the rest of the workflow can rely on concrete values.
         var eventType = request.EventType ?? throw ApiException.BadRequest("eventType is required.");
         var eventStartAtUtc = request.EventStartAtUtc ?? throw ApiException.BadRequest("eventStartAtUtc is required.");
@@ -374,16 +382,9 @@ public sealed class EventService(
             throw ApiException.Conflict("Only active groups can be linked to events.");
         }
 
-        if (group.OwnerUserId == currentUserId)
+        if (group.OwnerUserId != currentUserId)
         {
-            return;
-        }
-
-        var membership = await groupRepository.GetMemberAsync(group.Id, currentUserId, cancellationToken);
-
-        if (membership?.State != GroupMemberState.Active)
-        {
-            throw ApiException.Forbidden("Only active group members can link an event to that group.");
+            throw ApiException.Forbidden("Only the group owner can link an event to that group.");
         }
     }
 
