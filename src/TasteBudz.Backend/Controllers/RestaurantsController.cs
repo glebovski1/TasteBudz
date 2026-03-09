@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Contracts;
+using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.Controllers;
@@ -14,7 +15,8 @@ namespace TasteBudz.Backend.Controllers;
 /// </summary>
 public sealed class RestaurantsController(
     RestaurantSearchService restaurantSearchService,
-    RestaurantRecommendationService restaurantRecommendationService) : ControllerBase
+    RestaurantRecommendationService restaurantRecommendationService,
+    ICurrentUserAccessor currentUserAccessor) : ControllerBase
 {
     [HttpGet]
     public Task<ListResponse<RestaurantDto>> Browse([FromQuery] BrowseRestaurantsQuery query, CancellationToken cancellationToken) =>
@@ -26,5 +28,5 @@ public sealed class RestaurantsController(
 
     [HttpGet("suggestions")]
     public Task<IReadOnlyCollection<RestaurantDto>> GetSuggestions([FromQuery] RestaurantSuggestionsQuery query, CancellationToken cancellationToken) =>
-        restaurantRecommendationService.GetSuggestionsAsync(query, cancellationToken);
+        restaurantRecommendationService.GetSuggestionsAsync(currentUserAccessor.GetRequiredCurrentUser(), query, cancellationToken);
 }

@@ -1,9 +1,10 @@
 // Suggestion logic that derives restaurant candidates from explicit query inputs or an event context.
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Profiles;
-using TasteBudz.Backend.Infrastructure.ProblemDetails;
 
 namespace TasteBudz.Backend.Modules.Restaurants;
 
@@ -20,7 +21,7 @@ public sealed class RestaurantRecommendationService(
     /// <summary>
     /// Resolves suggestion inputs from the request itself, then enriches them from event or group context when available.
     /// </summary>
-    public async Task<IReadOnlyCollection<RestaurantDto>> GetSuggestionsAsync(RestaurantSuggestionsQuery query, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyCollection<RestaurantDto>> GetSuggestionsAsync(CurrentUser currentUser, RestaurantSuggestionsQuery query, CancellationToken cancellationToken = default)
     {
         // Raw query values are normalized once so later filters can work with stable values.
         var zipCode = query.ZipCode?.Trim();
@@ -29,21 +30,21 @@ public sealed class RestaurantRecommendationService(
         if (query.EventId.HasValue)
         {
             // Event context can supply a host ZIP or cuisine target when the client only knows the event id.
-            var eventRecord = await eventRepository.GetAsync(query.EventId.Value, cancellationToken);
+            var eventRecord = await eventRepository.GetAsync(query.EventId.Value, cancellationToken)
+                ?? throw ApiException.NotFound("The requested event could not be found.");
 
-            if (eventRecord is not null)
+            await EnsureCanUseEventContextAsync(currentUser, eventRecord, cancellationToken);
+
+            // Event context fills gaps in the query so the client can ask for suggestions with minimal input.
+            if (string.IsNullOrWhiteSpace(zipCode))
             {
-                // Event context fills gaps in the query so the client can ask for suggestions with minimal input.
-                if (string.IsNullOrWhiteSpace(zipCode))
-                {
-                    var hostProfile = await profileRepository.GetProfileAsync(eventRecord.HostUserId, cancellationToken);
-                    zipCode = hostProfile?.HomeAreaZipCode;
-                }
+                var hostProfile = await profileRepository.GetProfileAsync(eventRecord.HostUserId, cancellationToken);
+                zipCode = hostProfile?.HomeAreaZipCode;
+            }
 
-                if (cuisineTags.Count == 0 && !string.IsNullOrWhiteSpace(eventRecord.CuisineTarget))
-                {
-                    cuisineTags = new[] { eventRecord.CuisineTarget.Trim() };
-                }
+            if (cuisineTags.Count == 0 && !string.IsNullOrWhiteSpace(eventRecord.CuisineTarget))
+            {
+                cuisineTags = new[] { eventRecord.CuisineTarget.Trim() };
             }
         }
 
@@ -52,6 +53,8 @@ public sealed class RestaurantRecommendationService(
             // Group context is now a real contract input, so invalid ids fail instead of being silently ignored.
             var group = await groupRepository.GetAsync(query.GroupId.Value, cancellationToken)
                 ?? throw ApiException.NotFound("The requested group could not be found.");
+
+            await EnsureCanUseGroupContextAsync(currentUser, group, cancellationToken);
 
             if (group.LifecycleState != GroupLifecycleState.Active)
             {
@@ -84,6 +87,36 @@ public sealed class RestaurantRecommendationService(
             .ToArray();
 
         return suggestions;
+    }
+
+    private async Task EnsureCanUseEventContextAsync(CurrentUser currentUser, Event eventRecord, CancellationToken cancellationToken)
+    {
+        if (eventRecord.EventType == EventType.Open || eventRecord.HostUserId == currentUser.UserId)
+        {
+            return;
+        }
+
+        var participant = await eventRepository.GetParticipantAsync(eventRecord.Id, currentUser.UserId, cancellationToken);
+
+        if (participant is null || participant.State == EventParticipantState.Removed)
+        {
+            throw ApiException.NotFound("The requested event could not be found.");
+        }
+    }
+
+    private async Task EnsureCanUseGroupContextAsync(CurrentUser currentUser, Group group, CancellationToken cancellationToken)
+    {
+        if (group.OwnerUserId == currentUser.UserId)
+        {
+            return;
+        }
+
+        var membership = await groupRepository.GetMemberAsync(group.Id, currentUser.UserId, cancellationToken);
+
+        if (membership?.State != GroupMemberState.Active)
+        {
+            throw ApiException.NotFound("The requested group could not be found.");
+        }
     }
 
     /// <summary>

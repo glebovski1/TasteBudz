@@ -49,7 +49,7 @@ public sealed class EventService(
         }
 
         await EnsureRestaurantExistsAsync(request.SelectedRestaurantId, cancellationToken);
-        await EnsureGroupExistsAsync(request.GroupId, cancellationToken);
+        await EnsureCanLinkGroupAsync(currentUser, request.GroupId, cancellationToken);
 
         // Closed-event invite usernames are resolved up front so create either succeeds fully or fails early.
         var invitees = eventType == EventType.Closed && request.InviteUsernames.Count > 0
@@ -147,7 +147,7 @@ public sealed class EventService(
         EventPolicy.EnsureValidLocationSelection(selectedRestaurantId, cuisineTarget);
 
         var groupId = request.GroupId ?? eventRecord.GroupId;
-        await EnsureGroupExistsAsync(groupId, cancellationToken);
+        await EnsureCanLinkGroupAsync(currentUserId, groupId, cancellationToken);
 
         var capacity = request.Capacity ?? eventRecord.Capacity;
 
@@ -356,7 +356,10 @@ public sealed class EventService(
     /// <summary>
     /// Confirms that a referenced group exists and is still active before linking it to an event.
     /// </summary>
-    private async Task EnsureGroupExistsAsync(Guid? groupId, CancellationToken cancellationToken)
+    private async Task EnsureCanLinkGroupAsync(CurrentUser currentUser, Guid? groupId, CancellationToken cancellationToken) =>
+        await EnsureCanLinkGroupAsync(currentUser.UserId, groupId, cancellationToken);
+
+    private async Task EnsureCanLinkGroupAsync(Guid currentUserId, Guid? groupId, CancellationToken cancellationToken)
     {
         if (!groupId.HasValue)
         {
@@ -369,6 +372,18 @@ public sealed class EventService(
         if (group.LifecycleState != GroupLifecycleState.Active)
         {
             throw ApiException.Conflict("Only active groups can be linked to events.");
+        }
+
+        if (group.OwnerUserId == currentUserId)
+        {
+            return;
+        }
+
+        var membership = await groupRepository.GetMemberAsync(group.Id, currentUserId, cancellationToken);
+
+        if (membership?.State != GroupMemberState.Active)
+        {
+            throw ApiException.Forbidden("Only active group members can link an event to that group.");
         }
     }
 

@@ -14,6 +14,48 @@ namespace TasteBudz.Backend.UnitTests.Restaurants;
 /// </summary>
 public sealed class RestaurantRecommendationServiceTests
 {
+    [Fact]
+    public async Task GetSuggestionsAsync_WithClosedEventForNonParticipant_ReturnsNotFound()
+    {
+        var store = new InMemoryTasteBudzStore();
+        store.Reset();
+        var now = DateTimeOffset.UtcNow;
+        var hostUserId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+
+        store.Profiles[hostUserId] = new UserProfile(hostUserId, "Host", "Host", "45220", SocialGoal.Friends, now, now);
+        store.Events[eventId] = new Event(
+            eventId,
+            hostUserId,
+            "Invite only",
+            EventType.Closed,
+            EventStatus.Open,
+            now.AddDays(1),
+            now.AddHours(12),
+            4,
+            2,
+            null,
+            "Sushi",
+            null,
+            null,
+            now,
+            now,
+            null,
+            null);
+
+        var service = CreateService(store);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            service.GetSuggestionsAsync(
+                new CurrentUser(Guid.NewGuid(), "outsider", Array.Empty<UserRole>()),
+                new RestaurantSuggestionsQuery
+                {
+                    EventId = eventId,
+                }));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
     /// <summary>
     /// A bogus group id must fail fast so clients are not misled by generic fallback suggestions.
     /// </summary>
@@ -23,10 +65,12 @@ public sealed class RestaurantRecommendationServiceTests
         var service = CreateService(new InMemoryTasteBudzStore());
 
         var exception = await Assert.ThrowsAsync<ApiException>(() =>
-            service.GetSuggestionsAsync(new RestaurantSuggestionsQuery
-            {
-                GroupId = Guid.NewGuid(),
-            }));
+            service.GetSuggestionsAsync(
+                new CurrentUser(Guid.NewGuid(), "caller", Array.Empty<UserRole>()),
+                new RestaurantSuggestionsQuery
+                {
+                    GroupId = Guid.NewGuid(),
+                }));
 
         Assert.Equal(404, exception.StatusCode);
     }
@@ -47,12 +91,40 @@ public sealed class RestaurantRecommendationServiceTests
         var service = CreateService(store);
 
         var exception = await Assert.ThrowsAsync<ApiException>(() =>
-            service.GetSuggestionsAsync(new RestaurantSuggestionsQuery
-            {
-                GroupId = groupId,
-            }));
+            service.GetSuggestionsAsync(
+                new CurrentUser(ownerUserId, "owner", Array.Empty<UserRole>()),
+                new RestaurantSuggestionsQuery
+                {
+                    GroupId = groupId,
+                }));
 
         Assert.Equal(409, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_WithGroupForNonMember_ReturnsNotFound()
+    {
+        var store = new InMemoryTasteBudzStore();
+        store.Reset();
+        var groupId = Guid.NewGuid();
+        var ownerUserId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        store.Groups[groupId] = new Group(groupId, ownerUserId, "Public group", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now);
+        store.GroupMembers[$"{groupId:N}:{ownerUserId:N}"] = new GroupMember(groupId, ownerUserId, GroupMemberState.Active, now, now);
+        store.Profiles[ownerUserId] = new UserProfile(ownerUserId, "Owner", "Host", "45220", SocialGoal.Friends, now, now);
+
+        var service = CreateService(store);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            service.GetSuggestionsAsync(
+                new CurrentUser(Guid.NewGuid(), "outsider", Array.Empty<UserRole>()),
+                new RestaurantSuggestionsQuery
+                {
+                    GroupId = groupId,
+                }));
+
+        Assert.Equal(404, exception.StatusCode);
     }
 
     /// <summary>
@@ -74,12 +146,14 @@ public sealed class RestaurantRecommendationServiceTests
 
         var service = CreateService(store);
 
-        var suggestions = await service.GetSuggestionsAsync(new RestaurantSuggestionsQuery
-        {
-            GroupId = groupId,
-            CuisineTags = new[] { "Sushi" },
-            RadiusMiles = 5,
-        });
+        var suggestions = await service.GetSuggestionsAsync(
+            new CurrentUser(ownerUserId, "owner", Array.Empty<UserRole>()),
+            new RestaurantSuggestionsQuery
+            {
+                GroupId = groupId,
+                CuisineTags = new[] { "Sushi" },
+                RadiusMiles = 5,
+            });
         var restaurant = Assert.Single(suggestions);
 
         Assert.Equal("Maki Social", restaurant.Name);
@@ -104,13 +178,15 @@ public sealed class RestaurantRecommendationServiceTests
 
         var service = CreateService(store);
 
-        var suggestions = await service.GetSuggestionsAsync(new RestaurantSuggestionsQuery
-        {
-            GroupId = groupId,
-            ZipCode = "41011",
-            CuisineTags = new[] { "American" },
-            RadiusMiles = 5,
-        });
+        var suggestions = await service.GetSuggestionsAsync(
+            new CurrentUser(ownerUserId, "owner", Array.Empty<UserRole>()),
+            new RestaurantSuggestionsQuery
+            {
+                GroupId = groupId,
+                ZipCode = "41011",
+                CuisineTags = new[] { "American" },
+                RadiusMiles = 5,
+            });
         var restaurant = Assert.Single(suggestions);
 
         Assert.Equal("Riverfront Grill", restaurant.Name);

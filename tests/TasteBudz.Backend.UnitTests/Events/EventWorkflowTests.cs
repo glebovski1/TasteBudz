@@ -149,6 +149,62 @@ public sealed class EventWorkflowTests
         Assert.Equal(400, exception.StatusCode);
     }
 
+    [Fact]
+    public async Task CreateAsync_WithNonMemberGroupLink_ReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var hostSession = await RegisterAsync(services.AuthService, "host", "host@example.com");
+        var ownerSession = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var host = ToCurrentUser(hostSession);
+        var owner = ToCurrentUser(ownerSession);
+        var groupId = Guid.NewGuid();
+
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Private crew", null, GroupVisibility.Private, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventService.CreateAsync(host, new CreateEventRequest
+            {
+                Title = "Unauthorized link",
+                EventType = EventType.Open,
+                EventStartAtUtc = clock.UtcNow.AddDays(2),
+                Capacity = 4,
+                SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                GroupId = groupId,
+            }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithActiveGroupMemberLink_Succeeds()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var hostSession = await RegisterAsync(services.AuthService, "host", "host@example.com");
+        var ownerSession = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var host = ToCurrentUser(hostSession);
+        var owner = ToCurrentUser(ownerSession);
+        var groupId = Guid.NewGuid();
+
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.GroupMembers[$"{groupId:N}:{host.UserId:N}"] = new GroupMember(groupId, host.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Authorized link",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(2),
+            Capacity = 4,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            GroupId = groupId,
+        });
+
+        Assert.Equal(groupId, detail.GroupId);
+    }
+
     /// <summary>
     /// Registers a deterministic user so event tests can focus on workflow rules instead of auth setup.
     /// </summary>
@@ -187,13 +243,14 @@ public sealed class EventWorkflowTests
         var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, lifecycleService, inviteService, keyedLockProvider, clock);
         var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, lifecycleService, keyedLockProvider, clock);
 
-        return new TestServices(authService, eventService, participationService, eventRepository);
+        return new TestServices(store, authService, eventService, participationService, eventRepository);
     }
 
     /// <summary>
     /// Small bundle that keeps the unit-test setup readable.
     /// </summary>
     private sealed record TestServices(
+        InMemoryTasteBudzStore Store,
         AuthService AuthService,
         EventService EventService,
         EventParticipationService EventParticipationService,
