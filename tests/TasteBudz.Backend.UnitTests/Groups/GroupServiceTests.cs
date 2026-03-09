@@ -100,6 +100,27 @@ public sealed class GroupServiceTests
         Assert.Equal(409, exception.StatusCode);
     }
 
+    [Fact]
+    public async Task GetAsync_ExcludesInactiveMembersFromDetail()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Public Crew",
+            Visibility = GroupVisibility.Public,
+        });
+
+        await services.GroupService.JoinAsync(guest.CurrentUser.UserId, group.GroupId);
+        await services.GroupService.RemoveMemberAsync(ToCurrentUser(owner), group.GroupId, guest.CurrentUser.UserId);
+
+        var detail = await services.GroupService.GetAsync(owner.CurrentUser.UserId, group.GroupId);
+
+        Assert.DoesNotContain(detail.Members, member => member.UserId == guest.CurrentUser.UserId);
+    }
+
     private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
         await authService.RegisterAsync(new RegisterUserRequest
         {

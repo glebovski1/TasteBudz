@@ -26,7 +26,10 @@ public sealed class SessionAuthenticationHandler(
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var authorizationHeader = Request.Headers.Authorization.ToString();
-        var queryAccessToken = Request.Query["access_token"].ToString();
+        // Query-string access tokens are supported only for SignalR hub requests.
+        var queryAccessToken = Request.Path.StartsWithSegments("/hubs/chat")
+            ? Request.Query["access_token"].ToString()
+            : string.Empty;
 
         if (string.IsNullOrWhiteSpace(authorizationHeader) && string.IsNullOrWhiteSpace(queryAccessToken))
         {

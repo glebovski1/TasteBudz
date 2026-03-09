@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<BlockingService>();
         services.AddScoped<DashboardService>();
         services.AddScoped<GroupService>();
+        services.AddScoped<UserGroupQueryService>();
         services.AddScoped<ModerationService>();
         services.AddScoped<RestrictionService>();
         services.AddScoped<AuditLogService>();
@@ -75,6 +76,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EventInviteService>();
         services.AddScoped<EventParticipationService>();
         services.AddScoped<EventService>();
+        services.AddScoped<UserEventQueryService>();
         services.AddSignalR();
 
         // The app uses a custom bearer handler backed by the session repository instead of JWT validation.

@@ -128,7 +128,6 @@ public sealed record PrivacySettingsDto(bool DiscoveryEnabled);
 /// </summary>
 public sealed class UpdatePrivacySettingsRequest
 {
-    [Required]
     public bool? DiscoveryEnabled { get; init; }
 }
 

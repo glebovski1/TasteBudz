@@ -19,8 +19,20 @@ public sealed class PrivacyService(IProfileRepository profileRepository, IClock 
 
     public async Task<PrivacySettingsDto> UpdateAsync(Guid userId, UpdatePrivacySettingsRequest request, CancellationToken cancellationToken = default)
     {
-        var settings = new PrivacySettings(userId, request.DiscoveryEnabled ?? true, clock.UtcNow);
-        await profileRepository.SavePrivacySettingsAsync(settings, cancellationToken);
-        return new PrivacySettingsDto(settings.DiscoveryEnabled);
+        var existing = await profileRepository.GetPrivacySettingsAsync(userId, cancellationToken)
+            ?? new PrivacySettings(userId, true, clock.UtcNow);
+
+        if (!request.DiscoveryEnabled.HasValue)
+        {
+            return new PrivacySettingsDto(existing.DiscoveryEnabled);
+        }
+
+        var updated = existing with
+        {
+            DiscoveryEnabled = request.DiscoveryEnabled.Value,
+            UpdatedAtUtc = clock.UtcNow,
+        };
+        await profileRepository.SavePrivacySettingsAsync(updated, cancellationToken);
+        return new PrivacySettingsDto(updated.DiscoveryEnabled);
     }
 }

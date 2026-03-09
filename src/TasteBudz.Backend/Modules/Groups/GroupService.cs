@@ -360,9 +360,12 @@ public sealed class GroupService(
     private async Task<GroupDetailDto> MapDetailAsync(Guid currentUserId, Group group, CancellationToken cancellationToken)
     {
         var members = await groupRepository.ListMembersAsync(group.Id, cancellationToken);
+        var activeMembers = members
+            .Where(member => member.State == GroupMemberState.Active)
+            .ToArray();
         var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
         var profiles = (await profileRepository.ListProfilesAsync(cancellationToken)).ToDictionary(profile => profile.UserId);
-        var memberDtos = members
+        var memberDtos = activeMembers
             .Where(member => accounts.ContainsKey(member.UserId))
             .OrderBy(member => profiles.GetValueOrDefault(member.UserId)?.DisplayName ?? accounts[member.UserId].Username, StringComparer.OrdinalIgnoreCase)
             .Select(member => new GroupMemberDto(
@@ -372,7 +375,7 @@ public sealed class GroupService(
                 member.State,
                 member.CreatedAtUtc))
             .ToArray();
-        var currentMembership = members.FirstOrDefault(member => member.UserId == currentUserId);
+        var currentMembership = activeMembers.FirstOrDefault(member => member.UserId == currentUserId);
 
         return new GroupDetailDto(
             group.Id,

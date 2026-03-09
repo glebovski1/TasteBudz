@@ -98,4 +98,28 @@ public sealed class ProfileApiTests(TasteBudzApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         Assert.Empty(blocksAfterDelete!);
     }
+
+    [Fact]
+    public async Task PrivacyPatch_WithOmittedField_DoesNotResetExistingValue()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+
+        var session = await ApiTestHelpers.RegisterAsync(client, username: "privacy", email: "privacy@example.com");
+        ApiTestHelpers.SetBearer(client, session.AccessToken);
+
+        var disableResponse = await client.PatchAsJsonAsync("/api/v1/privacy-settings/me", new UpdatePrivacySettingsRequest
+        {
+            DiscoveryEnabled = false,
+        });
+        disableResponse.EnsureSuccessStatusCode();
+
+        var noOpPatchResponse = await client.PatchAsJsonAsync("/api/v1/privacy-settings/me", new { });
+        noOpPatchResponse.EnsureSuccessStatusCode();
+
+        var privacy = await (await client.GetAsync("/api/v1/privacy-settings/me")).Content.ReadFromJsonAsync<PrivacySettingsDto>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, noOpPatchResponse.StatusCode);
+        Assert.False(privacy!.DiscoveryEnabled);
+    }
 }
