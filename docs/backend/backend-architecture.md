@@ -564,6 +564,10 @@ Recommended flags:
 - `Restaurants.DiscountsEnabled`
 - `Discovery.ExperimentalSuggestionsEnabled`
 
+Clarification:
+
+- `Messaging.GroupChatEnabled` is rollout control for an MVP feature, not a later-scope boundary signal.
+
 Recommended behavior:
 
 - hidden/not-launched feature: prefer `404`
@@ -703,16 +707,15 @@ Add when core flows are stable:
 - richer browse/feed layers
 - advanced RSVP/cutoff controls
 - push notifications
-- restaurant-admin operations
-- slots and slot-linked reservations
-- discount thresholds
 
 ### MVP++ / Feature-Flagged
 
 Design ready for later activation:
 
 - direct 1-on-1 messaging
-- restaurant-admin accounts across multiple restaurants
+- restaurant-admin accounts and operations
+- restaurant slots and slot-linked reservations
+- discount thresholds
 - operational slot cancellation flows
 - smarter restaurant recommendation strategies
 

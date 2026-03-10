@@ -378,6 +378,17 @@ Representative request shape:
 }
 ```
 
+MVP notification contract:
+
+| Type | Trigger | Recipient | Minimum context |
+|---|---|---|---|
+| `EventInviteReceived` | User is invited to a closed event | invited user | `eventId`, `eventTitle`, `inviterUserId` |
+| `EventParticipantChanged` | Participant joins or leaves an event | event host and affected participant | `eventId`, `participantUserId`, `changeType` |
+| `EventStatusChanged` | Event transitions to `CONFIRMED` or `CANCELLED` | active event participants | `eventId`, `status`, `decisionAt` |
+| `EventUpdated` | Host makes a material event edit | active event participants | `eventId`, `changedFields` |
+| `GroupInviteReceived` | User is invited to a private group | invited user | `groupId`, `groupName`, `inviterUserId` |
+| `BudMatchCreated` | Reciprocal Like creates a Bud connection | both Bud users | `otherUserId`, `connectionId` |
+
 ### 3.9 Moderation and Audit
 
 | Endpoint | Method | Path | Description | Auth |
@@ -414,6 +425,13 @@ Representative request shapes:
 }
 ```
 
+Allowed MVP restriction scopes:
+
+- `DiscoveryVisibility`
+- `ChatSend`
+- `EventJoin`
+- `EventCreate`
+
 Audit log query parameters may include `actorUserId`, `targetEntityType`, `targetEntityId`, `page`, and `pageSize`.
 
 ## 4. Later or Feature-Flagged Endpoints
@@ -424,8 +442,8 @@ Disabled/not-launched endpoints in this section should generally return `404 Not
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
-| Transfer Group Ownership | POST | `/api/v1/groups/{groupId}/ownership-transfer` | Transfer ownership | Yes |
-| Dissolve Group | POST | `/api/v1/groups/{groupId}/dissolution` | Dissolve group | Yes |
+| Transfer Group Ownership | POST | `/api/v1/groups/{groupId}/ownership-transfer` | Transfer ownership | GroupOwner |
+| Dissolve Group | POST | `/api/v1/groups/{groupId}/dissolution` | Dissolve group | GroupOwner |
 
 Representative request shapes:
 
@@ -463,12 +481,12 @@ Representative query parameter:
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
-| Get Managed Restaurants | GET | `/api/v1/restaurant-admin/restaurants` | List managed restaurants | Yes |
-| Update Managed Restaurant | PATCH | `/api/v1/restaurant-admin/restaurants/{restaurantId}` | Update restaurant profile | Yes |
-| Create Restaurant Slot | POST | `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` | Create slot | Yes |
-| Update Restaurant Slot | PATCH | `/api/v1/restaurant-admin/slots/{slotId}` | Update slot | Yes |
-| Cancel Restaurant Slot | POST | `/api/v1/restaurant-admin/slots/{slotId}/cancellation` | Cancel slot | Yes |
-| Reserve Slot For Event | POST | `/api/v1/events/{eventId}/slot-reservations` | Link event to slot | Yes |
+| Get Managed Restaurants | GET | `/api/v1/restaurant-admin/restaurants` | List managed restaurants | RestaurantAdmin |
+| Update Managed Restaurant | PATCH | `/api/v1/restaurant-admin/restaurants/{restaurantId}` | Update restaurant profile | RestaurantAdmin |
+| Create Restaurant Slot | POST | `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` | Create slot | RestaurantAdmin |
+| Update Restaurant Slot | PATCH | `/api/v1/restaurant-admin/slots/{slotId}` | Update slot | RestaurantAdmin |
+| Cancel Restaurant Slot | POST | `/api/v1/restaurant-admin/slots/{slotId}/cancellation` | Cancel slot | RestaurantAdmin |
+| Reserve Slot For Event | POST | `/api/v1/events/{eventId}/slot-reservations` | Link event to slot | EventHost |
 
 Representative request shapes:
 
@@ -513,3 +531,10 @@ Keep MVP focused on:
 - Event chat and group chat access are derived from current participation/membership state.
 - Material host edits to events should produce participant notifications.
 - Hidden/not-launched features stay behind feature flags and normally return `404`.
+
+### 6.1 High-Risk Error Semantics
+
+- Join/accept when no seat is available: return `409 Conflict`.
+- Participation change after `DecisionAt` lock: return `409 Conflict` unless an approved support/moderator override path is used.
+- Action denied by active block/restriction policy: return `403 Forbidden`.
+- Hidden/not-launched feature-flagged endpoint: return `404 Not Found`.

@@ -140,7 +140,9 @@ The following areas are the highest priority for backend testing.
 - discovery-disabled users are excluded where required
 - `DiscoveryVisibility` restrictions hide users from discovery/search where required
 - blocking prevents new disallowed interaction paths
-- launched-but-forbidden behavior returns the correct status code
+- launched-but-forbidden behavior returns the correct status code (for example `403`)
+- hidden/not-launched feature-flagged endpoints return `404`
+- role-owned later endpoints enforce the correct actor context (`GroupOwner`, `RestaurantAdmin`)
 
 ### P1 - Groups and messaging access
 
@@ -154,12 +156,13 @@ The following areas are the highest priority for backend testing.
 
 - reports can be created and resolved
 - restrictions prevent forbidden actions while active
+- restriction scope values are validated against the documented API contract
 - moderation and support actions create audit records where required
 
 ### P2 - Browse and support workflows
 
 - restaurant and event filters return the correct result set
-- notifications are created for important workflow changes
+- notifications are created for important workflow changes with expected type and required context fields
 - paging and query contracts stay stable
 
 ## 9. Recommended Development Workflow Per Module
@@ -258,11 +261,11 @@ These scenarios should anchor early backend testing work.
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
 | Events | create, update, cancel, join, leave, invites, lifecycle, concurrency |
-| Groups | create, join, leave, private invites, owner-only actions |
+| Groups | create, join, leave, private invites, owner-only actions, group-owner-only later admin flows |
 | Discovery and Budz | search, privacy/block/restriction filters, swipe replacement, reciprocal-like connection creation |
 | Messaging | membership-derived access, history retrieval, restriction-aware send behavior |
-| Notifications | workflow-triggered notifications and read-state updates |
-| Moderation and Audit | reports, restrictions, role enforcement, audit entries |
+| Notifications | workflow-triggered notifications, type contract, required context payload, read-state updates |
+| Moderation and Audit | reports, restrictions, scope validation, role enforcement, audit entries |
 
 ## 15. Definition of Done for Backend Features
 
@@ -273,6 +276,7 @@ A backend feature is not done until the following evidence exists at the appropr
 | Business rule exists in the correct layer | Unit or workflow test proves it |
 | Protected behavior is enforced | Authorized and unauthorized cases are tested |
 | Public contract changed intentionally | Integration/API tests reflect the intended result |
+| Error semantics are part of the contract | Integration/API tests assert expected status outcomes for forbidden/hidden/invalid high-risk flows |
 | Persistence-sensitive rule exists | Real relational-path test exists before calling the feature backend-complete |
 | Concurrency-sensitive workflow exists | Targeted concurrency test exists before calling the feature backend-complete |
 | Behavior changed from previous intent | Relevant docs and tests are updated together |
