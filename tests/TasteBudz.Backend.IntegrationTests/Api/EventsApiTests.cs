@@ -2,10 +2,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.IntegrationTests.Api;
 
@@ -189,5 +192,110 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
         Assert.Contains(participants!, participant => participant.UserId == samSession.CurrentUser.UserId && participant.State == EventParticipantState.Declined);
         Assert.Contains(participants!, participant => participant.UserId == guestSession.CurrentUser.UserId && participant.State == EventParticipantState.Left);
+    }
+
+    [Fact]
+    public async Task ClosedEventInviteAcceptance_WhenEventFills_ReturnsConflictProblemDetails()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+        using var samClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+        ApiTestHelpers.SetBearer(samClient, samSession.AccessToken);
+
+        var createResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Invite-only last seat",
+            EventType = EventType.Closed,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(2),
+            Capacity = 2,
+            CuisineTarget = "Thai",
+            InviteUsernames = new[] { "guest", "sam" },
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var guestJoinResponse = await guestClient.PatchAsJsonAsync($"/api/v1/events/{created!.EventId}/participants/me", new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Joined,
+        });
+
+        var samJoinResponse = await samClient.PatchAsJsonAsync($"/api/v1/events/{created.EventId}/participants/me", new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Joined,
+        });
+        var problem = await samJoinResponse.Content.ReadFromJsonAsync<ProblemDetails>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, guestJoinResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, samJoinResponse.StatusCode);
+        Assert.Contains("application/problem+json", samJoinResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(409, problem!.Status);
+        Assert.Equal("This event is already full.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task BrowseEvents_WithCombinedFilters_ReturnsExpectedListEnvelope()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com", zipCode: "45220");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com", zipCode: "45220");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var targetGroupId = Guid.NewGuid();
+        var eventStartAtUtc = new DateTimeOffset(2026, 12, 11, 18, 30, 0, TimeSpan.Zero);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var groupRepository = scope.ServiceProvider.GetRequiredService<IGroupRepository>();
+            var now = DateTimeOffset.UtcNow;
+            await groupRepository.SaveAsync(new Group(targetGroupId, ownerSession.CurrentUser.UserId, "Browse group", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now));
+            await groupRepository.SaveMemberAsync(new GroupMember(targetGroupId, ownerSession.CurrentUser.UserId, GroupMemberState.Active, now, now));
+        }
+
+        await guestClient.PostAsJsonAsync("/api/v1/availability/recurring", new UpsertRecurringAvailabilityWindowRequest
+        {
+            DayOfWeek = DayOfWeek.Friday,
+            StartTime = new TimeOnly(18, 0),
+            EndTime = new TimeOnly(20, 0),
+            Label = "Friday dinner",
+        });
+
+        await ownerClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Matching browse event",
+            EventType = EventType.Open,
+            EventStartAtUtc = eventStartAtUtc,
+            Capacity = 4,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            GroupId = targetGroupId,
+        });
+        await ownerClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Late browse event",
+            EventType = EventType.Open,
+            EventStartAtUtc = eventStartAtUtc.AddHours(3),
+            Capacity = 4,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            GroupId = targetGroupId,
+        });
+
+        var response = await guestClient.GetAsync(
+            $"/api/v1/events?groupId={targetGroupId}&status=Open&startsAfter={Uri.EscapeDataString(eventStartAtUtc.AddMinutes(-30).ToString("O"))}&startsBefore={Uri.EscapeDataString(eventStartAtUtc.AddMinutes(30).ToString("O"))}&availabilityOnly=true&pageSize=10");
+        var result = await response.Content.ReadFromJsonAsync<ListResponse<EventSummaryDto>>(ApiTestHelpers.JsonOptions);
+        var item = Assert.Single(result!.Items);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal("Matching browse event", item.Title);
+        Assert.Equal(ownerSession.CurrentUser.UserId, item.HostUserId);
     }
 }

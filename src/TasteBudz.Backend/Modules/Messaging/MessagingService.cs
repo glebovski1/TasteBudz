@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -21,6 +22,7 @@ public sealed class MessagingService(
     IGroupRepository groupRepository,
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
+    IFeatureFlagService featureFlagService,
     RestrictionService restrictionService,
     IClock clock)
 {
@@ -109,10 +111,7 @@ public sealed class MessagingService(
 
     private async Task<ChatThread> GetOrCreateThreadAsync(ChatScopeType scopeType, Guid scopeId, CancellationToken cancellationToken)
     {
-        if (scopeType == ChatScopeType.Direct)
-        {
-            throw ApiException.NotFound("Direct chat is not part of the current MVP backend surface.");
-        }
+        EnsureScopeIsLaunched(scopeType);
 
         var existing = await messagingRepository.GetThreadByScopeAsync(scopeType, scopeId, cancellationToken);
 
@@ -128,6 +127,8 @@ public sealed class MessagingService(
 
     private async Task EnsureCanAccessScopeAsync(Guid currentUserId, ChatScopeType scopeType, Guid scopeId, bool forSend, CancellationToken cancellationToken)
     {
+        EnsureScopeIsLaunched(scopeType);
+
         switch (scopeType)
         {
             case ChatScopeType.Event:
@@ -161,6 +162,19 @@ public sealed class MessagingService(
         if (forSend)
         {
             await restrictionService.EnsureNotRestrictedAsync(currentUserId, RestrictionScope.ChatSend, "You are currently restricted from sending chat messages.", cancellationToken);
+        }
+    }
+
+    private void EnsureScopeIsLaunched(ChatScopeType scopeType)
+    {
+        if (scopeType == ChatScopeType.Direct)
+        {
+            throw ApiException.NotFound("The requested chat scope could not be found.");
+        }
+
+        if (scopeType == ChatScopeType.Group && !featureFlagService.IsMessagingGroupChatEnabled())
+        {
+            throw ApiException.NotFound("The requested chat scope could not be found.");
         }
     }
 

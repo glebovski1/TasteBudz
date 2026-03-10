@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -216,13 +217,119 @@ public sealed class MessagingApiTests(TasteBudzApiFactory factory) : IClassFixtu
         Assert.Equal(HttpStatusCode.NotFound, historyResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task GroupChatHub_NonMemberCannotJoinScopeOrReadHistory()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+        using var outsiderClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var outsiderSession = await ApiTestHelpers.RegisterAsync(outsiderClient, username: "outsider", email: "outsider@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(outsiderClient, outsiderSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Members only chat",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        var groupId = group!.GroupId;
+
+        await using var outsiderConnection = CreateConnection(outsiderSession.AccessToken);
+        await outsiderConnection.StartAsync();
+
+        var joinException = await Assert.ThrowsAsync<HubException>(() =>
+            outsiderConnection.InvokeAsync("JoinScope", ChatScopeType.Group, groupId));
+        var historyResponse = await outsiderClient.GetAsync($"/api/v1/groups/{groupId}/messages");
+
+        Assert.Contains("could not be found", joinException.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.NotFound, historyResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GroupChat_WhenFeatureFlagDisabled_ReturnsNotFoundAcrossHttpAndHub()
+    {
+        using var disabledFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["FeatureFlags:MessagingGroupChatEnabled"] = "false",
+        });
+        using var ownerClient = disabledFactory.CreateClient();
+        using var guestClient = disabledFactory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Disabled group chat",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        await guestClient.PostAsync($"/api/v1/groups/{group!.GroupId}/members", null);
+
+        var historyResponse = await guestClient.GetAsync($"/api/v1/groups/{group.GroupId}/messages");
+        var problem = await historyResponse.Content.ReadFromJsonAsync<ProblemDetails>(ApiTestHelpers.JsonOptions);
+
+        await using var guestConnection = CreateConnection(disabledFactory, guestSession.AccessToken);
+        await guestConnection.StartAsync();
+
+        var joinException = await Assert.ThrowsAsync<HubException>(() =>
+            guestConnection.InvokeAsync("JoinScope", ChatScopeType.Group, group.GroupId));
+        var sendException = await Assert.ThrowsAsync<HubException>(() =>
+            guestConnection.InvokeAsync<ChatMessageDto>("SendMessage", new SendChatMessageRequest
+            {
+                ScopeType = ChatScopeType.Group,
+                ScopeId = group.GroupId,
+                Body = "Hidden feature",
+            }));
+
+        Assert.Equal(HttpStatusCode.NotFound, historyResponse.StatusCode);
+        Assert.Contains("application/problem+json", historyResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(404, problem!.Status);
+        Assert.Equal("The requested chat scope could not be found.", problem.Detail);
+        Assert.Contains("could not be found", joinException.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("could not be found", sendException.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DirectChatScope_RemainsHiddenInHubRequests()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+
+        var session = await ApiTestHelpers.RegisterAsync(client, username: "direct", email: "direct@example.com");
+
+        await using var connection = CreateConnection(factory, session.AccessToken);
+        await connection.StartAsync();
+
+        var joinException = await Assert.ThrowsAsync<HubException>(() =>
+            connection.InvokeAsync("JoinScope", ChatScopeType.Direct, Guid.NewGuid()));
+        var sendException = await Assert.ThrowsAsync<HubException>(() =>
+            connection.InvokeAsync<ChatMessageDto>("SendMessage", new SendChatMessageRequest
+            {
+                ScopeType = ChatScopeType.Direct,
+                ScopeId = Guid.NewGuid(),
+                Body = "Not launched",
+            }));
+
+        Assert.Contains("could not be found", joinException.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("could not be found", sendException.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private HubConnection CreateConnection(string accessToken) =>
+        CreateConnection(factory, accessToken);
+
+    private static HubConnection CreateConnection(TasteBudzApiFactory currentFactory, string accessToken) =>
         new HubConnectionBuilder()
-            .WithUrl(new Uri(factory.Server.BaseAddress!, "/hubs/chat"), options =>
+            .WithUrl(new Uri(currentFactory.Server.BaseAddress!, "/hubs/chat"), options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult(accessToken)!;
                 options.Transports = HttpTransportType.LongPolling;
-                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                options.HttpMessageHandlerFactory = _ => currentFactory.Server.CreateHandler();
             })
             .Build();
 }

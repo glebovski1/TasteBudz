@@ -70,6 +70,64 @@ public sealed class DiscoveryServiceTests
         Assert.Single(await services.NotificationService.ListForUserAsync(sam.CurrentUser.UserId));
     }
 
+    [Fact]
+    public async Task GetSwipeCandidatesAsync_ExcludesConnectedBudzAndFilteredUsers()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var caller = await RegisterAsync(services.AuthService, "caller", "caller@example.com");
+        var visible = await RegisterAsync(services.AuthService, "visible", "visible@example.com");
+        var hidden = await RegisterAsync(services.AuthService, "hidden", "hidden@example.com");
+        var blocked = await RegisterAsync(services.AuthService, "blocked", "blocked@example.com");
+        var restricted = await RegisterAsync(services.AuthService, "restricted", "restricted@example.com");
+        var bud = await RegisterAsync(services.AuthService, "bud", "bud@example.com");
+
+        await services.ProfileRepository.SavePrivacySettingsAsync(new PrivacySettings(hidden.CurrentUser.UserId, false, clock.UtcNow));
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(caller.CurrentUser.UserId, blocked.CurrentUser.UserId, clock.UtcNow));
+        await services.RestrictionService.CreateAsync(
+            new CurrentUser(caller.CurrentUser.UserId, caller.CurrentUser.Username, new[] { UserRole.Moderator }),
+            new CreateRestrictionRequest
+            {
+                SubjectUserId = restricted.CurrentUser.UserId,
+                Scope = RestrictionScope.DiscoveryVisibility,
+                Reason = "Hidden from discovery",
+            });
+        await services.DiscoveryRepository.SaveBudConnectionAsync(new BudConnection(
+            Guid.NewGuid(),
+            bud.CurrentUser.UserId,
+            caller.CurrentUser.UserId,
+            BudConnectionState.Connected,
+            clock.UtcNow,
+            null));
+
+        var result = await services.DiscoveryService.GetSwipeCandidatesAsync(caller.CurrentUser.UserId, new SwipeCandidatesQuery { PageSize = 10 });
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(visible.CurrentUser.UserId, item.UserId);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetSwipeCandidatesAsync_PaginatesDeterministicallyAndKeepsTotalCount()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var caller = await RegisterAsync(services.AuthService, "caller", "caller@example.com");
+        await RegisterAsync(services.AuthService, "alpha", "alpha@example.com");
+        await RegisterAsync(services.AuthService, "bravo", "bravo@example.com");
+        await RegisterAsync(services.AuthService, "charlie", "charlie@example.com");
+
+        var result = await services.DiscoveryService.GetSwipeCandidatesAsync(caller.CurrentUser.UserId, new SwipeCandidatesQuery
+        {
+            Page = 2,
+            PageSize = 1,
+        });
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("bravo", item.Username);
+        Assert.Equal(3, result.TotalCount);
+    }
+
     private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
         await authService.RegisterAsync(new RegisterUserRequest
         {

@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
+using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
@@ -116,7 +117,7 @@ public sealed class MessagingServiceTests
         var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, inviteService, new InMemoryKeyedLockProvider(), clock);
         var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, new InMemoryKeyedLockProvider(), clock);
         var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, notificationService, lifecycleService, clock);
-        var messagingService = new MessagingService(messagingRepository, eventRepository, groupRepository, authRepository, profileRepository, restrictionService, clock);
+        var messagingService = new MessagingService(messagingRepository, eventRepository, groupRepository, authRepository, profileRepository, new AlwaysOnFeatureFlagService(), restrictionService, clock);
 
         return new TestServices(authService, restrictionService, eventService, participationService, groupService, messagingService);
     }
@@ -128,4 +129,21 @@ public sealed class MessagingServiceTests
         EventParticipationService ParticipationService,
         GroupService GroupService,
         MessagingService MessagingService);
+
+    private sealed class AlwaysOnFeatureFlagService : IFeatureFlagService
+    {
+        public bool IsMessagingDirectChatEnabled() => false;
+
+        public bool IsMessagingGroupChatEnabled() => true;
+
+        public bool IsNotificationsPushEnabled() => false;
+
+        public bool IsRestaurantsOperationsEnabled() => false;
+
+        public bool IsRestaurantsSlotsEnabled() => false;
+
+        public bool IsRestaurantsDiscountsEnabled() => false;
+
+        public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
+    }
 }

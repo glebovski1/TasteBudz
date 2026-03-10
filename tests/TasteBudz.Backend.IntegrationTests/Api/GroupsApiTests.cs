@@ -1,11 +1,13 @@
 // Integration tests for persistent-group HTTP workflows.
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.IntegrationTests.Api;
 
@@ -166,5 +168,40 @@ public sealed class GroupsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.False(guestDetail!.IsCurrentUserMember);
         Assert.Equal(HttpStatusCode.Forbidden, rejoinResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, ownerLeaveResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PrivateGroupInvite_WhenUsersAreBlocked_ReturnsForbidden()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Blocked invite group",
+            Visibility = GroupVisibility.Private,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var blockResponse = await ownerClient.PostAsJsonAsync("/api/v1/blocks", new CreateBlockRequest
+        {
+            BlockedUserId = guestSession.CurrentUser.UserId,
+        });
+        var inviteResponse = await ownerClient.PostAsJsonAsync($"/api/v1/groups/{group!.GroupId}/invites", new InviteUserToGroupRequest
+        {
+            Username = "guest",
+        });
+        var problem = await inviteResponse.Content.ReadFromJsonAsync<ProblemDetails>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, blockResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, inviteResponse.StatusCode);
+        Assert.Contains("application/problem+json", inviteResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(403, problem!.Status);
+        Assert.Equal("Blocking prevents group invitations between these users.", problem.Detail);
     }
 }
