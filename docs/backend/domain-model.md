@@ -96,6 +96,7 @@ For MVP:
 
 - public groups allow direct join when active
 - private groups require `GroupInvite`
+- private-group invites are initiated by the current group owner
 - no join-request workflow exists in MVP
 
 ### 5.4 Preferences are split into SQL-friendly substructures
@@ -124,6 +125,7 @@ The host is automatically represented as an `EventParticipant` in `JOINED` state
 `Event.GroupId` is an optional context link.
 
 It allows an event to appear in group context, but it does not make group membership equivalent to event participation.
+In MVP, only the current group owner may create or update an event with that `GroupId`.
 
 ### 5.8 Chat uses scope-based threads
 
@@ -145,7 +147,7 @@ For MVP:
 
 ### 5.10 Restrictions are one-scope-per-record
 
-Each `UserRestriction` applies to exactly one scope such as `ChatSend` or `EventJoin`.
+Each `UserRestriction` applies to exactly one scope such as `DiscoveryVisibility`, `ChatSend`, or `EventJoin`.
 
 ### 5.11 Account lifecycle and moderation enforcement are separate
 
@@ -265,10 +267,10 @@ Formalize these in code as closed enums/value sets where appropriate:
 
 Recommended MVP `RestrictionScope` examples:
 
+- `DiscoveryVisibility`
 - `ChatSend`
 - `EventJoin`
 - `EventCreate`
-- `GroupCreate`
 
 ## 8. Entity Summaries
 

@@ -6,3 +6,4 @@ obj/
 *.db
 *.log
 *.DS_Store
+artifacts/coverage/

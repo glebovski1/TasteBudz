@@ -386,6 +386,38 @@ Hosts, invitees, joiners, removals, and re-entry all revolve around the same eve
 - Transaction logic is cleaner.
 - Capacity, chat access, and lifecycle rules all reference the same effective participant state.
 
+## [ADR-021] Group-Linked Event Association Is Owner-Only
+
+- Date: 2026-03-09
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+Allowing any active group member to attach an event to group context makes ownership and group-facing event history harder to reason about.
+
+### Decision
+In MVP, only the current group owner may create or update an event with that group's `GroupId`.
+
+### Consequences
+- Group-linked events remain an owner-managed context signal.
+- Group membership stays distinct from event-host authority and event participation.
+
+## [ADR-022] Discovery Restrictions Use the `DiscoveryVisibility` Scope
+
+- Date: 2026-03-09
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+People discovery must respect moderation restrictions, but earlier docs only listed chat and event scopes explicitly.
+
+### Decision
+MVP restriction scopes include `DiscoveryVisibility` so moderators can hide a user from discovery/search without changing broader account status.
+
+### Consequences
+- Discovery and swipe flows must filter out users with an active `DiscoveryVisibility` restriction.
+- Moderation stays scoped and reversible instead of overloading account lifecycle state.
+
 ## [BD-003] Store Backend Testing Strategy in a Dedicated Document
 
 - Date: 2026-03-08
