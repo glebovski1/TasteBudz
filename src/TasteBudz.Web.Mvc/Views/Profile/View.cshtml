@@ -1,0 +1,105 @@
+@model DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+
+    string StatusClass(TasteBudz.Web.Mvc.Services.Backend.Contracts.EventStatus status) =>
+        $"status-badge status-badge--{status.ToString().ToLowerInvariant()}";
+}
+
+<section class="profile-shell">
+    <div class="card profile-banner">
+        <div>
+            <h1>@Model.DisplayName</h1>
+            <p>
+                @if (string.IsNullOrWhiteSpace(Model.Bio))
+                {
+                    <span>This profile is live, but the bio is still empty.</span>
+                }
+                else
+                {
+                    <span>@Model.Bio</span>
+                }
+            </p>
+
+            <div class="profile-meta">
+                <span class="pill">@Model.Username</span>
+                <span class="pill">@Model.Email</span>
+                <span class="pill">ZIP @Model.HomeAreaZipCode</span>
+                @if (Model.SocialGoal is not null)
+                {
+                    <span class="pill">@Model.SocialGoal</span>
+                }
+            </div>
+        </div>
+
+        <div class="button-row">
+            <a asp-action="Edit" class="button button--primary">Edit Profile</a>
+        </div>
+    </div>
+
+    <div class="panel-grid">
+        <section class="panel">
+            <h2>Active Events</h2>
+            <div class="panel__items">
+                @if (Model.ActiveEvents.Count == 0)
+                {
+                    <p class="empty-state">No active events yet.</p>
+                }
+                else
+                {
+                    @foreach (var item in Model.ActiveEvents)
+                    {
+                        <article class="summary-card">
+                            <strong>@item.Title</strong>
+                            <time datetime="@item.EventStartAtUtc.ToString("O")">@item.EventStartAtUtc.LocalDateTime.ToString("ddd, MMM d 'at' h:mm tt")</time>
+                            <div>
+                                <span class="@StatusClass(item.Status)">@item.Status</span>
+                            </div>
+                        </article>
+                    }
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Groups</h2>
+            <div class="panel__items">
+                @if (Model.ActiveGroups.Count == 0)
+                {
+                    <p class="empty-state">No active groups yet.</p>
+                }
+                else
+                {
+                    @foreach (var item in Model.ActiveGroups)
+                    {
+                        <article class="summary-card">
+                            <strong>@item.Name</strong>
+                            <span>@item.Visibility group</span>
+                        </article>
+                    }
+                }
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Your Budz</h2>
+            <div class="panel__items">
+                @if (Model.Budz.Count == 0)
+                {
+                    <p class="empty-state">No Budz connections yet.</p>
+                }
+                else
+                {
+                    @foreach (var item in Model.Budz)
+                    {
+                        <article class="summary-card">
+                            <strong>@item.DisplayName</strong>
+                            <span>@item.Username</span>
+                        </article>
+                    }
+                }
+            </div>
+        </section>
+    </div>
+</section>

@@ -1,0 +1,81 @@
+@model RegisterViewModel
+
+@{
+    ViewData["Title"] = "Create Account";
+}
+
+<section class="hero-grid">
+    <div class="hero-copy">
+        <span class="eyebrow">First Run</span>
+        <h1>Start with the account basics, then finish the profile in one clean pass.</h1>
+        <p>
+            This first milestone keeps the UI intentionally narrow: registration, login, onboarding, profile details,
+            preferences, and a dashboard view backed by the existing TasteBudz API contracts.
+        </p>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <strong>API-first</strong>
+                <span>No frontend-owned business rules.</span>
+            </div>
+            <div class="hero-stat">
+                <strong>Net9 MVC</strong>
+                <span>Separate app, same repo, clean boundary.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card auth-card">
+        <div class="stack">
+            <div>
+                <h2 class="card__title">Create your TasteBudz account</h2>
+                <p class="card__subtitle">Register once, then the app will route you into the onboarding/profile flow.</p>
+            </div>
+
+            <form asp-action="CreateAccount" method="post" class="stack-lg" novalidate>
+                <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+
+                <div class="field">
+                    <label asp-for="Username"></label>
+                    <input asp-for="Username" autocomplete="username" placeholder="FoodLover123" />
+                    <span asp-validation-for="Username" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Email"></label>
+                    <input asp-for="Email" autocomplete="email" placeholder="you@example.com" />
+                    <span asp-validation-for="Email" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="ZipCode"></label>
+                    <input asp-for="ZipCode" autocomplete="postal-code" placeholder="45220" />
+                    <span asp-validation-for="ZipCode" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Password"></label>
+                    <input asp-for="Password" autocomplete="new-password" placeholder="At least 8 characters" />
+                    <span asp-validation-for="Password" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="ConfirmPassword"></label>
+                    <input asp-for="ConfirmPassword" autocomplete="new-password" placeholder="Repeat your password" />
+                    <span asp-validation-for="ConfirmPassword" class="field-validation-error"></span>
+                </div>
+
+                <button type="submit" class="button button--primary">Create Account</button>
+            </form>
+        </div>
+
+        <p class="auth-switch">
+            Already registered?
+            <a asp-action="Login">Back to login.</a>
+        </p>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
