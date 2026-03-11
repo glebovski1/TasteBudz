@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Frontend + Backend",
+    "Projects": [
+      {
+        "Path": "src\\TasteBudz.Backend\\TasteBudz.Backend.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\TasteBudz.Web.Mvc\\TasteBudz.Web.Mvc.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
