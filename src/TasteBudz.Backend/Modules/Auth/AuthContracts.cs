@@ -7,6 +7,7 @@ namespace TasteBudz.Backend.Modules.Auth;
 /// <summary>
 /// Request body for account registration.
 /// </summary>
+/// DTO 
 public sealed class RegisterUserRequest
 {
     [Required]
