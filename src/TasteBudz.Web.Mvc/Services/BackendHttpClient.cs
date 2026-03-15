@@ -164,6 +164,10 @@ public sealed class BackendHttpClient
             return false;
         }
 
+        // Remember which refresh token this specific request started with.
+        // If another request refreshes first, the stored session will contain a different refresh token.
+        var attemptedRefreshToken = session.RefreshToken;
+
         try
         {
             // Refresh is handled here instead of via AuthApiService.
@@ -181,7 +185,18 @@ public sealed class BackendHttpClient
         }
         catch (BackendApiException)
         {
-            // Refresh failed, so local auth must be cleared to avoid using stale tokens.
+            var currentSession = userSessionService.GetSession();
+
+            if (currentSession is not null &&
+                !string.IsNullOrWhiteSpace(currentSession.RefreshToken) &&
+                !string.Equals(currentSession.RefreshToken, attemptedRefreshToken, StringComparison.Ordinal))
+            {
+                // Another request already replaced the old token pair with a newer one.
+                // Reuse that new session instead of clearing local auth and forcing a logout.
+                return true;
+            }
+
+            // Refresh really failed for the currently stored session, so local auth must be cleared.
             await userSessionService.SignOutAsync(cancellationToken);
             return false;
         }
