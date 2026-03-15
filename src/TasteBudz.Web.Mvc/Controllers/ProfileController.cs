@@ -1,33 +1,43 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TasteBudz.Web.Mvc.Services.Backend;
+using TasteBudz.Web.Mvc.Services.Api;
+using TasteBudz.Web.Mvc.Services.Http;
 using TasteBudz.Web.Mvc.Services.Session;
 using TasteBudz.Web.Mvc.ViewModels;
 
 namespace TasteBudz.Web.Mvc.Controllers;
 
 [Authorize]
-public sealed class ProfileController(
-    DashboardApiClient dashboardApiClient,
-    OnboardingApiClient onboardingApiClient,
-    PreferenceApiClient preferenceApiClient,
-    PrivacyApiClient privacyApiClient,
-    ProfileApiClient profileApiClient,
-    IUserSessionService userSessionService) : Controller
+/// <summary>
+/// Handles the authenticated profile area.
+/// The controller composes backend DTOs into page models but does not own business rules.
+/// </summary>
+public sealed class ProfileController : Controller
 {
+    private readonly ProfileApiService profileApiService;
+    private readonly UserSessionService userSessionService;
+
+    public ProfileController(
+        ProfileApiService profileApiService,
+        UserSessionService userSessionService)
+    {
+        this.profileApiService = profileApiService;
+        this.userSessionService = userSessionService;
+    }
+
     [HttpGet]
     public async Task<IActionResult> View(CancellationToken cancellationToken)
     {
         try
         {
-            var onboardingStatus = await onboardingApiClient.GetStatusAsync(cancellationToken);
+            var onboardingStatus = await profileApiService.GetOnboardingStatusAsync(cancellationToken);
 
             if (!onboardingStatus.IsComplete)
             {
                 return RedirectToAction(nameof(Edit));
             }
 
-            var dashboard = await dashboardApiClient.GetDashboardAsync(cancellationToken);
+            var dashboard = await profileApiService.GetDashboardAsync(cancellationToken);
             return View(DashboardViewModel.FromDto(dashboard));
         }
         catch (BackendAuthenticationExpiredException)
@@ -41,10 +51,11 @@ public sealed class ProfileController(
     {
         try
         {
-            var onboardingStatus = await onboardingApiClient.GetStatusAsync(cancellationToken);
-            var profile = await profileApiClient.GetMyProfileAsync(cancellationToken);
-            var preferences = await preferenceApiClient.GetMyPreferencesAsync(cancellationToken);
-            var privacySettings = await privacyApiClient.GetMyPrivacySettingsAsync(cancellationToken);
+            // The edit page combines several backend endpoints into one MVC form model.
+            var onboardingStatus = await profileApiService.GetOnboardingStatusAsync(cancellationToken);
+            var profile = await profileApiService.GetMyProfileAsync(cancellationToken);
+            var preferences = await profileApiService.GetMyPreferencesAsync(cancellationToken);
+            var privacySettings = await profileApiService.GetMyPrivacySettingsAsync(cancellationToken);
 
             return View(ProfileEditViewModel.FromDto(profile, preferences, privacySettings, onboardingStatus));
         }
@@ -67,9 +78,10 @@ public sealed class ProfileController(
 
         try
         {
-            await profileApiClient.UpdateMyProfileAsync(model.ToProfileRequest(), cancellationToken);
-            await preferenceApiClient.ReplaceMyPreferencesAsync(model.ToPreferenceRequest(), cancellationToken);
-            await privacyApiClient.UpdateMyPrivacySettingsAsync(model.ToPrivacyRequest(), cancellationToken);
+            // Each section of the page is still backed by its own backend endpoint.
+            await profileApiService.UpdateMyProfileAsync(model.ToProfileRequest(), cancellationToken);
+            await profileApiService.ReplaceMyPreferencesAsync(model.ToPreferenceRequest(), cancellationToken);
+            await profileApiService.UpdateMyPrivacySettingsAsync(model.ToPrivacyRequest(), cancellationToken);
 
             TempData["StatusMessage"] = "Profile saved.";
             return RedirectToAction(nameof(View));

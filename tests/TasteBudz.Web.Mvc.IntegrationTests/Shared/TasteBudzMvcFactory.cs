@@ -2,10 +2,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using TasteBudz.Web.Mvc.Controllers;
 
 namespace TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
-public sealed class TasteBudzMvcFactory : WebApplicationFactory<Program>
+public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountController>
 {
     public StubBackendApiHandler BackendHandler { get; } = new();
 
@@ -24,8 +25,6 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<Program>
         {
             services.AddSingleton(BackendHandler);
             services.AddHttpClient("BackendApi")
-                .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<StubBackendApiHandler>());
-            services.AddHttpClient("BackendApiAuth")
                 .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<StubBackendApiHandler>());
         });
     }

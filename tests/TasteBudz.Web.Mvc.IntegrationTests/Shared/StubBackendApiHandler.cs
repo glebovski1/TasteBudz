@@ -1,13 +1,15 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
-using TasteBudz.Web.Mvc.Services.Backend;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
 public sealed class StubBackendApiHandler : HttpMessageHandler
 {
     private readonly ConcurrentQueue<ExpectedBackendRequest> expectations = new();
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
     public List<RecordedBackendRequest> Requests { get; } = [];
 
@@ -48,7 +50,7 @@ public sealed class StubBackendApiHandler : HttpMessageHandler
     public static HttpResponseMessage Json(HttpStatusCode statusCode, object payload) =>
         new(statusCode)
         {
-            Content = JsonContent.Create(payload, options: BackendJson.Options),
+            Content = JsonContent.Create(payload, options: JsonOptions),
         };
 
     public static HttpResponseMessage Problem(HttpStatusCode statusCode, string title, string detail) =>
@@ -62,8 +64,15 @@ public sealed class StubBackendApiHandler : HttpMessageHandler
                     detail,
                     instance = "/",
                 },
-                options: BackendJson.Options),
+                options: JsonOptions),
         };
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
+    }
 }
 
 public sealed record ExpectedBackendRequest(

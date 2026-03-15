@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using TasteBudz.Web.Mvc.Services.Backend.Contracts;
+using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
 

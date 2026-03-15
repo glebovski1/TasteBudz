@@ -1,7 +1,7 @@
 using System.Net;
+using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
-using TasteBudz.Web.Mvc.Services.Backend;
-using TasteBudz.Web.Mvc.Services.Backend.Contracts;
 
 namespace TasteBudz.Web.Mvc.IntegrationTests.Api;
 
@@ -272,6 +272,62 @@ public sealed class AccountAndProfileMvcTests
         Assert.Equal(HttpStatusCode.Redirect, logoutResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, protectedResponse.StatusCode);
         Assert.Contains("/Account/Login", protectedResponse.Headers.Location?.ToString());
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task ProtectedRequest_WhenBackendReturnsUnauthorized_RefreshesOnceAndRetriesWithNewToken()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/onboarding/status",
+            (_, _) => StubBackendApiHandler.Problem(
+                HttpStatusCode.Unauthorized,
+                "Unauthorized",
+                "Access token expired."));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/auth/refresh",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                MvcTestHelpers.CreateSession(
+                    accessToken: "refreshed-access-token",
+                    refreshToken: "refreshed-refresh-token")));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/onboarding/status",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new OnboardingStatusDto(true, Array.Empty<string>())));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/dashboard",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateDashboard()));
+
+        using var response = await client.GetAsync("/Profile/View");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var onboardingRequests = factory.BackendHandler.Requests
+            .Where(request => request.Method == HttpMethod.Get && request.PathAndQuery == "/api/v1/onboarding/status")
+            .ToArray();
+        var refreshRequest = factory.BackendHandler.Requests.Single(request =>
+            request.Method == HttpMethod.Post && request.PathAndQuery == "/api/v1/auth/refresh");
+        var dashboardRequest = factory.BackendHandler.Requests.Single(request =>
+            request.Method == HttpMethod.Get && request.PathAndQuery == "/api/v1/me/dashboard");
+
+        Assert.Equal(2, onboardingRequests.Length);
+        Assert.Equal("access-token", onboardingRequests[0].AuthorizationParameter);
+        Assert.Equal("refresh-token", refreshRequest.Body is null ? null : MvcTestHelpers.ExtractRefreshToken(refreshRequest.Body));
+        Assert.Null(refreshRequest.AuthorizationParameter);
+        Assert.Equal("refreshed-access-token", onboardingRequests[1].AuthorizationParameter);
+        Assert.Equal("refreshed-access-token", dashboardRequest.AuthorizationParameter);
         factory.BackendHandler.AssertDrained();
     }
 }

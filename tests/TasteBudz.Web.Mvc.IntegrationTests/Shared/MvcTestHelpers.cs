@@ -1,8 +1,9 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
-using TasteBudz.Web.Mvc.Services.Backend;
-using TasteBudz.Web.Mvc.Services.Backend.Contracts;
+using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
@@ -110,6 +111,14 @@ public static partial class MvcTestHelpers
             }));
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+    }
+
+    public static string ExtractRefreshToken(string requestBody)
+    {
+        var match = Regex.Match(requestBody, "\"refreshToken\":\"(?<value>[^\"]+)\"");
+        return match.Success
+            ? match.Groups["value"].Value
+            : throw new InvalidOperationException("Refresh token payload was not found in the request body.");
     }
 
     [GeneratedRegex("name=\"__RequestVerificationToken\".*?value=\"(?<token>[^\"]+)\"", RegexOptions.Singleline)]

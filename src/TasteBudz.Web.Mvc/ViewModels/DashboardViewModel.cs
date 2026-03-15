@@ -1,4 +1,5 @@
-using TasteBudz.Web.Mvc.Services.Backend.Contracts;
+using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
 

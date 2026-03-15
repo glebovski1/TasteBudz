@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Options;
 using TasteBudz.Web.Mvc.Options;
-using TasteBudz.Web.Mvc.Services;
+using TasteBudz.Web.Mvc.Services.Api;
+using TasteBudz.Web.Mvc.Services.Http;
+using TasteBudz.Web.Mvc.Services.Session;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,7 +40,15 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-builder.Services.AddTasteBudzMvcFrontend();
+builder.Services.AddScoped<UserSessionService>();
+builder.Services.AddScoped<BackendHttpClient>();
+builder.Services.AddScoped<AuthApiService>();
+builder.Services.AddScoped<ProfileApiService>();
+builder.Services.AddHttpClient("BackendApi", (serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<BackendApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+});
 
 var app = builder.Build();
 

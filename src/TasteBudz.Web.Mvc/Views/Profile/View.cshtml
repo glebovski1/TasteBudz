@@ -3,7 +3,7 @@
 @{
     ViewData["Title"] = "Dashboard";
 
-    string StatusClass(TasteBudz.Web.Mvc.Services.Backend.Contracts.EventStatus status) =>
+    string StatusClass(TasteBudz.Backend.Domain.EventStatus status) =>
         $"status-badge status-badge--{status.ToString().ToLowerInvariant()}";
 }
 

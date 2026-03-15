@@ -1,17 +1,33 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TasteBudz.Web.Mvc.Services.Backend;
-using TasteBudz.Web.Mvc.Services.Backend.Contracts;
+using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Web.Mvc.Services.Api;
+using TasteBudz.Web.Mvc.Services.Http;
 using TasteBudz.Web.Mvc.Services.Session;
 using TasteBudz.Web.Mvc.ViewModels;
 
 namespace TasteBudz.Web.Mvc.Controllers;
 
-public sealed class AccountController(
-    AuthApiClient authApiClient,
-    OnboardingApiClient onboardingApiClient,
-    IUserSessionService userSessionService) : Controller
+/// <summary>
+/// Handles account entry points such as login, registration, and logout.
+/// The controller owns page flow while the API services own backend communication.
+/// </summary>
+public sealed class AccountController : Controller
 {
+    private readonly AuthApiService authApiService;
+    private readonly ProfileApiService profileApiService;
+    private readonly UserSessionService userSessionService;
+
+    public AccountController(
+        AuthApiService authApiService,
+        ProfileApiService profileApiService,
+        UserSessionService userSessionService)
+    {
+        this.authApiService = authApiService;
+        this.profileApiService = profileApiService;
+        this.userSessionService = userSessionService;
+    }
+
     [HttpGet]
     [AllowAnonymous]
     public IActionResult Login()
@@ -36,7 +52,8 @@ public sealed class AccountController(
 
         try
         {
-            var session = await authApiClient.LoginAsync(
+            // Login is a backend concern; the MVC app only forwards the form values.
+            var session = await authApiService.LoginAsync(
                 new LoginRequest
                 {
                     UsernameOrEmail = model.UsernameOrEmail.Trim(),
@@ -44,6 +61,7 @@ public sealed class AccountController(
                 },
                 cancellationToken);
 
+            // Once the backend returns a session, store it locally and sign in the MVC cookie.
             await userSessionService.SignInAsync(session, cancellationToken);
             return await RedirectAfterAuthenticationAsync(cancellationToken);
         }
@@ -78,7 +96,8 @@ public sealed class AccountController(
 
         try
         {
-            var session = await authApiClient.RegisterAsync(
+            // Registration returns the same backend session payload as login.
+            var session = await authApiService.RegisterAsync(
                 new RegisterUserRequest
                 {
                     Username = model.Username.Trim(),
@@ -103,13 +122,13 @@ public sealed class AccountController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        var snapshot = userSessionService.GetSnapshot();
+        var session = userSessionService.GetSession();
 
-        if (snapshot is not null)
+        if (session is not null)
         {
             try
             {
-                await authApiClient.LogoutAsync(snapshot.AccessToken, cancellationToken);
+                await authApiService.LogoutAsync(cancellationToken);
             }
             catch (BackendApiException)
             {
@@ -125,7 +144,8 @@ public sealed class AccountController(
     {
         try
         {
-            var onboardingStatus = await onboardingApiClient.GetStatusAsync(cancellationToken);
+            // The backend decides whether onboarding is complete; MVC only redirects accordingly.
+            var onboardingStatus = await profileApiService.GetOnboardingStatusAsync(cancellationToken);
             return onboardingStatus.IsComplete
                 ? RedirectToAction(nameof(ProfileController.View), "Profile")
                 : RedirectToAction(nameof(ProfileController.Edit), "Profile");
