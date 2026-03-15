@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Modules.Auth;
-using TasteBudz.Web.Mvc.Services.Api;
-using TasteBudz.Web.Mvc.Services.Http;
-using TasteBudz.Web.Mvc.Services.Session;
+using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
 namespace TasteBudz.Web.Mvc.Controllers;
@@ -23,6 +21,11 @@ public sealed class AccountController : Controller
         ProfileApiService profileApiService,
         UserSessionService userSessionService)
     {
+        // ASP.NET Core DI creates this controller and supplies these concrete services automatically.
+        // The registrations live in Program.cs:
+        //   AddScoped<AuthApiService>()
+        //   AddScoped<ProfileApiService>()
+        //   AddScoped<UserSessionService>()
         this.authApiService = authApiService;
         this.profileApiService = profileApiService;
         this.userSessionService = userSessionService;
@@ -52,7 +55,9 @@ public sealed class AccountController : Controller
 
         try
         {
-            // Login is a backend concern; the MVC app only forwards the form values.
+            // Step 1:
+            // Send the submitted credentials to the backend.
+            // MVC does not validate credentials itself; it only forwards the form values.
             var session = await authApiService.LoginAsync(
                 new LoginRequest
                 {
@@ -61,8 +66,12 @@ public sealed class AccountController : Controller
                 },
                 cancellationToken);
 
-            // Once the backend returns a session, store it locally and sign in the MVC cookie.
+            // Step 2:
+            // Save the returned backend session locally and issue the MVC auth cookie.
             await userSessionService.SignInAsync(session, cancellationToken);
+
+            // Step 3:
+            // Ask the backend whether onboarding is complete and redirect to the correct page.
             return await RedirectAfterAuthenticationAsync(cancellationToken);
         }
         catch (BackendApiException exception)
@@ -96,7 +105,7 @@ public sealed class AccountController : Controller
 
         try
         {
-            // Registration returns the same backend session payload as login.
+            // Registration returns the same backend session DTO shape as login.
             var session = await authApiService.RegisterAsync(
                 new RegisterUserRequest
                 {
@@ -107,6 +116,7 @@ public sealed class AccountController : Controller
                 },
                 cancellationToken);
 
+            // Store the backend session locally and sign in the MVC cookie.
             await userSessionService.SignInAsync(session, cancellationToken);
             return await RedirectAfterAuthenticationAsync(cancellationToken);
         }
@@ -128,6 +138,7 @@ public sealed class AccountController : Controller
         {
             try
             {
+                // Tell the backend to invalidate its current token pair.
                 await authApiService.LogoutAsync(cancellationToken);
             }
             catch (BackendApiException)
@@ -136,6 +147,7 @@ public sealed class AccountController : Controller
             }
         }
 
+        // Always clear the local MVC session and auth cookie, even if backend logout fails.
         await userSessionService.SignOutAsync(cancellationToken);
         return RedirectToAction(nameof(Login));
     }
@@ -144,7 +156,8 @@ public sealed class AccountController : Controller
     {
         try
         {
-            // The backend decides whether onboarding is complete; MVC only redirects accordingly.
+            // The backend decides whether onboarding is complete.
+            // The MVC controller only chooses which page to show based on that backend answer.
             var onboardingStatus = await profileApiService.GetOnboardingStatusAsync(cancellationToken);
             return onboardingStatus.IsComplete
                 ? RedirectToAction(nameof(ProfileController.View), "Profile")

@@ -4,13 +4,15 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TasteBudz.Backend.Modules.Auth;
-using TasteBudz.Web.Mvc.Services.Session;
 
-namespace TasteBudz.Web.Mvc.Services.Http;
+namespace TasteBudz.Web.Mvc.Services;
 
 /// <summary>
 /// Centralizes all HTTP communication with the backend API.
 /// Controllers and feature API services should never deal with raw HttpClient behavior directly.
+/// This class hides the repeated infrastructure work:
+/// building requests, adding auth headers, sending JSON, reading JSON, handling ProblemDetails,
+/// and retrying one time after a refresh when the backend says the access token expired.
 /// </summary>
 public sealed class BackendHttpClient
 {
@@ -75,7 +77,13 @@ public sealed class BackendHttpClient
         bool requiresAuth,
         CancellationToken cancellationToken)
     {
+        // Step 1:
+        // Send the request, including refresh/retry behavior when needed.
         using var response = await SendWithRefreshAsync(requestFactory, requiresAuth, cancellationToken);
+
+        // Step 2:
+        // If the backend returned success, deserialize the JSON body into the DTO the caller asked for.
+        // If the backend returned failure, this helper throws a backend-specific exception instead.
         return await ReadJsonAsync<TResponse>(response, cancellationToken);
     }
 
@@ -84,6 +92,7 @@ public sealed class BackendHttpClient
         bool requiresAuth,
         CancellationToken cancellationToken)
     {
+        // This path is used for endpoints that succeed without returning a response body.
         using var response = await SendWithRefreshAsync(requestFactory, requiresAuth, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -93,24 +102,30 @@ public sealed class BackendHttpClient
         bool requiresAuth,
         CancellationToken cancellationToken)
     {
-        // Send the request once with the current access token first.
+        // First attempt:
+        // send the request exactly as the caller asked for it.
         var response = await SendOnceAsync(requestFactory, requiresAuth, cancellationToken);
 
         if (!requiresAuth || response.StatusCode != HttpStatusCode.Unauthorized)
         {
+            // If the call does not require auth, or it succeeded, or it failed for a reason other than 401,
+            // return that response directly to the next layer.
             return response;
         }
 
         response.Dispose();
 
-        // A protected request that returns 401 gets one refresh attempt and one retry.
+        // Only protected calls reach this branch.
+        // The backend said the access token is no longer accepted, so try to refresh once.
         var refreshed = await TryRefreshAsync(cancellationToken);
 
         if (!refreshed)
         {
+            // Refresh failed, so the MVC app can no longer act on behalf of the user.
             throw new BackendAuthenticationExpiredException("Your session has expired. Please sign in again.");
         }
 
+        // Refresh succeeded, so rebuild the original request and try the protected call one more time.
         return await SendOnceAsync(requestFactory, requiresAuth, cancellationToken);
     }
 
@@ -119,6 +134,8 @@ public sealed class BackendHttpClient
         bool requiresAuth,
         CancellationToken cancellationToken)
     {
+        // Create the named HttpClient that Program.cs registered.
+        // This keeps base URL and other shared HTTP configuration in one place.
         var client = httpClientFactory.CreateClient("BackendApi");
         using var request = requestFactory();
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -126,37 +143,45 @@ public sealed class BackendHttpClient
         if (requiresAuth)
         {
             // Protected calls always use the backend access token stored in the MVC session.
+            // UserSessionService reads the session for the current browser request.
             var session = userSessionService.GetRequiredSession();
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
         }
 
+        // Send the HTTP request to the backend API.
         return await client.SendAsync(request, cancellationToken);
     }
 
     private async Task<bool> TryRefreshAsync(CancellationToken cancellationToken)
     {
+        // Read the current backend session from ASP.NET session storage.
         var session = userSessionService.GetSession();
 
         if (session is null || string.IsNullOrWhiteSpace(session.RefreshToken))
         {
+            // Without a refresh token there is nothing to recover, so clear local auth immediately.
             await userSessionService.SignOutAsync(cancellationToken);
             return false;
         }
 
         try
         {
-            // Refresh is handled here instead of via AuthApiService to avoid a circular dependency.
+            // Refresh is handled here instead of via AuthApiService.
+            // Keeping it here avoids a circular dependency where BackendHttpClient would need AuthApiService
+            // while AuthApiService already depends on BackendHttpClient.
             var refreshedSession = await PostAsync<RefreshSessionRequest, SessionDto>(
                 "/api/v1/auth/refresh",
                 new RefreshSessionRequest { RefreshToken = session.RefreshToken },
                 requiresAuth: false,
                 cancellationToken);
 
+            // Save the new tokens and rebuild the MVC cookie claims from the refreshed backend session.
             await userSessionService.UpdateSessionAsync(refreshedSession, cancellationToken);
             return true;
         }
         catch (BackendApiException)
         {
+            // Refresh failed, so local auth must be cleared to avoid using stale tokens.
             await userSessionService.SignOutAsync(cancellationToken);
             return false;
         }
@@ -175,9 +200,11 @@ public sealed class BackendHttpClient
     {
         if (!response.IsSuccessStatusCode)
         {
+            // Convert backend failures into readable MVC-side exceptions before any controller sees them.
             throw await CreateExceptionAsync(response, cancellationToken);
         }
 
+        // Success responses are expected to contain JSON for the requested DTO type.
         var payload = await response.Content.ReadFromJsonAsync<T>(BackendJson.Options, cancellationToken);
         return payload ?? throw new InvalidOperationException("The backend returned an empty response body.");
     }
@@ -186,6 +213,7 @@ public sealed class BackendHttpClient
     {
         if (!response.IsSuccessStatusCode)
         {
+            // No-body calls still need the same backend error translation.
             throw await CreateExceptionAsync(response, cancellationToken);
         }
     }
@@ -198,11 +226,12 @@ public sealed class BackendHttpClient
 
         try
         {
+            // The backend usually returns standard ProblemDetails JSON for failures.
             problem = await response.Content.ReadFromJsonAsync<BackendProblemDetails>(BackendJson.Options, cancellationToken);
         }
         catch
         {
-            // Fall back to default status-based messages when the payload is not ProblemDetails.
+            // If the payload is not valid ProblemDetails JSON, fall back to status-code-based messages.
         }
 
         var message = problem?.Detail
@@ -271,6 +300,7 @@ internal static class BackendJson
 
     private static JsonSerializerOptions CreateOptions()
     {
+        // Use ASP.NET-style web defaults and string enum values so MVC matches the backend JSON shape.
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         options.Converters.Add(new JsonStringEnumConverter());
         return options;

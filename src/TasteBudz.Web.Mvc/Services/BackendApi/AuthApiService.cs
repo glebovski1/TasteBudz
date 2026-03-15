@@ -1,11 +1,12 @@
 using TasteBudz.Backend.Modules.Auth;
-using TasteBudz.Web.Mvc.Services.Http;
 
-namespace TasteBudz.Web.Mvc.Services.Api;
+namespace TasteBudz.Web.Mvc.Services;
 
 /// <summary>
 /// Thin wrapper over backend authentication routes.
 /// It keeps route strings out of controllers and leaves HTTP mechanics to BackendHttpClient.
+/// Register this class in Program.cs, then ask for AuthApiService in a controller constructor.
+/// ASP.NET Core DI will create it automatically and supply it to the controller.
 /// </summary>
 public sealed class AuthApiService
 {
@@ -16,6 +17,9 @@ public sealed class AuthApiService
         this.backendHttpClient = backendHttpClient;
     }
 
+    /// <summary>
+    /// Sends the registration form data to the backend and returns the backend session DTO.
+    /// </summary>
     public Task<SessionDto> RegisterAsync(
         RegisterUserRequest request,
         CancellationToken cancellationToken = default) =>
@@ -25,6 +29,9 @@ public sealed class AuthApiService
             requiresAuth: false,
             cancellationToken);
 
+    /// <summary>
+    /// Sends the login form data to the backend and returns the backend session DTO.
+    /// </summary>
     public Task<SessionDto> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken = default) =>
@@ -34,6 +41,10 @@ public sealed class AuthApiService
             requiresAuth: false,
             cancellationToken);
 
+    /// <summary>
+    /// Tells the backend to invalidate the current session token pair.
+    /// The local MVC sign-out still happens separately in UserSessionService.
+    /// </summary>
     public Task LogoutAsync(CancellationToken cancellationToken = default) =>
         backendHttpClient.PostAsync(
             "/api/v1/auth/logout",
