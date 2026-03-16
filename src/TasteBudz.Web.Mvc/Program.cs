@@ -39,16 +39,19 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-// Register the small MVC service layer as concrete classes.
-// ASP.NET Core DI reads these registrations, creates the classes automatically for each request,
-// and injects them into controller constructors when a controller asks for them.
-// Example:
-//   public AccountController(AuthApiService authApiService, UserSessionService userSessionService)
-// The framework sees those constructor parameters and supplies the matching services from this list.
+// Register the MVC app's backend-facing service layer inline.
+// Controllers ask for these concrete services in their constructors, and ASP.NET Core DI supplies them per request.
 builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<BackendHttpClient>();
 builder.Services.AddScoped<AuthApiService>();
 builder.Services.AddScoped<ProfileApiService>();
+builder.Services.AddScoped<RestaurantApiService>();
+builder.Services.AddScoped<EventApiService>();
+builder.Services.AddScoped<GroupApiService>();
+builder.Services.AddScoped<DiscoveryApiService>();
+builder.Services.AddScoped<MessagingApiService>();
+builder.Services.AddScoped<NotificationApiService>();
+builder.Services.AddScoped<ModerationApiService>();
 
 // Register one named HttpClient for all backend calls.
 // BackendHttpClient asks IHttpClientFactory for this named client whenever it needs to call the API.
