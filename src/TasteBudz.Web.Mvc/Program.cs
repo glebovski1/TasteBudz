@@ -4,6 +4,7 @@ using TasteBudz.Web.Mvc.Options;
 using TasteBudz.Web.Mvc.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+var mvcSessionIdleTimeout = TimeSpan.FromHours(8);
 
 builder.Services
     .AddOptions<BackendApiOptions>()
@@ -22,7 +23,7 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.Cookie.Name = ".TasteBudz.Mvc.Session";
-    options.IdleTimeout = TimeSpan.FromHours(8);
+    options.IdleTimeout = mvcSessionIdleTimeout;
 });
 
 builder.Services
@@ -34,7 +35,9 @@ builder.Services
         options.Cookie.Name = ".TasteBudz.Mvc.Auth";
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/Login";
+        options.ExpireTimeSpan = mvcSessionIdleTimeout;
         options.SlidingExpiration = true;
+        options.EventsType = typeof(BackendSessionCookieEvents);
     });
 
 builder.Services.AddAuthorization();
@@ -42,6 +45,7 @@ builder.Services.AddAuthorization();
 // Register the MVC app's backend-facing service layer inline.
 // Controllers ask for these concrete services in their constructors, and ASP.NET Core DI supplies them per request.
 builder.Services.AddScoped<UserSessionService>();
+builder.Services.AddScoped<BackendSessionCookieEvents>();
 builder.Services.AddScoped<BackendHttpClient>();
 builder.Services.AddScoped<AuthApiService>();
 builder.Services.AddScoped<ProfileApiService>();

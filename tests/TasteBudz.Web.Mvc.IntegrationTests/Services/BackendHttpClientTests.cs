@@ -60,6 +60,7 @@ public sealed class BackendHttpClientTests
         Assert.Equal("access-token", requests[0].AuthorizationParameter);
         Assert.Equal("refreshed-access-token", requests[2].AuthorizationParameter);
         Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme, context.LastSignInScheme);
+        Assert.Null(context.LastSignOutScheme);
         context.BackendHandler.AssertDrained();
     }
 
@@ -106,6 +107,38 @@ public sealed class BackendHttpClientTests
         Assert.Contains(
             "\"reason\":\"Restaurant closed.\"",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/cancellation").Body);
+        context.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenRefreshFailsForCurrentSession_SignsOutAndThrows()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/onboarding/status",
+            (_, _) => StubBackendApiHandler.Problem(
+                HttpStatusCode.Unauthorized,
+                "Unauthorized",
+                "Access token expired."));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/auth/refresh",
+            (_, _) => StubBackendApiHandler.Problem(
+                HttpStatusCode.Unauthorized,
+                "Unauthorized",
+                "Refresh token already expired."));
+
+        var backendHttpClient = context.CreateBackendHttpClient();
+        var exception = await Record.ExceptionAsync(() =>
+            backendHttpClient.GetAsync<OnboardingStatusDto>("/api/v1/onboarding/status"));
+
+        Assert.NotNull(exception);
+        Assert.Equal("Your session has expired. Please sign in again.", exception.Message);
+        Assert.Null(context.GetStoredSession());
+        Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme, context.LastSignOutScheme);
         context.BackendHandler.AssertDrained();
     }
 }

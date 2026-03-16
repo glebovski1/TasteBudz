@@ -20,7 +20,7 @@ public sealed class BackendApiServiceTestContext
             .AddSingleton<IAuthenticationService>(authenticationService)
             .BuildServiceProvider();
 
-        var httpContext = new DefaultHttpContext
+        HttpContext = new DefaultHttpContext
         {
             RequestServices = services,
             Session = new InMemorySession(),
@@ -28,7 +28,7 @@ public sealed class BackendApiServiceTestContext
 
         var httpContextAccessor = new HttpContextAccessor
         {
-            HttpContext = httpContext,
+            HttpContext = HttpContext,
         };
 
         userSessionService = new UserSessionService(httpContextAccessor);
@@ -41,7 +41,13 @@ public sealed class BackendApiServiceTestContext
 
     public StubBackendApiHandler BackendHandler { get; }
 
+    public HttpContext HttpContext { get; }
+
     public string? LastSignInScheme => authenticationService.LastSignInScheme;
+
+    public string? LastSignOutScheme => authenticationService.LastSignOutScheme;
+
+    public UserSessionService UserSessionService => userSessionService;
 
     public SessionDto? GetStoredSession() => userSessionService.GetSession();
 
@@ -49,6 +55,8 @@ public sealed class BackendApiServiceTestContext
     {
         await userSessionService.SignInAsync(session ?? MvcTestHelpers.CreateSession());
     }
+
+    public void ClearStoredSession() => HttpContext.Session.Clear();
 
     public BackendHttpClient CreateBackendHttpClient() => new(httpClientFactory, userSessionService);
 
@@ -71,6 +79,8 @@ public sealed class BackendApiServiceTestContext
     {
         public string? LastSignInScheme { get; private set; }
 
+        public string? LastSignOutScheme { get; private set; }
+
         public Task<AuthenticateResult> AuthenticateAsync(HttpContext context, string? scheme) =>
             Task.FromResult(AuthenticateResult.NoResult());
 
@@ -89,6 +99,7 @@ public sealed class BackendApiServiceTestContext
 
         public Task SignOutAsync(HttpContext context, string? scheme, AuthenticationProperties? properties)
         {
+            LastSignOutScheme = scheme;
             context.User = new ClaimsPrincipal(new ClaimsIdentity());
             return Task.CompletedTask;
         }

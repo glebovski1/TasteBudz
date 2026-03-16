@@ -1,6 +1,6 @@
 # How MVC Works in TasteBudz
 
-Last verified: 2026-03-11
+Last verified: 2026-03-16
 
 This guide explains how ASP.NET Core MVC works in this repository today.
 
@@ -81,7 +81,7 @@ What it does:
 2. registers `AddControllersWithViews()`
 3. enables ASP.NET session state
 4. enables cookie authentication for the MVC site
-5. registers MVC frontend services and backend API clients
+5. registers the MVC backend service layer inline in `Program.cs`
 6. configures the pipeline and endpoint mapping in this order:
    - exception handler / HSTS outside development
    - HTTPS redirection
@@ -112,22 +112,25 @@ Examples:
 
 These controllers are intentionally thin. They do not implement TasteBudz business policy like event capacity, moderation, or discovery rules.
 
-### 2. Backend API Clients
+### 2. Backend API Services
 
-`Services/Backend/` contains small clients for backend feature areas:
+`Services/BackendApi/` contains small services for backend feature areas:
 
-- `AuthApiClient`
-- `OnboardingApiClient`
-- `ProfileApiClient`
-- `PreferenceApiClient`
-- `PrivacyApiClient`
-- `DashboardApiClient`
+- `AuthApiService`
+- `ProfileApiService`
+- `RestaurantApiService`
+- `EventApiService`
+- `GroupApiService`
+- `DiscoveryApiService`
+- `MessagingApiService`
+- `NotificationApiService`
+- `ModerationApiService`
 
-These are the MVC app's integration boundary with the backend. Controllers call these clients instead of building raw `HttpRequestMessage` objects directly.
+These are the MVC app's integration boundary with the backend. Controllers and future UI flows call these services instead of building raw `HttpRequestMessage` objects directly.
 
-### 3. Request Executor
+### 3. Shared HTTP Boundary
 
-`Services/Backend/BackendApiRequestExecutor.cs` is the shared authenticated HTTP path for protected backend calls.
+`Services/BackendHttpClient.cs` is the shared authenticated HTTP path for protected backend calls.
 
 It is responsible for:
 
@@ -137,7 +140,7 @@ It is responsible for:
 - retrying once after token refresh when the backend returns `401`
 - signing the user out locally if refresh fails
 
-This keeps token plumbing out of individual controllers and area-specific API clients.
+This keeps token plumbing out of individual controllers and area-specific backend API services.
 
 ### 4. Session And Authentication
 
@@ -146,7 +149,7 @@ The MVC app uses two layers of auth state:
 1. ASP.NET Core cookie authentication
 2. server-side session storage containing the backend session snapshot
 
-`Services/Session/UserSessionService.cs` is the bridge between them.
+`Services/UserSessionService.cs` is the bridge between them.
 
 It:
 
@@ -163,11 +166,9 @@ This means:
 
 The MVC app keeps backend contract shapes separate from page shapes.
 
-Backend contract DTOs live in:
+Backend contract DTOs live in the referenced `TasteBudz.Backend` project.
 
-- `Services/Backend/Contracts/`
-
-These mirror the backend API payloads used by the MVC frontend.
+The MVC app reuses those DTOs directly for HTTP calls instead of maintaining a separate duplicate contract folder.
 
 Page-facing models live in:
 
@@ -188,7 +189,7 @@ Why this separation matters:
 
 Example:
 
-- `DashboardApiClient` fetches a `DashboardDto`
+- `ProfileApiService` fetches a `DashboardDto`
 - `DashboardViewModel.FromDto(...)` maps it into cards the Razor view renders
 
 ## How Requests Flow Here
@@ -201,7 +202,7 @@ Example:
 2. MVC returns `Views/Account/Login.cshtml`
 3. user submits the form
 4. `AccountController.Login` model-binds into `LoginViewModel`
-5. `AuthApiClient` calls `POST /api/v1/auth/login`
+5. `AuthApiService` calls `POST /api/v1/auth/login`
 6. `UserSessionService.SignInAsync(...)` stores backend tokens and signs in the MVC cookie principal
 7. MVC calls `GET /api/v1/onboarding/status`
 8. user is redirected to:
@@ -270,8 +271,7 @@ src/TasteBudz.Web.Mvc/
   Controllers/
   Options/
   Services/
-    Backend/
-    Session/
+    BackendApi/
   ViewModels/
   Views/
   wwwroot/
@@ -282,8 +282,9 @@ How to read that structure:
 
 - `Controllers/`: browser request handling
 - `Options/`: typed configuration such as backend base URL
-- `Services/Backend/`: HTTP integration with `TasteBudz.Backend`
-- `Services/Session/`: local auth/session bridge
+- `Services/BackendApi/`: feature-oriented wrappers over `TasteBudz.Backend` endpoints
+- `Services/BackendHttpClient.cs`: shared HTTP/auth/error/refresh boundary
+- `Services/UserSessionService.cs`: local auth/session bridge
 - `ViewModels/`: page-specific models
 - `Views/`: Razor markup
 - `wwwroot/`: CSS, JS, static assets
@@ -313,8 +314,8 @@ This is a good fit for the current architecture because it tests MVC behavior wi
 Follow this pattern:
 
 1. confirm the backend endpoint already exists and matches the docs
-2. add or extend a backend API client in `Services/Backend/`
-3. add or extend backend contract DTOs only as needed
+2. add or extend a backend API service in `Services/BackendApi/`
+3. reuse the backend contract DTOs from `TasteBudz.Backend`, only adding MVC-only models when a page needs its own shape
 4. add a page-specific view model in `ViewModels/`
 5. add controller actions
 6. add Razor views
@@ -324,13 +325,24 @@ Do not put product rules in the MVC app just because the UI needs them. If a rul
 
 ## Current Scope Boundary
 
-As of 2026-03-11, the MVC app is intentionally narrower than the backend API surface.
+As of 2026-03-16, the MVC app is intentionally narrower than the backend API surface.
 
-Implemented in MVC now:
+Implemented as MVC pages now:
 
 - auth screens
 - onboarding/profile editing
 - dashboard/profile summary
+
+Implemented as MVC backend services now:
+
+- the current-user/profile slice
+- restaurants
+- events
+- groups
+- discovery and Budz
+- message history
+- notifications
+- reporting, moderation, restrictions, and audit
 
 Not yet surfaced as MVC pages:
 
@@ -350,7 +362,7 @@ MVC in this repo is a separate server-rendered frontend that sits on top of the 
 Use this mental model:
 
 - controllers coordinate page flows
-- backend API clients talk to `TasteBudz.Backend`
+- backend API services talk to `TasteBudz.Backend`
 - session service bridges MVC cookie auth and backend bearer tokens
 - view models shape data for Razor
 - backend remains the owner of business rules and lifecycle state
