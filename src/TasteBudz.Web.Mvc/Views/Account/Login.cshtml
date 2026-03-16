@@ -1,0 +1,63 @@
+@model LoginViewModel
+
+@{
+    ViewData["Title"] = "Log In";
+}
+
+<section class="hero-grid">
+    <div class="hero-copy">
+        <span class="eyebrow">MVP Frontend</span>
+        <h1>Food plans start faster when the app gets out of the way.</h1>
+        <p>
+            Sign in to the TasteBudz MVP and keep your profile, preferences, and dining connections in one place.
+            The frontend stays lightweight while the backend remains the system of record.
+        </p>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <strong>Profiles</strong>
+                <span>Real onboarding state from the backend.</span>
+            </div>
+            <div class="hero-stat">
+                <strong>Budz</strong>
+                <span>Dashboard summaries flow straight from `/api/v1/me/dashboard`.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card auth-card">
+        <div class="stack">
+            <div>
+                <h2 class="card__title">Welcome back</h2>
+                <p class="card__subtitle">Use your username or email, then continue where you left off.</p>
+            </div>
+
+            <form asp-action="Login" method="post" class="stack-lg" novalidate>
+                <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+
+                <div class="field">
+                    <label asp-for="UsernameOrEmail"></label>
+                    <input asp-for="UsernameOrEmail" autocomplete="username" placeholder="alex or alex@example.com" />
+                    <span asp-validation-for="UsernameOrEmail" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Password"></label>
+                    <input asp-for="Password" autocomplete="current-password" placeholder="Password" />
+                    <span asp-validation-for="Password" class="field-validation-error"></span>
+                </div>
+
+                <button type="submit" class="button button--primary">Log In</button>
+            </form>
+        </div>
+
+        <p class="auth-switch">
+            Need an account?
+            <a asp-action="CreateAccount">Create one here.</a>
+        </p>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

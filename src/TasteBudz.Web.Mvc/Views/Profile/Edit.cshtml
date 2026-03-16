@@ -1,0 +1,160 @@
+@model ProfileEditViewModel
+
+@{
+    ViewData["Title"] = Model.IsOnboardingFlow ? "Complete Profile" : "Edit Profile";
+}
+
+<section class="profile-shell">
+    <div class="card profile-banner">
+        <div>
+            <h1>@(Model.IsOnboardingFlow ? "Finish your TasteBudz profile" : "Update your profile")</h1>
+            <p>
+                @(Model.IsOnboardingFlow
+                    ? "The backend uses this information to determine onboarding completeness and preference matching."
+                    : "Keep your profile, food preferences, and discovery settings aligned with what the API already expects.")
+            </p>
+        </div>
+
+        <div class="button-row">
+            <a asp-action="View" class="button button--secondary">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <form asp-action="Edit" method="post" class="stack-lg" novalidate>
+        <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+
+        <div class="editor-grid">
+            <section class="card stack">
+                <div>
+                    <h2 class="card__title">Profile Basics</h2>
+                    <p class="card__subtitle">Current-user profile data from `/api/v1/profiles/me`.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Username"></label>
+                    <input asp-for="Username" autocomplete="username" />
+                    <span asp-validation-for="Username" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="DisplayName"></label>
+                    <input asp-for="DisplayName" autocomplete="nickname" />
+                    <span asp-validation-for="DisplayName" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="HomeAreaZipCode"></label>
+                    <input asp-for="HomeAreaZipCode" autocomplete="postal-code" />
+                    <span asp-validation-for="HomeAreaZipCode" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="SocialGoal"></label>
+                    <select asp-for="SocialGoal" asp-items="ProfileEditViewModel.SocialGoalOptions">
+                        <option value="">Select a goal</option>
+                    </select>
+                    <span asp-validation-for="SocialGoal" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Bio"></label>
+                    <textarea asp-for="Bio" placeholder="Say a little about your food vibe."></textarea>
+                    <span asp-validation-for="Bio" class="field-validation-error"></span>
+                </div>
+            </section>
+
+            <section class="panel stack">
+                <div>
+                    <h2>Preference Signals</h2>
+                    <p class="card__subtitle">These are the onboarding fields the backend checks for completion.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="SpiceTolerance"></label>
+                    <select asp-for="SpiceTolerance" asp-items="ProfileEditViewModel.SpiceToleranceOptions">
+                        <option value="">Pick your heat level</option>
+                    </select>
+                    <span asp-validation-for="SpiceTolerance" class="field-validation-error"></span>
+                </div>
+
+                <div class="field-group">
+                    <span class="group-label">Favorite Cuisines</span>
+                    <div class="chips">
+                        @foreach (var tag in ProfileEditViewModel.AvailableCuisineTags)
+                        {
+                            var chipId = $"cuisine-{tag.Replace(" ", "-").ToLowerInvariant()}";
+                            <div class="chip">
+                                <input
+                                    id="@chipId"
+                                    type="checkbox"
+                                    name="SelectedCuisineTags"
+                                    value="@tag"
+                                    checked="@Model.SelectedCuisineTags.Contains(tag, StringComparer.OrdinalIgnoreCase)" />
+                                <label for="@chipId">@tag</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="editor-grid">
+            <section class="panel stack">
+                <div>
+                    <h2>Dietary Notes</h2>
+                    <p class="card__subtitle">Dietary flags are sent as normalized string tags; allergies stay freeform.</p>
+                </div>
+
+                <div class="field-group">
+                    <span class="group-label">Dietary Flags</span>
+                    <div class="chips">
+                        @foreach (var tag in ProfileEditViewModel.AvailableDietaryFlags)
+                        {
+                            var chipId = $"dietary-{tag.Replace(" ", "-").ToLowerInvariant()}";
+                            <div class="chip">
+                                <input
+                                    id="@chipId"
+                                    type="checkbox"
+                                    name="SelectedDietaryFlags"
+                                    value="@tag"
+                                    checked="@Model.SelectedDietaryFlags.Contains(tag, StringComparer.OrdinalIgnoreCase)" />
+                                <label for="@chipId">@tag</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label asp-for="AllergiesText"></label>
+                    <textarea asp-for="AllergiesText" placeholder="Peanuts, shellfish, dairy"></textarea>
+                    <span asp-validation-for="AllergiesText" class="field-validation-error"></span>
+                </div>
+            </section>
+
+            <section class="panel stack">
+                <div>
+                    <h2>Privacy</h2>
+                    <p class="card__subtitle">Phase 1 only exposes the discovery visibility flag supported by the current API.</p>
+                </div>
+
+                <label class="checkbox-row">
+                    <input asp-for="DiscoveryEnabled" />
+                    <span>Allow people discovery and search to show my profile.</span>
+                </label>
+
+                <p class="muted-note">
+                    Groups, events, discovery swipes, and chat pages are intentionally deferred until the auth/profile slice is stable.
+                </p>
+            </section>
+        </div>
+
+        <div class="button-row">
+            <button type="submit" class="button button--primary">Save Profile</button>
+            <a asp-action="View" class="button button--secondary">Cancel</a>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,16 @@
+@{
+    ViewData["Title"] = "Error";
+}
+
+<section class="error-shell">
+    <div class="card stack">
+        <span class="eyebrow">Server Error</span>
+        <h1 class="card__title">The MVC frontend hit an unexpected error.</h1>
+        <p class="card__subtitle">
+            The backend contracts are unchanged, so this usually means the frontend host needs another pass or the local dev services are not both running.
+        </p>
+        <div class="button-row">
+            <a asp-controller="Account" asp-action="Login" class="button button--primary">Back to Login</a>
+        </div>
+    </div>
+</section>

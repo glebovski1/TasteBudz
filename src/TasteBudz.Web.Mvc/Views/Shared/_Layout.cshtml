@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TasteBudz</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="page-backdrop"></div>
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a class="site-brand" asp-controller="Account" asp-action="Login">
+                <span class="site-brand__mark">TB</span>
+                <span>
+                    <strong>TasteBudz</strong>
+                    <small>social dining, kept simple</small>
+                </span>
+            </a>
+
+            <nav class="site-nav" aria-label="Primary">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-controller="Profile" asp-action="View">Dashboard</a>
+                    <a asp-controller="Profile" asp-action="Edit">Edit Profile</a>
+                    <form asp-controller="Account" asp-action="Logout" method="post" class="site-nav__logout">
+                        <button type="submit" class="link-button">Log Out</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login">Log In</a>
+                    <a asp-controller="Account" asp-action="CreateAccount">Create Account</a>
+                }
+            </nav>
+        </div>
+    </header>
+
+    <main class="page-shell">
+        @if (TempData["StatusMessage"] is string statusMessage)
+        {
+            <div class="flash-message" role="status">@statusMessage</div>
+        }
+
+        @RenderBody()
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
