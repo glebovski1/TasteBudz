@@ -166,7 +166,7 @@ public sealed class AccountController : Controller
         catch (BackendAuthenticationExpiredException)
         {
             await userSessionService.SignOutAsync(cancellationToken);
-            ModelState.AddModelError(string.Empty, "Your session expired before the app could finish signing you in. Please try again.");
+            ModelState.AddModelError(string.Empty, "Sign-in succeeded, but the app couldn't load your account right away. Please try again.");
             return View("Login", new LoginViewModel());
         }
     }

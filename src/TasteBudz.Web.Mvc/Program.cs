@@ -63,7 +63,12 @@ builder.Services.AddHttpClient("BackendApi", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<BackendApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
-});
+})
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        // Protected backend calls must fail fast on redirects so auth headers are not silently lost.
+        AllowAutoRedirect = false,
+    });
 
 var app = builder.Build();
 
