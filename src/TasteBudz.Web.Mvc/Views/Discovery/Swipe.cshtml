@@ -1,0 +1,202 @@
+@model SwipeViewModel
+
+@{
+    ViewData["Title"] = "Find Budz";
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr;">
+        <div>
+            <h1>Find Budz</h1>
+            <p>Swipe right to connect, or pass to move on.</p>
+        </div>
+    </div>
+
+    @if (Model.Candidates.Count == 0)
+    {
+        <div class="panel" style="text-align: center; padding: 3rem 1.4rem;">
+            <p class="empty-state">No new candidates right now — check back soon!</p>
+        </div>
+    }
+    else
+    {
+        <div class="swipe-area">
+            <div class="swipe-container" id="swipeContainer">
+                @foreach (var candidate in Model.Candidates)
+                {
+                    <div class="swipecard" data-user-id="@candidate.UserId">
+                        <div class="swipe-indicator swipe-indicator--like">LIKE</div>
+                        <div class="swipe-indicator swipe-indicator--nope">NOPE</div>
+
+                        <div class="swipecard__body">
+                            <div class="swipecard__avatar" aria-hidden="true">
+                                @candidate.DisplayName.Substring(0, 1).ToUpper()
+                            </div>
+
+                            <div class="swipecard__info">
+                                <h2 class="swipecard__name">@candidate.DisplayName</h2>
+                                <span class="pill">@@@candidate.Username</span>
+
+                                @if (!string.IsNullOrWhiteSpace(candidate.Bio))
+                                {
+                                    <p class="swipecard__bio">@candidate.Bio</p>
+                                }
+                                else
+                                {
+                                    <p class="swipecard__bio swipecard__bio--empty">No bio yet.</p>
+                                }
+
+                                @if (candidate.SocialGoal is not null)
+                                {
+                                    <span class="pill" style="margin-top: 0.5rem;">@candidate.SocialGoal</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="swipe-buttons" id="swipeButtons">
+                <button class="swipe-btn swipe-btn--pass" id="btnPass" aria-label="Pass">✕</button>
+                <button class="swipe-btn swipe-btn--like" id="btnLike" aria-label="Like">♥</button>
+            </div>
+
+            <p class="swipe-status empty-state" id="swipeStatus" aria-live="polite"></p>
+        </div>
+    }
+
+</section>
+
+@* Anti-forgery token read by the fetch() calls below *@
+@Html.AntiForgeryToken()
+
+<script>
+(function () {
+    const container  = document.getElementById("swipeContainer");
+    const btnLike    = document.getElementById("btnLike");
+    const btnPass    = document.getElementById("btnPass");
+    const statusEl   = document.getElementById("swipeStatus");
+    const token      = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? "";
+
+    if (!container) return;
+
+    // ── Card stack helpers ───────────────────────────────────────────────────
+
+    function topCard() {
+        const cards = container.querySelectorAll(".swipecard:not(.swipecard--gone)");
+        return cards[cards.length - 1] ?? null;
+    }
+
+    function dismissCard(card, direction) {
+        const userId = card.dataset.userId;
+        const decision = direction === "like" ? "Like" : "Pass";
+
+        card.classList.add("swipecard--gone", `swipecard--exit-${direction}`);
+
+        postSwipe(userId, decision).then(result => {
+            if (result?.isBudMatch) {
+                showStatus("🎉 It's a match! You and this Bud are now connected.");
+            }
+        });
+
+        // After the CSS exit animation finishes, check whether the stack is empty.
+        card.addEventListener("animationend", () => {
+            if (!topCard()) {
+                showStatus("You've seen everyone for now — check back soon!");
+                if (document.getElementById("swipeButtons")) {
+                    document.getElementById("swipeButtons").style.display = "none";
+                }
+            }
+        }, { once: true });
+    }
+
+    function showStatus(msg) {
+        if (statusEl) statusEl.textContent = msg;
+    }
+
+    // ── Button clicks ────────────────────────────────────────────────────────
+
+    btnLike?.addEventListener("click", () => {
+        const card = topCard();
+        if (card) dismissCard(card, "like");
+    });
+
+    btnPass?.addEventListener("click", () => {
+        const card = topCard();
+        if (card) dismissCard(card, "pass");
+    });
+
+    // ── Drag-to-swipe ────────────────────────────────────────────────────────
+
+    let startX = 0, currentX = 0, dragging = false, activeCard = null;
+
+    container.addEventListener("pointerdown", e => {
+        activeCard = topCard();
+        if (!activeCard) return;
+        dragging = true;
+        startX = e.clientX;
+        activeCard.setPointerCapture(e.pointerId);
+        activeCard.style.transition = "none";
+    });
+
+    container.addEventListener("pointermove", e => {
+        if (!dragging || !activeCard) return;
+        currentX = e.clientX - startX;
+        const rotate = currentX * 0.08;
+        activeCard.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
+
+        const likeEl = activeCard.querySelector(".swipe-indicator--like");
+        const nopeEl = activeCard.querySelector(".swipe-indicator--nope");
+        if (likeEl) likeEl.style.opacity = Math.min(currentX / 80, 1);
+        if (nopeEl) nopeEl.style.opacity = Math.min(-currentX / 80, 1);
+    });
+
+    container.addEventListener("pointerup", () => {
+        if (!dragging || !activeCard) return;
+        dragging = false;
+        activeCard.style.transition = "";
+
+        if (currentX > 80) {
+            dismissCard(activeCard, "like");
+        } else if (currentX < -80) {
+            dismissCard(activeCard, "pass");
+        } else {
+            // Snap back to centre
+            activeCard.style.transform = "";
+            const likeEl = activeCard.querySelector(".swipe-indicator--like");
+            const nopeEl = activeCard.querySelector(".swipe-indicator--nope");
+            if (likeEl) likeEl.style.opacity = 0;
+            if (nopeEl) nopeEl.style.opacity = 0;
+        }
+
+        activeCard = null;
+        currentX = 0;
+    });
+
+    // ── Backend POST ─────────────────────────────────────────────────────────
+
+    async function postSwipe(userId, decision) {
+        try {
+            const response = await fetch("/Discovery/RecordSwipe", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "RequestVerificationToken": token,
+                },
+                body: JSON.stringify({ subjectUserId: userId, decision }),
+            });
+
+            if (response.status === 401) {
+                // Session expired — hard redirect to login.
+                window.location.href = "/Account/Login";
+                return null;
+            }
+
+            return response.ok ? await response.json() : null;
+        } catch {
+            return null;
+        }
+    }
+}());
+</script>

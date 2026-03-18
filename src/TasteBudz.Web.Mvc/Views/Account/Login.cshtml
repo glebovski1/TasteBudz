@@ -4,26 +4,7 @@
     ViewData["Title"] = "Log In";
 }
 
-<section class="hero-grid">
-    <div class="hero-copy">
-        <span class="eyebrow">MVP Frontend</span>
-        <h1>Food plans start faster when the app gets out of the way.</h1>
-        <p>
-            Sign in to the TasteBudz MVP and keep your profile, preferences, and dining connections in one place.
-            The frontend stays lightweight while the backend remains the system of record.
-        </p>
-
-        <div class="hero-stats">
-            <div class="hero-stat">
-                <strong>Profiles</strong>
-                <span>Real onboarding state from the backend.</span>
-            </div>
-            <div class="hero-stat">
-                <strong>Budz</strong>
-                <span>Dashboard summaries flow straight from `/api/v1/me/dashboard`.</span>
-            </div>
-        </div>
-    </div>
+<section class="hero-grid auth-page">
 
     <div class="card auth-card">
         <div class="stack">
@@ -47,14 +28,15 @@
                     <span asp-validation-for="Password" class="field-validation-error"></span>
                 </div>
 
-                <button type="submit" class="button button--primary">Log In</button>
+                <button type="submit" class="primary-btn">Log In</button>
             </form>
         </div>
 
-        <p class="auth-switch">
-            Need an account?
-            <a asp-action="CreateAccount">Create one here.</a>
-        </p>
+        <div class="divider">Don't have an Account?</div>
+
+        <div>
+            <button class="primary-btn" onclick="window.location.href = '/Account/CreateAccount'">Create an Account</button>
+        </div>
     </div>
 </section>
 
