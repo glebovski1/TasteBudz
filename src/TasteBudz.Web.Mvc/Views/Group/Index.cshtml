@@ -1,0 +1,83 @@
+@model GroupIndexViewModel
+
+@{
+    ViewData["Title"] = "Groups";
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Groups</h1>
+            <p>Find a group that shares your food interests, or start your own.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Create" class="button button--primary">+ Create Group</a>
+        </div>
+    </div>
+
+    <div class="card stack">
+        <h2 class="card__title">Explore Groups</h2>
+
+        <form asp-action="Index" method="get" class="button-row" style="align-items: stretch;">
+            <div class="field" style="flex: 1; gap: 0;">
+                <input type="text"
+                       name="q"
+                       value="@Model.SearchQuery"
+                       placeholder="Search groups by name..."
+                       aria-label="Search groups" />
+            </div>
+            <button type="submit" class="button button--primary">Search</button>
+            @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
+            {
+                <a asp-action="Index" class="button button--secondary">Clear</a>
+            }
+        </form>
+    </div>
+
+    @if (Model.Groups.Count == 0)
+    {
+        <div class="panel">
+            <p class="empty-state">
+                @if (string.IsNullOrWhiteSpace(Model.SearchQuery))
+                {
+                    <span>No groups yet — be the first to create one!</span>
+                }
+                else
+                {
+                    <span>No groups matched "@Model.SearchQuery".</span>
+                }
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="groups-grid">
+            @foreach (var group in Model.Groups)
+            {
+                <article class="card group-card">
+                    <div class="group-card__header">
+                        <h3 class="group-card__name">@group.Name</h3>
+                        <span class="pill">@group.Visibility</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(group.Description))
+                    {
+                        <p class="group-card__desc">@group.Description</p>
+                    }
+
+                    <div class="group-card__footer">
+                        <span class="group-card__members">
+                            @group.ActiveMembers @(group.ActiveMembers == 1 ? "member" : "members")
+                        </span>
+                        <a asp-action="Manage" asp-route-groupId="@group.GroupId"
+                           class="button button--secondary group-card__action">
+                            View
+                        </a>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+
+</section>

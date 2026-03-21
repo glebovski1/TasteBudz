@@ -181,8 +181,10 @@
             const response = await fetch("/Discovery/RecordSwipe", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    "RequestVerificationToken": token,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": token,
+                        },
                 },
                 body: JSON.stringify({ subjectUserId: userId, decision }),
             });

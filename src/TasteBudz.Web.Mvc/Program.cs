@@ -16,6 +16,10 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
@@ -81,6 +85,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.MapStaticAssets();
 app.UseRouting();
+app.UseAntiforgery();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();

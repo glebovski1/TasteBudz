@@ -23,6 +23,7 @@
                     <a asp-controller="Profile" asp-action="View">Dashboard</a>
                     <a asp-controller="Profile" asp-action="Edit">Edit Profile</a>
                     <a asp-controller="Discovery" asp-action="Swipe">Find Budz</a>
+                    <a asp-controller="Group" asp-action="Index">Groups</a>
                     <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="tb-nav-logout">Log Out</button>

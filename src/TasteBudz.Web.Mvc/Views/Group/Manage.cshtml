@@ -1,0 +1,148 @@
+@model GroupManageViewModel
+
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<section class="profile-shell">
+
+    @* Group Banner *@
+    <div class="card profile-banner">
+        <div>
+            <h1>@Model.Name</h1>
+            @if (!string.IsNullOrWhiteSpace(Model.Description))
+            {
+                <p>@Model.Description</p>
+            }
+            <div class="profile-meta">
+                <span class="pill">@Model.Visibility</span>
+                <span class="pill">@Model.Members.Count @(Model.Members.Count == 1 ? "member" : "members")</span>
+            </div>
+        </div>
+
+        <div class="button-row">
+            <a asp-action="Index" class="button button--secondary">Back to Groups</a>
+
+            @if (Model.IsCurrentUserMember && !Model.IsCurrentUserOwner)
+            {
+                <form asp-action="Leave" asp-route-groupId="@Model.GroupId" method="post" style="display:inline;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="button button--secondary"
+                            onclick="return confirm('Leave this group?')">
+                        Leave Group
+                    </button>
+                </form>
+            }
+
+            @if (!Model.IsCurrentUserMember)
+            {
+                <form asp-action="Join" asp-route-groupId="@Model.GroupId" method="post" style="display:inline;">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="button button--primary">Join Group</button>
+                </form>
+            }
+        </div>
+    </div>
+
+    <div class="panel-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+
+        @* Members Panel *@
+        <section class="panel stack">
+            <h2>Members</h2>
+            <div class="panel__items">
+                @if (Model.Members.Count == 0)
+                {
+                    <p class="empty-state">No members yet.</p>
+                }
+                else
+                {
+                    @foreach (var member in Model.Members)
+                    {
+                        <article class="summary-card member-row">
+                            <div class="member-row__info">
+                                <strong>@member.DisplayName</strong>
+                                <span>@@@member.Username</span>
+                                @if (member.IsOwner)
+                                {
+                                    <span class="pill" style="font-size:0.78rem;">Owner</span>
+                                }
+                            </div>
+
+                            @if (Model.IsCurrentUserOwner && !member.IsOwner)
+                            {
+                                <form asp-action="RemoveMember"
+                                      asp-route-groupId="@Model.GroupId"
+                                      asp-route-userId="@member.UserId"
+                                      method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="button button--danger"
+                                            onclick="return confirm('Remove @member.DisplayName from the group?')">
+                                        Remove
+                                    </button>
+                                </form>
+                            }
+                        </article>
+                    }
+                }
+            </div>
+        </section>
+
+        @if (Model.IsCurrentUserOwner)
+        {
+            @* Invite Panel (private groups only) *@
+            @if (Model.Visibility == "Private")
+            {
+                <section class="panel stack">
+                    <h2>Invite a Member</h2>
+                    <p class="card__subtitle">Enter a username to send them a group invite.</p>
+
+                    <form asp-action="Invite" asp-route-groupId="@Model.GroupId" method="post" class="stack">
+                        @Html.AntiForgeryToken()
+                        <div class="field">
+                            <label for="InviteUsername">Username</label>
+                            <input type="text" id="InviteUsername" name="InviteUsername"
+                                   placeholder="e.g. foodlover42" />
+                        </div>
+                        <div class="button-row">
+                            <button type="submit" class="button button--primary">Send Invite</button>
+                        </div>
+                    </form>
+                </section>
+            }
+
+            @* Settings Panel *@
+            <section class="panel stack">
+                <h2>Group Settings</h2>
+                <p class="card__subtitle">Update your group's name, description, or privacy.</p>
+
+                <form asp-action="UpdateSettings" asp-route-groupId="@Model.GroupId" method="post" class="stack">
+                    @Html.AntiForgeryToken()
+
+                    <div class="field">
+                        <label for="EditName">Group Name</label>
+                        <input type="text" id="EditName" name="EditName" value="@Model.EditName" />
+                    </div>
+
+                    <div class="field">
+                        <label for="EditDescription">Description</label>
+                        <textarea id="EditDescription" name="EditDescription">@Model.EditDescription</textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="EditVisibility">Privacy</label>
+                        <select id="EditVisibility" name="EditVisibility">
+                            <option value="Public" selected="@(Model.EditVisibility?.ToString() == "Public")">Public — anyone can join</option>
+                            <option value="Private" selected="@(Model.EditVisibility?.ToString() == "Private")">Private — invite only</option>
+                        </select>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="submit" class="button button--primary">Save Settings</button>
+                    </div>
+                </form>
+            </section>
+        }
+
+    </div>
+
+</section>
