@@ -1,0 +1,78 @@
+@model GroupCreateViewModel
+
+@{
+    ViewData["Title"] = "Create Group";
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Create a New Group</h1>
+            <p>Set up your group's name, description, and privacy settings.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Index" class="button button--secondary">Back to Groups</a>
+        </div>
+    </div>
+
+    <form asp-action="Create" method="post" class="stack-lg" novalidate>
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+
+        <div class="editor-grid">
+
+            <section class="card stack">
+                <div>
+                    <h2 class="card__title">Group Details</h2>
+                    <p class="card__subtitle">Choose a name and description that tells people what your group is about.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Name"></label>
+                    <input asp-for="Name" placeholder="e.g. Italian Foodies, Taco Lovers…" />
+                    <span asp-validation-for="Name" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Description"></label>
+                    <textarea asp-for="Description" placeholder="What is this group about? (optional)"></textarea>
+                    <span asp-validation-for="Description" class="field-validation-error"></span>
+                </div>
+            </section>
+
+            <section class="panel stack">
+                <div>
+                    <h2>Privacy</h2>
+                    <p class="card__subtitle">Public groups are open for anyone to join. Private groups require an invite.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Visibility"></label>
+                    <select asp-for="Visibility">
+                        <option value="">Select privacy…</option>
+                        <option value="Public">Public — anyone can join</option>
+                        <option value="Private">Private — invite only</option>
+                    </select>
+                    <span asp-validation-for="Visibility" class="field-validation-error"></span>
+                </div>
+
+                <p class="muted-note">
+                    You can change the privacy setting later from the group management page.
+                </p>
+            </section>
+
+        </div>
+
+        <div class="button-row">
+            <button type="submit" class="button button--primary">Create Group</button>
+            <a asp-action="Index" class="button button--secondary">Cancel</a>
+        </div>
+
+    </form>
+
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

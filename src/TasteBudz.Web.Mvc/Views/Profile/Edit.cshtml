@@ -6,18 +6,7 @@
 
 <section class="profile-shell">
     <div class="card profile-banner">
-        <div>
             <h1>@(Model.IsOnboardingFlow ? "Finish your TasteBudz profile" : "Update your profile")</h1>
-            <p>
-                @(Model.IsOnboardingFlow
-                    ? "The backend uses this information to determine onboarding completeness and preference matching."
-                    : "Keep your profile, food preferences, and discovery settings aligned with what the API already expects.")
-            </p>
-        </div>
-
-        <div class="button-row">
-            <a asp-action="View" class="button button--secondary">Back to Dashboard</a>
-        </div>
     </div>
 
     <form asp-action="Edit" method="post" class="stack-lg" novalidate>

@@ -1,12 +1,28 @@
 using System.Net;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
+using TasteBudz.Web.Mvc.Services;
 
 namespace TasteBudz.Web.Mvc.IntegrationTests.Api;
 
 public sealed class AccountAndProfileMvcTests
 {
+    [Fact]
+    public void AuthCookie_UsesEightHourSlidingExpirationAndBackendSessionValidation()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        var optionsMonitor = factory.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>();
+        var options = optionsMonitor.Get(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        Assert.Equal(TimeSpan.FromHours(8), options.ExpireTimeSpan);
+        Assert.True(options.SlidingExpiration);
+        Assert.Equal(typeof(BackendSessionCookieEvents), options.EventsType);
+    }
+
     [Fact]
     public async Task Register_PostsToBackendAndRedirectsToProfileEdit()
     {
@@ -87,6 +103,54 @@ public sealed class AccountAndProfileMvcTests
         Assert.Contains("/Account/Login", editResponse.Headers.Location?.ToString());
         Assert.Equal(HttpStatusCode.Redirect, viewResponse.StatusCode);
         Assert.Contains("/Account/Login", viewResponse.Headers.Location?.ToString());
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task ProtectedPages_WhenBackendSessionHasTimedOut_RedirectToLoginWithoutCallingBackend()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Account/Login");
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/auth/login",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateSession()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/onboarding/status",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new OnboardingStatusDto(true, Array.Empty<string>())));
+
+        using var loginResponse = await client.PostAsync(
+            "/Account/Login",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["UsernameOrEmail"] = "alex@example.com",
+                ["Password"] = "Pa$$w0rd123",
+            }));
+
+        var authCookie = loginResponse.Headers
+            .GetValues("Set-Cookie")
+            .Single(header => header.StartsWith(".TasteBudz.Mvc.Auth=", StringComparison.Ordinal))
+            .Split(';', 2)[0];
+
+        Assert.Equal(HttpStatusCode.Redirect, loginResponse.StatusCode);
+        factory.BackendHandler.AssertDrained();
+        factory.BackendHandler.Requests.Clear();
+
+        using var authOnlyClient = factory.Server.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Profile/View");
+        request.Headers.Add("Cookie", authCookie);
+
+        using var response = await authOnlyClient.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/Account/Login", response.Headers.Location?.ToString());
+        Assert.Empty(factory.BackendHandler.Requests);
         factory.BackendHandler.AssertDrained();
     }
 

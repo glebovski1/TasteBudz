@@ -5,31 +5,10 @@
 }
 
 <section class="hero-grid">
-    <div class="hero-copy">
-        <span class="eyebrow">First Run</span>
-        <h1>Start with the account basics, then finish the profile in one clean pass.</h1>
-        <p>
-            This first milestone keeps the UI intentionally narrow: registration, login, onboarding, profile details,
-            preferences, and a dashboard view backed by the existing TasteBudz API contracts.
-        </p>
-
-        <div class="hero-stats">
-            <div class="hero-stat">
-                <strong>API-first</strong>
-                <span>No frontend-owned business rules.</span>
-            </div>
-            <div class="hero-stat">
-                <strong>Net9 MVC</strong>
-                <span>Separate app, same repo, clean boundary.</span>
-            </div>
-        </div>
-    </div>
-
     <div class="card auth-card">
         <div class="stack">
             <div>
                 <h2 class="card__title">Create your TasteBudz account</h2>
-                <p class="card__subtitle">Register once, then the app will route you into the onboarding/profile flow.</p>
             </div>
 
             <form asp-action="CreateAccount" method="post" class="stack-lg" novalidate>

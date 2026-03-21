@@ -8,23 +8,25 @@
 </head>
 <body>
     <div class="page-backdrop"></div>
-    <header class="site-header">
-        <div class="site-header__inner">
+    <header class="tb-header">
+        <div class="header__inner">
             <a class="site-brand" asp-controller="Account" asp-action="Login">
                 <span class="site-brand__mark">TB</span>
                 <span>
                     <strong>TasteBudz</strong>
-                    <small>social dining, kept simple</small>
                 </span>
             </a>
 
-            <nav class="site-nav" aria-label="Primary">
+            <nav class="tb-nav" aria-label="Primary">
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <a asp-controller="Profile" asp-action="View">Dashboard</a>
                     <a asp-controller="Profile" asp-action="Edit">Edit Profile</a>
-                    <form asp-controller="Account" asp-action="Logout" method="post" class="site-nav__logout">
-                        <button type="submit" class="link-button">Log Out</button>
+                    <a asp-controller="Discovery" asp-action="Swipe">Find Budz</a>
+                    <a asp-controller="Group" asp-action="Index">Groups</a>
+                    <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="tb-nav-logout">Log Out</button>
                     </form>
                 }
                 else

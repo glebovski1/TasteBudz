@@ -45,6 +45,25 @@ public sealed class BackendHttpClient
             requiresAuth,
             cancellationToken);
 
+    public Task<TResponse> PostAsync<TResponse>(
+        string path,
+        bool requiresAuth = true,
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(
+            () => new HttpRequestMessage(HttpMethod.Post, path),
+            requiresAuth,
+            cancellationToken);
+
+    public Task PostAsync<TRequest>(
+        string path,
+        TRequest payload,
+        bool requiresAuth = true,
+        CancellationToken cancellationToken = default) =>
+        SendNoContentAsync(
+            () => CreateJsonRequest(HttpMethod.Post, path, payload),
+            requiresAuth,
+            cancellationToken);
+
     public Task PostAsync(
         string path,
         bool requiresAuth = true,
@@ -70,6 +89,15 @@ public sealed class BackendHttpClient
         SendAsync<TResponse>(
             () => CreateJsonRequest(HttpMethod.Patch, path, payload),
             requiresAuth: true,
+            cancellationToken);
+
+    public Task DeleteAsync(
+        string path,
+        bool requiresAuth = true,
+        CancellationToken cancellationToken = default) =>
+        SendNoContentAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, path),
+            requiresAuth,
             cancellationToken);
 
     private async Task<TResponse> SendAsync<TResponse>(
