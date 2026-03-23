@@ -90,7 +90,7 @@
 
     function dismissCard(card, direction) {
         const userId = card.dataset.userId;
-        const decision = direction === "like" ? "Like" : "Pass";
+            const decision = direction === "like" ? 0 : 1;
 
         card.classList.add("swipecard--gone", `swipecard--exit-${direction}`);
 
@@ -181,12 +181,10 @@
             const response = await fetch("/Discovery/RecordSwipe", {
                 method: "POST",
                 headers: {
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRF-TOKEN": token,
-                        },
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": token,
                 },
-                body: JSON.stringify({ subjectUserId: userId, decision }),
+                    body: JSON.stringify({ subjectUserId: userId, decision: decision }),
             });
 
             if (response.status === 401) {
