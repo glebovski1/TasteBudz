@@ -1,0 +1,46 @@
+﻿@model ChatInboxViewModel
+
+@{
+    ViewData["Title"] = "Chats";
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr;">
+        <div>
+            <h1>Chats</h1>
+            <p>Select a group or event to open its chat.</p>
+        </div>
+    </div>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="panel" style="text-align: center; padding: 3rem 1.4rem;">
+            <p class="empty-state">
+                You're not part of any events or groups yet —
+                <a asp-controller="Group" asp-action="Index">browse groups</a> to get started.
+            </p>
+        </div>
+    }
+    else
+    {
+        <ul class="inbox-list">
+            @foreach (var item in Model.Items)
+            {
+                <li class="inbox-item">
+                    <a class="inbox-item__link" href="@item.ChatUrl">
+                        <div class="inbox-item__avatar">
+                            @item.Name.Substring(0, 1).ToUpper()
+                        </div>
+                        <div class="inbox-item__body">
+                            <span class="inbox-item__name">@item.Name</span>
+                            <span class="inbox-item__label pill">@item.ScopeLabel</span>
+                        </div>
+                        <span class="inbox-item__arrow">›</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+
+</section>

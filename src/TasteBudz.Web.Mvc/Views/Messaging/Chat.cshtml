@@ -1,0 +1,158 @@
+﻿@model ChatViewModel
+
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr;">
+        <div>
+            <h1>@Model.Title</h1>
+            <p>Messages are delivered in real time.</p>
+        </div>
+    </div>
+
+    <div class="chat-shell" id="chatShell">
+
+        <div class="chat-history" id="chatHistory" aria-live="polite" aria-label="Chat messages">
+            @if (!Model.History.Any())
+            {
+                <p class="empty-state" id="emptyState">No messages yet — say hello!</p>
+            }
+            else
+            {
+                @foreach (var msg in Model.History)
+                {
+                    <div class="chat-message" data-message-id="@msg.MessageId">
+                        <span class="chat-message__author">@msg.SenderDisplayName</span>
+                        <span class="chat-message__time">@msg.CreatedAtUtc.ToLocalTime().ToString("HH:mm")</span>
+                        <p class="chat-message__body">@msg.Body</p>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="chat-status empty-state" id="chatStatus"></div>
+
+        <form class="chat-compose" id="chatForm" autocomplete="off">
+            <input class="chat-compose__input"
+                   id="messageInput"
+                   type="text"
+                   maxlength="500"
+                   placeholder="Type a message…"
+                   aria-label="Message input"
+                   required />
+            <button class="chat-compose__send" type="submit" id="sendBtn" disabled>Send</button>
+        </form>
+
+    </div>
+
+</section>
+
+@section Scripts {
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        (function () {
+            // ── Config ────────────────────────────────────────────────────────────────
+            const SCOPE_TYPE  = "@Model.ScopeType";   // "Event" or "Group"
+            const SCOPE_ID    = "@Model.ScopeId";
+            const HUB_URL     = "@MessagingApiService.HubPath";  // "/hubs/chat"
+
+            // ── Elements ──────────────────────────────────────────────────────────────
+            const historyEl   = document.getElementById("chatHistory");
+            const statusEl    = document.getElementById("chatStatus");
+            const emptyEl     = document.getElementById("emptyState");
+            const form        = document.getElementById("chatForm");
+            const input       = document.getElementById("messageInput");
+            const sendBtn     = document.getElementById("sendBtn");
+
+            // ── Helpers ───────────────────────────────────────────────────────────────
+
+            function setStatus(msg) {
+                if (statusEl) statusEl.textContent = msg;
+            }
+
+            function appendMessage(msg) {
+                if (emptyEl) emptyEl.remove();
+
+                const wrapper = document.createElement("div");
+                wrapper.className = "chat-message";
+                wrapper.dataset.messageId = msg.messageId;
+
+                const now = new Date(msg.createdAtUtc);
+                const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                wrapper.innerHTML = `
+                    <span class="chat-message__author">${escHtml(msg.senderDisplayName)}</span>
+                    <span class="chat-message__time">${time}</span>
+                    <p class="chat-message__body">${escHtml(msg.body)}</p>`;
+
+                historyEl.appendChild(wrapper);
+                historyEl.scrollTop = historyEl.scrollHeight;
+            }
+
+            function escHtml(str) {
+                return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+            }
+
+            // ── SignalR connection ────────────────────────────────────────────────────
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(HUB_URL)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("@MessagingApiService.MessageReceivedEventName", appendMessage);
+
+            connection.onreconnecting(() => setStatus("Reconnecting…"));
+            connection.onreconnected(() => setStatus(""));
+            connection.onclose(() => setStatus("Disconnected. Refresh to reconnect."));
+
+            async function startConnection() {
+                try {
+                    await connection.start();
+                    await connection.invoke("@MessagingApiService.JoinScopeMethodName", SCOPE_TYPE, SCOPE_ID);
+                    sendBtn.disabled = false;
+                    setStatus("");
+                } catch (err) {
+                    setStatus("Could not connect to chat. Retrying…");
+                    setTimeout(startConnection, 5000);
+                }
+            }
+
+            startConnection();
+
+            // ── Send message ──────────────────────────────────────────────────────────
+
+            form.addEventListener("submit", async e => {
+                e.preventDefault();
+                const body = input.value.trim();
+                if (!body) return;
+
+                sendBtn.disabled = true;
+
+                try {
+                    await connection.invoke("@MessagingApiService.SendMessageMethodName", {
+                        ScopeType: SCOPE_TYPE,
+                        ScopeId:   SCOPE_ID,
+                        Body:      body,
+                    });
+                    input.value = "";
+                } catch {
+                    setStatus("Failed to send message. Please try again.");
+                } finally {
+                    sendBtn.disabled = false;
+                    input.focus();
+                }
+            });
+
+            // Enable send button only when input has text
+            input.addEventListener("input", () => {
+                sendBtn.disabled = input.value.trim().length === 0 ||
+                                   connection.state !== signalR.HubConnectionState.Connected;
+            });
+
+        }());
+    </script>
+}
