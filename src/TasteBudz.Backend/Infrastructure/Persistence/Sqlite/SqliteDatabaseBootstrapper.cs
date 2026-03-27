@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
@@ -8,31 +9,7 @@ namespace TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 /// </summary>
 public static class SqliteDatabaseBootstrapper
 {
-    private static readonly string[] RequiredTables =
-    {
-        "UserAccounts",
-        "UserSessions",
-        "UserProfiles",
-        "UserPreferences",
-        "PrivacySettings",
-        "SwipeDecisions",
-        "BudConnections",
-        "UserBlocks",
-        "Groups",
-        "GroupMembers",
-        "GroupInvites",
-        "Restaurants",
-        "ZipCoordinates",
-        "Events",
-        "EventParticipants",
-        "ChatThreads",
-        "ChatMessages",
-        "Notifications",
-        "ModerationReports",
-        "ModerationActions",
-        "UserRestrictions",
-        "AuditLogEntries",
-    };
+    private static readonly Lazy<string[]> RequiredTables = new(BuildRequiredTables);
 
     public static async Task EnsureInitializedAsync(
         string connectionString,
@@ -110,7 +87,7 @@ public static class SqliteDatabaseBootstrapper
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        foreach (var tableName in RequiredTables)
+        foreach (var tableName in RequiredTables.Value)
         {
             await using var command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $name;";
@@ -122,6 +99,23 @@ public static class SqliteDatabaseBootstrapper
                 throw new InvalidOperationException($"The configured SQLite database is missing required table '{tableName}'.");
             }
         }
+    }
+
+    private static string[] BuildRequiredTables()
+    {
+        var options = new DbContextOptionsBuilder<TasteBudzDbContext>()
+            .UseSqlite("Data Source=:memory:")
+            .Options;
+
+        using var dbContext = new TasteBudzDbContext(options);
+
+        return dbContext.Model.GetEntityTypes()
+            .Select(entityType => entityType.GetTableName())
+            .Where(tableName => !string.IsNullOrWhiteSpace(tableName))
+            .Select(tableName => tableName!)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(tableName => tableName, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static string GetBundledScriptPath(string fileName) =>

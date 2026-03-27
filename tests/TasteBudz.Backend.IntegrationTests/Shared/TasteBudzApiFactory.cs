@@ -17,6 +17,10 @@ public sealed class TasteBudzApiFactory : WebApplicationFactory<Program>
     private readonly IReadOnlyDictionary<string, string?> userConfigurationOverrides;
     private int cleanupPerformed;
 
+    public string ConnectionString => connectionString;
+
+    public string DatabasePath => databasePath;
+
     public TasteBudzApiFactory()
         : this(new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase), CreateDatabasePath())
     {
@@ -74,8 +78,9 @@ public sealed class TasteBudzApiFactory : WebApplicationFactory<Program>
         var overrides = new Dictionary<string, string?>(userConfigurationOverrides, StringComparer.OrdinalIgnoreCase)
         {
             ["ConnectionStrings:TasteBudz"] = connectionString,
-            ["Persistence:InitializeSqliteOnStartup"] = "true",
         };
+
+        overrides.TryAdd("Persistence:InitializeSqliteOnStartup", "true");
 
         return overrides;
     }
