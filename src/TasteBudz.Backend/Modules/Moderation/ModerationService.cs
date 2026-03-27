@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -15,8 +16,10 @@ public sealed class ModerationService(
     IModerationRepository moderationRepository,
     IAuthRepository authRepository,
     AuditLogService auditLogService,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<ModerationReportDto> SubmitReportAsync(CurrentUser currentUser, CreateModerationReportRequest request, CancellationToken cancellationToken = default)
     {
         var targetType = request.TargetType ?? throw ApiException.BadRequest("targetType is required.");
@@ -97,12 +100,17 @@ public sealed class ModerationService(
             ResolutionNotes = NormalizeOptional(request.Notes),
         };
 
-        await moderationRepository.SaveReportAsync(resolved, cancellationToken);
-        await moderationRepository.SaveActionAsync(
-            new ModerationAction(Guid.NewGuid(), actor.UserId, resolved.Id, ModerationActionType.ReportResolved, resolved.ResolutionNotes ?? resolved.ResolutionDecision!, now),
-            cancellationToken);
-        await auditLogService.WriteAsync(
-            new AuditLogEntry(Guid.NewGuid(), "ReportResolved", actor.UserId, nameof(ModerationReport), resolved.Id, now, resolved.ResolutionDecision!),
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await moderationRepository.SaveReportAsync(resolved, cancellationToken);
+                await moderationRepository.SaveActionAsync(
+                    new ModerationAction(Guid.NewGuid(), actor.UserId, resolved.Id, ModerationActionType.ReportResolved, resolved.ResolutionNotes ?? resolved.ResolutionDecision!, now),
+                    cancellationToken);
+                await auditLogService.WriteAsync(
+                    new AuditLogEntry(Guid.NewGuid(), "ReportResolved", actor.UserId, nameof(ModerationReport), resolved.Id, now, resolved.ResolutionDecision!),
+                    cancellationToken);
+            },
             cancellationToken);
 
         return ToDto(resolved);

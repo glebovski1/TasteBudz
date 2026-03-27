@@ -6,7 +6,7 @@ using TasteBudz.Backend.Infrastructure.ProblemDetails;
 namespace TasteBudz.Backend.Modules.Restaurants;
 
 /// <summary>
-/// Builds the restaurant browse response from the in-memory catalog.
+/// Builds the restaurant browse response from the configured restaurant repository.
 /// </summary>
 public sealed class RestaurantSearchService(IRestaurantRepository restaurantRepository)
 {

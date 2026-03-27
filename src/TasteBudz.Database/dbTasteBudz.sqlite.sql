@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS Cuisines (
     Name TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS ZipCoordinates (
+    ZipCode TEXT NOT NULL PRIMARY KEY,
+    Latitude REAL NOT NULL,
+    Longitude REAL NOT NULL,
+    CHECK (Latitude BETWEEN -90 AND 90),
+    CHECK (Longitude BETWEEN -180 AND 180)
+);
+
 -----------------------------------------------------------------------
 -- 3. PROFILES, PREFERENCES & PRIVACY
 -----------------------------------------------------------------------
@@ -464,3 +472,18 @@ CREATE TABLE IF NOT EXISTS UserFollows (
     FOREIGN KEY (FollowingUserId) REFERENCES UserAccounts (Id),
     CHECK (FollowerUserId <> FollowingUserId)
 );
+
+-----------------------------------------------------------------------
+-- 11. INDEXES FOR CURRENT MVP QUERY PATHS
+-----------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS IX_UserSessions_AccessToken ON UserSessions (AccessToken);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_UserSessions_RefreshToken ON UserSessions (RefreshToken);
+CREATE INDEX IF NOT EXISTS IX_GroupMembers_UserId ON GroupMembers (UserId);
+CREATE INDEX IF NOT EXISTS IX_GroupInvites_InvitedUserId ON GroupInvites (InvitedUserId);
+CREATE INDEX IF NOT EXISTS IX_Restaurants_ZipCode ON Restaurants (ZipCode);
+CREATE INDEX IF NOT EXISTS IX_Events_GroupId ON Events (GroupId);
+CREATE INDEX IF NOT EXISTS IX_EventParticipants_UserId ON EventParticipants (UserId);
+CREATE INDEX IF NOT EXISTS IX_ChatMessages_ThreadId_CreatedAtUtc_Id ON ChatMessages (ThreadId, CreatedAtUtc, Id);
+CREATE INDEX IF NOT EXISTS IX_Notifications_RecipientUserId_CreatedAtUtc ON Notifications (RecipientUserId, CreatedAtUtc);
+CREATE INDEX IF NOT EXISTS IX_ModerationReports_Status_CreatedAtUtc ON ModerationReports (Status, CreatedAtUtc);
+CREATE INDEX IF NOT EXISTS IX_UserRestrictions_SubjectUserId_Scope_Status ON UserRestrictions (SubjectUserId, Scope, Status);

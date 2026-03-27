@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -21,8 +22,10 @@ public sealed class GroupService(
     IProfileRepository profileRepository,
     INotificationService notificationService,
     EventLifecycleService eventLifecycleService,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<ListResponse<GroupSummaryDto>> BrowseAsync(BrowseGroupsQuery query, CancellationToken cancellationToken = default)
     {
         var groups = await groupRepository.ListAsync(cancellationToken);
@@ -71,10 +74,14 @@ public sealed class GroupService(
         var group = new Group(groupId, currentUser.UserId, name, description, visibility, GroupLifecycleState.Active, now, now);
         var membership = new GroupMember(groupId, currentUser.UserId, GroupMemberState.Active, now, now);
 
-        await groupRepository.SaveAsync(group, cancellationToken);
-        await groupRepository.SaveMemberAsync(membership, cancellationToken);
-
-        return await MapDetailAsync(currentUser.UserId, group, cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await groupRepository.SaveAsync(group, cancellationToken);
+                await groupRepository.SaveMemberAsync(membership, cancellationToken);
+                return await MapDetailAsync(currentUser.UserId, group, cancellationToken);
+            },
+            cancellationToken);
     }
 
     public async Task<GroupDetailDto> GetAsync(Guid currentUserId, Guid groupId, CancellationToken cancellationToken = default)
@@ -254,22 +261,27 @@ public sealed class GroupService(
             throw ApiException.Conflict($"User '{invitee.Username}' already has a pending invite.");
         }
 
-        var now = clock.UtcNow;
-        var invite = new GroupInvite(Guid.NewGuid(), groupId, invitee.Id, currentUser.UserId, GroupInviteStatus.Pending, now, now);
-        await groupRepository.SaveInviteAsync(invite, cancellationToken);
-        await notificationService.CreateAsync(
-            new Notification(
-                Guid.NewGuid(),
-                invitee.Id,
-                NotificationType.GroupInviteReceived,
-                "Group",
-                groupId,
-                $"You were invited to join {group.Name}.",
-                now,
-                null),
-            cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                var now = clock.UtcNow;
+                var invite = new GroupInvite(Guid.NewGuid(), groupId, invitee.Id, currentUser.UserId, GroupInviteStatus.Pending, now, now);
+                await groupRepository.SaveInviteAsync(invite, cancellationToken);
+                await notificationService.CreateAsync(
+                    new Notification(
+                        Guid.NewGuid(),
+                        invitee.Id,
+                        NotificationType.GroupInviteReceived,
+                        "Group",
+                        groupId,
+                        $"You were invited to join {group.Name}.",
+                        now,
+                        null),
+                    cancellationToken);
 
-        return new GroupInviteDto(invite.Id, invite.GroupId, invitee.Id, invitee.Username, invite.Status, invite.CreatedAtUtc, invite.UpdatedAtUtc);
+                return new GroupInviteDto(invite.Id, invite.GroupId, invitee.Id, invitee.Username, invite.Status, invite.CreatedAtUtc, invite.UpdatedAtUtc);
+            },
+            cancellationToken);
     }
 
     public async Task<GroupInviteDto> RespondToInviteAsync(CurrentUser currentUser, Guid inviteId, RespondToGroupInviteRequest request, CancellationToken cancellationToken = default)
@@ -302,23 +314,28 @@ public sealed class GroupService(
             UpdatedAtUtc = now,
         };
 
-        if (status == GroupInviteStatus.Accepted)
-        {
-            await EnsureNotBlockedAsync(group.OwnerUserId, currentUser.UserId, cancellationToken);
-            var membership = await groupRepository.GetMemberAsync(group.Id, currentUser.UserId, cancellationToken);
-            await groupRepository.SaveMemberAsync(new GroupMember(
-                group.Id,
-                currentUser.UserId,
-                GroupMemberState.Active,
-                membership?.CreatedAtUtc ?? now,
-                now), cancellationToken);
-        }
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                if (status == GroupInviteStatus.Accepted)
+                {
+                    await EnsureNotBlockedAsync(group.OwnerUserId, currentUser.UserId, cancellationToken);
+                    var membership = await groupRepository.GetMemberAsync(group.Id, currentUser.UserId, cancellationToken);
+                    await groupRepository.SaveMemberAsync(new GroupMember(
+                        group.Id,
+                        currentUser.UserId,
+                        GroupMemberState.Active,
+                        membership?.CreatedAtUtc ?? now,
+                        now), cancellationToken);
+                }
 
-        await groupRepository.SaveInviteAsync(updatedInvite, cancellationToken);
+                await groupRepository.SaveInviteAsync(updatedInvite, cancellationToken);
 
-        var account = await authRepository.GetByIdAsync(currentUser.UserId, cancellationToken)
-            ?? throw ApiException.NotFound("The invited user could not be found.");
-        return new GroupInviteDto(updatedInvite.Id, updatedInvite.GroupId, updatedInvite.InvitedUserId, account.Username, updatedInvite.Status, updatedInvite.CreatedAtUtc, updatedInvite.UpdatedAtUtc);
+                var account = await authRepository.GetByIdAsync(currentUser.UserId, cancellationToken)
+                    ?? throw ApiException.NotFound("The invited user could not be found.");
+                return new GroupInviteDto(updatedInvite.Id, updatedInvite.GroupId, updatedInvite.InvitedUserId, account.Username, updatedInvite.Status, updatedInvite.CreatedAtUtc, updatedInvite.UpdatedAtUtc);
+            },
+            cancellationToken);
     }
 
     private async Task<Group> GetActiveGroupAsync(Guid groupId, CancellationToken cancellationToken)

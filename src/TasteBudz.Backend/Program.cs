@@ -1,6 +1,8 @@
 // Bootstraps the ASP.NET Core host, shared middleware pipeline, and API endpoints.
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
 using TasteBudz.Backend.Infrastructure.Configuration;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Messaging;
 
@@ -16,10 +18,21 @@ builder.Services
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
-// Register the modular backend services and the in-memory infrastructure used in the MVP.
+// Register the modular backend services and shared infrastructure used by the MVP backend.
 builder.Services.AddTasteBudzFoundation(builder.Configuration);
 
 var app = builder.Build();
+
+var normalizedConnectionString = SqliteConnectionStringHelper.Normalize(
+    builder.Configuration.GetConnectionString("TasteBudz") ?? throw new InvalidOperationException("ConnectionStrings:TasteBudz must be configured."),
+    app.Environment.ContentRootPath);
+var persistenceOptions = app.Services.GetRequiredService<IOptions<PersistenceOptions>>().Value;
+await SqliteDatabaseBootstrapper.EnsureInitializedAsync(
+    normalizedConnectionString,
+    persistenceOptions.InitializeSqliteOnStartup,
+    app.Environment.EnvironmentName,
+    app.Logger,
+    app.Lifetime.ApplicationStopping);
 
 app.UseExceptionHandler();
 

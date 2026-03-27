@@ -1,6 +1,7 @@
 // Scoped restriction workflows and enforcement helpers.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -14,8 +15,10 @@ public sealed class RestrictionService(
     IModerationRepository moderationRepository,
     IAuthRepository authRepository,
     AuditLogService auditLogService,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<RestrictionDto> CreateAsync(CurrentUser actor, CreateRestrictionRequest request, CancellationToken cancellationToken = default)
     {
         var subjectUserId = request.SubjectUserId ?? throw ApiException.BadRequest("subjectUserId is required.");
@@ -37,12 +40,17 @@ public sealed class RestrictionService(
             RestrictionStatus.Active,
             null);
 
-        await moderationRepository.SaveRestrictionAsync(restriction, cancellationToken);
-        await moderationRepository.SaveActionAsync(
-            new ModerationAction(Guid.NewGuid(), actor.UserId, null, ModerationActionType.RestrictionCreated, reason, now),
-            cancellationToken);
-        await auditLogService.WriteAsync(
-            new AuditLogEntry(Guid.NewGuid(), "RestrictionCreated", actor.UserId, nameof(UserRestriction), restriction.Id, now, $"{scope}:{reason}"),
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await moderationRepository.SaveRestrictionAsync(restriction, cancellationToken);
+                await moderationRepository.SaveActionAsync(
+                    new ModerationAction(Guid.NewGuid(), actor.UserId, null, ModerationActionType.RestrictionCreated, reason, now),
+                    cancellationToken);
+                await auditLogService.WriteAsync(
+                    new AuditLogEntry(Guid.NewGuid(), "RestrictionCreated", actor.UserId, nameof(UserRestriction), restriction.Id, now, $"{scope}:{reason}"),
+                    cancellationToken);
+            },
             cancellationToken);
 
         return ToDto(restriction);
@@ -83,12 +91,17 @@ public sealed class RestrictionService(
             auditActionType = "RestrictionUpdated";
         }
 
-        await moderationRepository.SaveRestrictionAsync(updated, cancellationToken);
-        await moderationRepository.SaveActionAsync(
-            new ModerationAction(Guid.NewGuid(), actor.UserId, null, actionType, reason, now),
-            cancellationToken);
-        await auditLogService.WriteAsync(
-            new AuditLogEntry(Guid.NewGuid(), auditActionType, actor.UserId, nameof(UserRestriction), updated.Id, now, $"{updated.Scope}:{reason}"),
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await moderationRepository.SaveRestrictionAsync(updated, cancellationToken);
+                await moderationRepository.SaveActionAsync(
+                    new ModerationAction(Guid.NewGuid(), actor.UserId, null, actionType, reason, now),
+                    cancellationToken);
+                await auditLogService.WriteAsync(
+                    new AuditLogEntry(Guid.NewGuid(), auditActionType, actor.UserId, nameof(UserRestriction), updated.Id, now, $"{updated.Scope}:{reason}"),
+                    cancellationToken);
+            },
             cancellationToken);
 
         return ToDto(updated);

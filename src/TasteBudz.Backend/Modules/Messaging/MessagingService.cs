@@ -122,7 +122,7 @@ public sealed class MessagingService(
 
         var created = new ChatThread(Guid.NewGuid(), scopeType, scopeId, clock.UtcNow);
         await messagingRepository.SaveThreadAsync(created, cancellationToken);
-        return created;
+        return await messagingRepository.GetThreadByScopeAsync(scopeType, scopeId, cancellationToken) ?? created;
     }
 
     private async Task EnsureCanAccessScopeAsync(Guid currentUserId, ChatScopeType scopeType, Guid scopeId, bool forSend, CancellationToken cancellationToken)

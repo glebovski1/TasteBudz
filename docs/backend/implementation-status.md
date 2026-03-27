@@ -5,15 +5,15 @@ This document tracks the current backend implementation state.
 It is a progress tracker, not a source of product or architecture truth.
 Use the primary backend documents for requirements, architecture, domain rules, API contracts, and testing policy.
 
-Last verified: 2026-03-09
+Last verified: 2026-03-26
 
 ## 1. Overall State
 
 Current overall state:
 
 - foundation is implemented
-- several core MVP backend slices are `Backend-logic ready`
-- the backend is not yet `Backend-complete`
+- the currently implemented MVP backend slices are `Backend-complete`
+- later and feature-flagged backend slices remain intentionally out of scope
 
 Using the definitions in `docs/backend/implementation-approach.md`:
 
@@ -22,16 +22,16 @@ Using the definitions in `docs/backend/implementation-approach.md`:
 
 Current practical assessment:
 
-- Auth and Access: `Backend-logic ready`
-- Profiles: `Backend-logic ready`
-- Restaurants: `Backend-logic ready`
-- Events: `Backend-logic ready`
-- Groups: `Backend-logic ready`
-- Discovery / Budz: `Backend-logic ready`
-- Notifications: `Backend-logic ready`
-- Messaging: `Backend-logic ready`
-- Moderation and Audit: `Backend-logic ready`
-- Real SQL persistence: not yet implemented
+- Auth and Access: `Backend-complete`
+- Profiles: `Backend-complete`
+- Restaurants: `Backend-complete`
+- Events: `Backend-complete`
+- Groups: `Backend-complete`
+- Discovery / Budz: `Backend-complete`
+- Notifications: `Backend-complete`
+- Messaging: `Backend-complete`
+- Moderation and Audit: `Backend-complete`
+- Real SQLite persistence: implemented for the current MVP slice surface
 
 ## 2. Implemented Runtime Foundation
 
@@ -41,14 +41,18 @@ Implemented foundation pieces:
 - centralized ProblemDetails-style exception handling
 - custom bearer-token authentication backed by stored sessions
 - modular service and repository structure
-- in-memory repository implementations for current modules
+- SQLite-backed repository implementations for current modules
+- shared `TasteBudzDbContext`, SQLite transaction runner, and startup bootstrap validation
+- canonical SQLite schema and seed scripts in `src/TasteBudz.Database`
 - deterministic seeded restaurant catalog
 - unit and integration test projects with `WebApplicationFactory<Program>`
+- integration-test factory that recreates temporary SQLite databases from canonical SQL assets
 
 Current runtime persistence note:
 
-- the app still runs on in-memory storage
-- SQL Server work in `database/sqlserver/` is planning-only and not yet wired into runtime behavior
+- the app now runs on SQLite for the implemented backend modules
+- schema and seed authority live in the repository SQL scripts, not in a checked-in database binary
+- Development and IntegrationTesting may initialize SQLite databases from canonical SQL scripts when configured
 
 ## 3. Module Status
 
@@ -123,11 +127,11 @@ Not yet implemented from later/feature-flagged API shape:
 
 ## 5. Test Status
 
-Current automated test status as of 2026-03-09:
+Current automated test status as of 2026-03-26:
 
-- 38 unit tests
-- 23 integration tests
-- 61 passing tests total
+- 53 unit tests
+- 44 integration tests
+- 97 passing tests total
 
 Current covered areas:
 
@@ -142,6 +146,9 @@ Current covered areas:
 - closed-event invite acceptance capacity rule
 - event capacity validation
 - event last-seat concurrency guard
+- event final-seat race coverage against SQLite
+- closed-event invite-acceptance race coverage against SQLite
+- event lifecycle behavior when requests arrive after `DecisionAt`
 - event group-link authorization
 - moderator participant removal after `DecisionAt`
 - group create/join/invite/detail workflows
@@ -150,36 +157,35 @@ Current covered areas:
 - event chat and group chat authorization plus hub delivery
 - report, restriction, role-enforcement, and audit-log workflows
 - ProblemDetails behavior for selected failure cases
+- persistence-backed API and workflow coverage for the implemented module set via temporary SQLite databases rebuilt from canonical SQL assets
 
 Important testing gaps still open:
 
-- no real SQL-backed persistence integration tests
-- no persistence-backed concurrency proof for event joins or invite acceptance races
-- no SQL-backed messaging/group/discovery/moderation integration tests
 - later/disabled features such as direct chat and group ownership transfer remain intentionally untested at runtime
+- restaurant-admin operations, slots, and discounts remain out of scope and unimplemented
 
 ## 6. Gaps To Backend-Complete
 
-The largest remaining gaps are:
+For the currently implemented MVP backend slices, the main `Backend-complete` gaps have been closed.
 
-1. Replace in-memory persistence with the approved SQL Server / Azure SQL path.
-2. Add persistence-backed integration tests for the implemented workflows.
-3. Add persistence-backed concurrency proof for event participation and other race-prone workflows.
-4. Keep later/feature-flagged modules disabled until explicitly promoted:
+Remaining gaps apply to later or intentionally deferred scope:
+
+1. Keep later/feature-flagged modules disabled until explicitly promoted:
    - direct chat
    - group ownership transfer/dissolution
    - restaurant operations and discounts
+2. If a future persistence-provider change is approved, document it explicitly and re-prove relational and concurrency behavior for that provider.
 
 ## 7. Suggested Next Focus
 
 Recommended next implementation focus:
 
-1. SQL-backed persistence integration for the current `Backend-logic ready` slices
-2. Persistence-backed concurrency proof for Events and other race-prone workflows
-3. Broader persistence-path validation for messaging, moderation, and notifications
+1. Preserve the SQLite-backed MVP path while later-scope modules are added behind explicit decisions and flags
+2. Extend persistence-backed integration coverage alongside any new module slice
+3. Keep concurrency proof current for every new transaction-sensitive workflow
 
 Rationale:
 
-- The documented MVP backend slice surface is now implemented at the logic/API level.
-- The remaining work to reach `Backend-complete` is persistence and persistence-sensitive proof rather than new MVP feature breadth.
+- The documented MVP backend slice surface is implemented and runtime-persistent for the currently shipped modules.
+- The remaining work is now about later-scope expansion, not replacing the current persistence path.
 

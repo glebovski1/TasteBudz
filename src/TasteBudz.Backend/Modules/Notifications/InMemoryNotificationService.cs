@@ -1,11 +1,11 @@
-// In-memory notification storage used by workflow services and tests.
+// In-memory notification storage used by unit tests and lightweight service doubles.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Notifications;
 
 /// <summary>
-/// Stores notifications in the shared in-memory backing store.
+/// Stores notifications in the shared in-memory test backing store.
 /// </summary>
 public sealed class InMemoryNotificationService(InMemoryTasteBudzStore store) : INotificationService
 {

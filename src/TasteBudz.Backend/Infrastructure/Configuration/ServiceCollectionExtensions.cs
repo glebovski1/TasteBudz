@@ -1,9 +1,10 @@
 // Collects the app's DI registration so Program.cs stays focused on host wiring.
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
-using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Discovery;
@@ -18,7 +19,7 @@ using TasteBudz.Backend.Modules.Restaurants;
 namespace TasteBudz.Backend.Infrastructure.Configuration;
 
 /// <summary>
-/// Registers the backend's shared infrastructure, in-memory repositories, and module services.
+/// Registers the backend's shared infrastructure, persistence layer, and module services.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
@@ -29,28 +30,37 @@ public static class ServiceCollectionExtensions
     {
         services.AddHttpContextAccessor();
         services.Configure<FeatureFlagOptions>(configuration.GetSection("FeatureFlags"));
+        services.Configure<PersistenceOptions>(configuration.GetSection(PersistenceOptions.SectionName));
 
-        // These singletons are process-wide for the current in-memory MVP implementation.
+        services.AddDbContext<TasteBudzDbContext>((serviceProvider, options) =>
+        {
+            var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
+            var connectionString = SqliteConnectionStringHelper.Normalize(
+                configuration.GetConnectionString("TasteBudz") ?? throw new InvalidOperationException("ConnectionStrings:TasteBudz must be configured."),
+                environment.ContentRootPath);
+            options.UseSqlite(connectionString);
+        });
+
         services.AddSingleton<IClock, TasteBudz.Backend.Infrastructure.Time.SystemClock>();
         services.AddSingleton<IKeyedLockProvider, InMemoryKeyedLockProvider>();
-        services.AddSingleton<InMemoryTasteBudzStore>();
 
         // Auth/session infrastructure is shared by multiple modules.
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, SecureTokenGenerator>();
         services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
         services.AddSingleton<IFeatureFlagService, FeatureFlagService>();
+        services.AddScoped<IPersistenceTransactionRunner, SqliteTransactionRunner>();
 
-        // Repository interfaces preserve the persistence boundary even though runtime storage is in memory.
-        services.AddSingleton<IAuthRepository, InMemoryAuthRepository>();
-        services.AddSingleton<IProfileRepository, InMemoryProfileRepository>();
-        services.AddSingleton<IRestaurantRepository, InMemoryRestaurantRepository>();
-        services.AddSingleton<IEventRepository, InMemoryEventRepository>();
-        services.AddSingleton<IGroupRepository, InMemoryGroupRepository>();
-        services.AddSingleton<IDiscoveryRepository, InMemoryDiscoveryRepository>();
-        services.AddSingleton<IMessagingRepository, InMemoryMessagingRepository>();
-        services.AddSingleton<IModerationRepository, InMemoryModerationRepository>();
-        services.AddSingleton<INotificationService, InMemoryNotificationService>();
+        services.AddScoped<IAuthRepository, SqliteAuthRepository>();
+        services.AddScoped<IProfileRepository, SqliteProfileRepository>();
+        services.AddScoped<IRestaurantRepository, SqliteRestaurantRepository>();
+        services.AddScoped<IEventRepository, SqliteEventRepository>();
+        services.AddScoped<IGroupRepository, SqliteGroupRepository>();
+        services.AddScoped<IDiscoveryRepository, SqliteDiscoveryRepository>();
+        services.AddScoped<IMessagingRepository, SqliteMessagingRepository>();
+        services.AddScoped<IModerationRepository, SqliteModerationRepository>();
+        services.AddScoped<INotificationRepository, SqliteNotificationRepository>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         // Business rules live in scoped services so each request gets a clean workflow instance.
         services.AddScoped<AuthService>();
