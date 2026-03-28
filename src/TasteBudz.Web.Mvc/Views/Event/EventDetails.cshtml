@@ -1,0 +1,70 @@
+﻿@model EventDetailViewModel
+
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>@Model.Title</h1>
+            <p>
+                <span class="pill">@Model.EventType</span>
+                <span class="pill pill--@Model.Status.ToLower()">@Model.Status</span>
+            </p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Index" class="button button--secondary">Back to Events</a>
+            @if (Model.IsHost)
+            {
+                <a asp-controller="Messaging"
+                   asp-action="EventChat"
+                   asp-route-eventId="@Model.EventId"
+                   class="button button--secondary">💬 Chat</a>
+            }
+        </div>
+    </div>
+
+    <section class="card stack">
+        <h2 class="card__title">Event Info</h2>
+
+        <dl class="detail-list">
+            <dt>Date</dt>
+            <dd>📅 @Model.EventStartAtUtc.ToLocalTime().ToString("dddd, MMMM d, yyyy")</dd>
+
+            <dt>Time</dt>
+            <dd>⏰ @Model.EventStartAtUtc.ToLocalTime().ToString("h:mm tt")</dd>
+
+            <dt>Spots</dt>
+            <dd>@Model.ActiveParticipants / @Model.Capacity filled</dd>
+
+            @if (!string.IsNullOrWhiteSpace(Model.CuisineTarget))
+            {
+                <dt>Cuisine</dt>
+                <dd>🍴 @Model.CuisineTarget</dd>
+            }
+        </dl>
+    </section>
+
+    @if (!Model.IsHost && Model.Status == "Open")
+    {
+        <div class="panel">
+            <form asp-action="Join" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="eventId" value="@Model.EventId" />
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Join Event</button>
+                </div>
+            </form>
+        </div>
+    }
+
+    @if (Model.IsHost)
+    {
+        <div class="panel">
+            <p class="muted-note">You are hosting this event.</p>
+        </div>
+    }
+
+</section>

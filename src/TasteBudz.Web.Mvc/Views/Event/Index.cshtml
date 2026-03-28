@@ -1,0 +1,87 @@
+﻿@model EventIndexViewModel
+
+@{
+    ViewData["Title"] = "Events";
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Upcoming Food Events 🍽️</h1>
+            <p>Find an event to join, or create your own.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="CreateEvent" class="button button--primary">+ Create Event</a>
+        </div>
+    </div>
+
+    <div class="card stack">
+        <form asp-action="Index" method="get" class="button-row" style="align-items: stretch;">
+            <div class="field" style="flex: 1; gap: 0;">
+                <input type="text"
+                       name="q"
+                       value="@Model.SearchQuery"
+                       placeholder="Search events…"
+                       aria-label="Search events" />
+            </div>
+            <button type="submit" class="button button--primary">Search</button>
+            @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
+            {
+                <a asp-action="Index" class="button button--secondary">Clear</a>
+            }
+        </form>
+    </div>
+
+    @if (!Model.Events.Any())
+    {
+        <div class="panel">
+            <p class="empty-state">
+                @if (string.IsNullOrWhiteSpace(Model.SearchQuery))
+                {
+                    <span>No events yet — be the first to create one!</span>
+                }
+                else
+                {
+                    <span>No events matched "@Model.SearchQuery".</span>
+                }
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="events-grid">
+            @foreach (var ev in Model.Events)
+            {
+                <article class="card event-card">
+                    <div class="event-card__header">
+                        <h3 class="event-card__title">@ev.Title</h3>
+                        <span class="pill">@ev.EventType</span>
+                    </div>
+
+                    <div class="event-card__meta">
+                        <span>📅 @ev.EventStartAtUtc.ToLocalTime().ToString("MMM d, yyyy")</span>
+                        <span>⏰ @ev.EventStartAtUtc.ToLocalTime().ToString("h:mm tt")</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(ev.CuisineTarget))
+                    {
+                        <p class="event-card__cuisine">🍴 @ev.CuisineTarget</p>
+                    }
+
+                    <div class="event-card__footer">
+                        <span class="event-card__spots">
+                            @ev.ActiveParticipants / @ev.Capacity spots filled
+                        </span>
+                        <span class="pill pill--@ev.Status.ToLower()">@ev.Status</span>
+                        <a asp-action="EventDetails" asp-route-eventId="@ev.EventId"
+                           class="button button--secondary event-card__action">
+                            View
+                        </a>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+
+</section>

@@ -27,7 +27,7 @@ public sealed class MessagingController : Controller
         this.userSessionService = userSessionService;
     }
 
-    // GET /Messaging/Chat  ← the floating button lands here
+    // GET /Messaging/Chat
     [HttpGet]
     public async Task<IActionResult> Chat(CancellationToken cancellationToken)
     {

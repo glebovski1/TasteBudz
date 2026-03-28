@@ -1,0 +1,231 @@
+﻿@model EventCreateViewModel
+
+@{
+    ViewData["Title"] = "Create Event";
+
+    // Serialize restaurant data for the map JS — only include those with coordinates
+    var mapRestaurants = Model.Restaurants
+        .Where(r => r.Latitude.HasValue && r.Longitude.HasValue)
+        .Select(r => new
+        {
+            id = r.RestaurantId,
+            name = r.Name,
+            location = r.Location,
+            priceTier = r.PriceTier,
+            cuisine = r.CuisineTags,
+            lat = r.Latitude!.Value,
+            lng = r.Longitude!.Value,
+        });
+    var mapJson = System.Text.Json.JsonSerializer.Serialize(mapRestaurants);
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Create Event</h1>
+            <p>Set up a food event and invite others to join.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Index" class="button button--secondary">Back to Events</a>
+        </div>
+    </div>
+
+    <form asp-action="CreateEvent" method="post" class="stack-lg" novalidate>
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+
+        <div class="editor-grid">
+
+            <section class="card stack">
+                <div>
+                    <h2 class="card__title">Event Details</h2>
+                    <p class="card__subtitle">Give your event a name and choose a cuisine theme.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Title"></label>
+                    <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday…" />
+                    <span asp-validation-for="Title" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="CuisineTarget"></label>
+                    <input asp-for="CuisineTarget" placeholder="e.g. Japanese, Mexican, Italian… (optional)" />
+                    <span asp-validation-for="CuisineTarget" class="field-validation-error"></span>
+                </div>
+            </section>
+
+            <section class="panel stack">
+                <div>
+                    <h2>Type &amp; Capacity</h2>
+                    <p class="card__subtitle">Open events are public. Closed events are invite-only.</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="EventType"></label>
+                    <select asp-for="EventType">
+                        <option value="">Select type…</option>
+                        <option value="Open">Open — anyone can join</option>
+                        <option value="Closed">Closed — invite only</option>
+                    </select>
+                    <span asp-validation-for="EventType" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Capacity"></label>
+                    <input asp-for="Capacity" type="number" min="2" max="8" placeholder="2–8 people" />
+                    <span asp-validation-for="Capacity" class="field-validation-error"></span>
+                </div>
+            </section>
+
+            <section class="card stack">
+                <div>
+                    <h2 class="card__title">Date &amp; Time</h2>
+                    <p class="card__subtitle">When is the event taking place?</p>
+                </div>
+
+                <div class="field">
+                    <label asp-for="EventStartAt"></label>
+                    <input asp-for="EventStartAt"
+                           type="datetime-local"
+                           min="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                    <span asp-validation-for="EventStartAt" class="field-validation-error"></span>
+                </div>
+            </section>
+
+            <section class="card stack" style="grid-column: 1 / -1;">
+                <div>
+                    <h2 class="card__title">Restaurant <span class="muted-note">(optional)</span></h2>
+                    <p class="card__subtitle">Click a pin on the map to select a restaurant, or leave blank to decide later.</p>
+                </div>
+
+                <input type="hidden" asp-for="SelectedRestaurantId" id="selectedRestaurantId" />
+
+                @if (!Model.Restaurants.Any())
+                {
+                    <p class="empty-state">No restaurants available right now.</p>
+                }
+                else
+                {
+                    <div id="restaurantMap" class="restaurant-map"></div>
+
+                    <div class="restaurant-selection-bar" id="selectionBar">
+                        <span id="selectionLabel">No restaurant selected.</span>
+                        <button type="button" class="button button--secondary button--sm" id="clearSelection" style="display:none;">
+                            Clear
+                        </button>
+                    </div>
+                }
+            </section>
+
+        </div>
+
+        <div class="button-row">
+            <button type="submit" class="button button--primary">Create Event</button>
+            <a asp-action="Index" class="button button--secondary">Cancel</a>
+        </div>
+
+    </form>
+
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        (function () {
+        const restaurants = @Html.Raw(mapJson);
+        const hiddenId    = document.getElementById("selectedRestaurantId");
+        const label       = document.getElementById("selectionLabel");
+        const clearBtn    = document.getElementById("clearSelection");
+        const mapEl       = document.getElementById("restaurantMap");
+
+        if (!mapEl || restaurants.length === 0) return;
+
+        // Centre the map on the average of all restaurant coordinates
+        const avgLat = restaurants.reduce((s, r) => s + r.lat, 0) / restaurants.length;
+        const avgLng = restaurants.reduce((s, r) => s + r.lng, 0) / restaurants.length;
+
+        const map = L.map("restaurantMap").setView([avgLat, avgLng], 12);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        }).addTo(map);
+
+        // Custom marker icons
+        const defaultIcon = L.divIcon({
+        className: "map-pin",
+        html: "🍽️",
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -28],
+        });
+
+        const selectedIcon = L.divIcon({
+        className: "map-pin map-pin--selected",
+        html: "📍",
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32],
+        });
+
+        let selectedMarker = null;
+
+        restaurants.forEach(r => {
+        const marker = L.marker([r.lat, r.lng], { icon: defaultIcon })
+        .addTo(map)
+        .bindPopup(`
+        <strong>${r.name}</strong><br>
+        ${r.location}<br>
+        <span style="color:#888;">${r.priceTier} · ${r.cuisine}</span><br>
+        <button onclick="window.selectRestaurant('${r.id}', '${r.name.replace(/'/g, "\\'")}', this)"
+        style="margin-top:6px; padding:4px 10px; background:#e05a2b; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+        Select
+        </button>
+        `);
+
+        marker._restaurantId   = r.id;
+        marker._restaurantName = r.name;
+        marker._defaultIcon    = defaultIcon;
+        marker._selectedIcon   = selectedIcon;
+
+        marker.on("click", () => map.setView([r.lat, r.lng], 14));
+        });
+
+        // Global function called by the popup button
+        window.selectRestaurant = function (id, name) {
+        hiddenId.value = id;
+        label.textContent = "Selected: " + name;
+        clearBtn.style.display = "inline-block";
+
+        // Update marker icons
+        map.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+        if (layer._restaurantId === id) {
+        layer.setIcon(selectedIcon);
+        selectedMarker = layer;
+        } else {
+        layer.setIcon(defaultIcon);
+        }
+        }
+        });
+        };
+
+        clearBtn.addEventListener("click", () => {
+        hiddenId.value = "";
+        label.textContent = "No restaurant selected.";
+        clearBtn.style.display = "none";
+
+        map.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+        layer.setIcon(defaultIcon);
+        }
+        });
+        });
+        }());
+    </script>
+}
