@@ -1,4 +1,4 @@
-// HTTP endpoints for the authenticated user's profile resource.
+// HTTP endpoints for profile resources.
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Infrastructure.Auth;
@@ -10,13 +10,21 @@ namespace TasteBudz.Backend.Controllers;
 [ApiController]
 [Route("api/v1/profiles")]
 /// <summary>
-/// Manages the current user's profile fields.
+/// Manages profile retrieval and updates.
 /// </summary>
 public sealed class ProfilesController(ProfileService profileService, ICurrentUserAccessor currentUserAccessor) : ControllerBase
 {
     [HttpGet("me")]
     public Task<ProfileDto> GetMyProfile(CancellationToken cancellationToken) =>
         profileService.GetMyProfileAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, cancellationToken);
+
+    /// <summary>
+    /// Returns a public-facing profile summary for any user by ID.
+    /// Used by the user profile pop-up on budz, group members, and event participants.
+    /// </summary>
+    [HttpGet("{userId:guid}")]
+    public Task<ProfileDto> GetProfile(Guid userId, CancellationToken cancellationToken) =>
+        profileService.GetProfileAsync(userId, cancellationToken);
 
     [HttpPatch("me")]
     public Task<ProfileDto> UpdateMyProfile([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken) =>

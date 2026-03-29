@@ -27,6 +27,20 @@ public sealed class ProfileService(
         return ToDto(account, profile);
     }
 
+    /// <summary>
+    /// Returns a public profile for any user by ID.
+    /// Email is intentionally blanked — callers only need display info.
+    /// </summary>
+    public async Task<ProfileDto> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var account = await authRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested user could not be found.");
+        var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested user could not be found.");
+
+        return ToDto(account, profile) with { Email = string.Empty };
+    }
+
     public async Task<ProfileDto> UpdateMyProfileAsync(Guid userId, UpdateMyProfileRequest request, CancellationToken cancellationToken = default)
     {
         var account = await authRepository.GetByIdAsync(userId, cancellationToken)

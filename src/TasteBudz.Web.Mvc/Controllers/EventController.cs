@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Domain;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
@@ -48,7 +49,7 @@ public sealed class EventController : Controller
         }
     }
 
-    // GET /Event/Create
+    // GET /Event/CreateEvent
     [HttpGet]
     public async Task<IActionResult> CreateEvent(CancellationToken cancellationToken)
     {
@@ -56,7 +57,7 @@ public sealed class EventController : Controller
         return View(model);
     }
 
-    // POST /Event/Create
+    // POST /Event/CreateEvent
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateEvent(EventCreateViewModel model, CancellationToken cancellationToken)
@@ -85,15 +86,17 @@ public sealed class EventController : Controller
         }
     }
 
-    // GET /Event/Detail/{eventId}
+    // GET /Event/EventDetails/{eventId}
     [HttpGet]
     public async Task<IActionResult> EventDetails(Guid eventId, CancellationToken cancellationToken)
     {
         try
         {
             var detail = await eventApiService.GetAsync(eventId, cancellationToken);
+            var participants = await eventApiService.ListParticipantsAsync(eventId, cancellationToken);
             var currentUserId = GetCurrentUserId();
-            return View(EventDetailViewModel.FromDto(detail, currentUserId));
+
+            return View(EventDetailViewModel.FromDto(detail, participants, currentUserId));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -126,6 +129,86 @@ public sealed class EventController : Controller
         }
 
         return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    // POST /Event/Leave
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Leave(Guid eventId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await eventApiService.UpdateMyParticipationAsync(
+                eventId,
+                new UpdateMyParticipationRequest { State = EventParticipantState.Left },
+                cancellationToken);
+
+            TempData["StatusMessage"] = "You have left the event.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not leave: {ex.Message}";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
+        }
+    }
+
+    // POST /Event/Kick
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Kick(Guid eventId, Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await eventApiService.RemoveParticipantAsync(eventId, userId, cancellationToken);
+            TempData["StatusMessage"] = "Attendee removed.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not remove attendee: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    // POST /Event/Cancel
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel(Guid eventId, string reason, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["StatusMessage"] = "A cancellation reason is required.";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
+        }
+
+        try
+        {
+            await eventApiService.CancelAsync(
+                eventId,
+                new CancelEventRequest { Reason = reason.Trim() },
+                cancellationToken);
+
+            TempData["StatusMessage"] = "Event cancelled.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not cancel: {ex.Message}";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

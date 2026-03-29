@@ -2,21 +2,28 @@
 
 @{
     ViewData["Title"] = Model.Title;
+    var isActive = Model.Status is "Open" or "Full" or "Confirmed";
 }
 
 <section class="profile-shell">
 
+    @* ── Banner ── *@
     <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
         <div>
             <h1>@Model.Title</h1>
-            <p>
+            <div class="profile-meta">
                 <span class="pill">@Model.EventType</span>
                 <span class="pill pill--@Model.Status.ToLower()">@Model.Status</span>
-            </p>
+                @if (!string.IsNullOrWhiteSpace(Model.CuisineTarget))
+                {
+                    <span class="pill">🍴 @Model.CuisineTarget</span>
+                }
+            </div>
         </div>
         <div class="button-row">
             <a asp-action="Index" class="button button--secondary">Back to Events</a>
-            @if (Model.IsHost)
+
+            @if ((Model.IsHost || Model.IsParticipant) && isActive)
             {
                 <a asp-controller="Messaging"
                    asp-action="EventChat"
@@ -26,9 +33,9 @@
         </div>
     </div>
 
+    @* ── Event Info ── *@
     <section class="card stack">
         <h2 class="card__title">Event Info</h2>
-
         <dl class="detail-list">
             <dt>Date</dt>
             <dd>📅 @Model.EventStartAtUtc.ToLocalTime().ToString("dddd, MMMM d, yyyy")</dd>
@@ -38,33 +45,134 @@
 
             <dt>Spots</dt>
             <dd>@Model.ActiveParticipants / @Model.Capacity filled</dd>
-
-            @if (!string.IsNullOrWhiteSpace(Model.CuisineTarget))
-            {
-                <dt>Cuisine</dt>
-                <dd>🍴 @Model.CuisineTarget</dd>
-            }
         </dl>
     </section>
 
-    @if (!Model.IsHost && Model.Status == "Open")
-    {
-        <div class="panel">
-            <form asp-action="Join" method="post">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="eventId" value="@Model.EventId" />
-                <div class="button-row">
-                    <button type="submit" class="button button--primary">Join Event</button>
-                </div>
-            </form>
-        </div>
-    }
+    <div class="panel-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
 
-    @if (Model.IsHost)
-    {
-        <div class="panel">
-            <p class="muted-note">You are hosting this event.</p>
-        </div>
-    }
+        @* ── Participants panel ── *@
+        <section class="panel stack">
+            <h2>Attendees</h2>
+            <div class="panel__items">
+                @if (!Model.Participants.Any())
+                {
+                    <p class="empty-state">No attendees yet.</p>
+                }
+                else
+                {
+                    @foreach (var p in Model.Participants)
+                    {
+                        <article class="summary-card member-row">
+
+                            @* Clicking the avatar or name opens the profile card *@
+                            <button class="member-row__profile-trigger"
+                                    onclick="openUserCard('@p.UserId')"
+                                    aria-label="View @p.DisplayName's profile">
+                                <div class="member-row__avatar">@p.DisplayName.Substring(0, 1).ToUpper()</div>
+                            </button>
+
+                            <button class="member-row__info member-row__info--clickable"
+                                    onclick="openUserCard('@p.UserId')">
+                                <strong>@p.DisplayName</strong>
+                                <span>@@@p.Username</span>
+                                @if (p.IsHost)
+                                {
+                                    <span class="pill" style="font-size:0.78rem;">Host</span>
+                                }
+                            </button>
+
+                            @* Kick button — only the host sees it, and only for non-host attendees *@
+                            @if (Model.IsHost && !p.IsHost && isActive)
+                            {
+                                <form asp-controller="Event"
+                                      asp-action="Kick"
+                                      asp-route-eventId="@Model.EventId"
+                                      asp-route-userId="@p.UserId"
+                                      method="post"
+                                      style="margin-left:auto;">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit"
+                                            class="button button--danger"
+                                            onclick="return confirm('Remove @p.DisplayName from this event?')">
+                                        Kick
+                                    </button>
+                                </form>
+                            }
+
+                        </article>
+                    }
+                }
+            </div>
+        </section>
+
+        @* ── Host actions panel ── *@
+        @if (Model.IsHost)
+        {
+            <section class="panel stack">
+                <h2>Host Controls</h2>
+                <p class="muted-note">You are hosting this event.</p>
+
+                @if (isActive)
+                {
+                    <details class="cancel-details">
+                        <summary class="button button--danger" style="display:inline-block; cursor:pointer;">
+                            Cancel Event
+                        </summary>
+                        <form asp-action="Cancel" method="post" class="stack" style="margin-top:0.75rem;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="eventId" value="@Model.EventId" />
+                            <div class="field">
+                                <label for="cancelReason">Reason for cancellation <span style="color:red">*</span></label>
+                                <input id="cancelReason" name="reason" type="text"
+                                       maxlength="250"
+                                       placeholder="Let attendees know why…"
+                                       required />
+                            </div>
+                            <div class="button-row">
+                                <button type="submit" class="button button--danger"
+                                        onclick="return confirm('Cancel this event? This cannot be undone.')">
+                                    Confirm Cancellation
+                                </button>
+                            </div>
+                        </form>
+                    </details>
+                }
+            </section>
+        }
+
+        @* ── Attendee actions panel ── *@
+        @if (!Model.IsHost && Model.IsParticipant && isActive)
+        {
+            <section class="panel stack">
+                <h2>Your Participation</h2>
+                <p class="muted-note">You are attending this event.</p>
+
+                <form asp-action="Leave" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="eventId" value="@Model.EventId" />
+                    <button type="submit" class="button button--secondary"
+                            onclick="return confirm('Leave this event?')">
+                        Leave Event
+                    </button>
+                </form>
+            </section>
+        }
+
+        @* ── Join panel ── *@
+        @if (!Model.IsHost && !Model.IsParticipant && Model.Status == "Open")
+        {
+            <section class="panel stack">
+                <h2>Join this Event</h2>
+                <p class="muted-note">@(Model.Capacity - Model.ActiveParticipants) spot(s) remaining.</p>
+
+                <form asp-action="Join" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="eventId" value="@Model.EventId" />
+                    <button type="submit" class="button button--primary">Join Event</button>
+                </form>
+            </section>
+        }
+
+    </div>
 
 </section>
