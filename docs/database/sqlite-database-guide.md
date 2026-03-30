@@ -171,6 +171,21 @@ At the moment, the shared snapshot contains:
 
 ## Development/Test Scenario Seed Data
 
+### Seeded login credentials
+
+All seeded scenario accounts use the same password:
+
+- `TasteBudz123!`
+
+| Username | Email | Password | Roles |
+|---|---|---|---|
+| alex | alex@tastebudz.local | TasteBudz123! | User |
+| brooke | brooke@tastebudz.local | TasteBudz123! | User |
+| casey | casey@tastebudz.local | TasteBudz123! | User |
+| devon | devon@tastebudz.local | TasteBudz123! | User, Moderator |
+| emery | emery@tastebudz.local | TasteBudz123! | User, Admin |
+| fin | fin@tastebudz.local | TasteBudz123! | User |
+
 ### User accounts
 
 The current snapshot contains 6 scenario users.
@@ -183,10 +198,6 @@ The current snapshot contains 6 scenario users.
 | devon | Devon Brooks | User, Moderator | 45219 | Networking | Enabled |
 | emery | Emery Stone | User, Admin | 41011 | Networking | Enabled |
 | fin | Fin Carter | User | 45212 | Friends | Disabled |
-
-All seeded scenario accounts use the same development password:
-
-- `TasteBudz123!`
 
 ### User preference data
 
