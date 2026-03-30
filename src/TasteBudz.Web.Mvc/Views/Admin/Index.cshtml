@@ -1,0 +1,135 @@
+﻿@model AdminIndexViewModel
+
+@{
+    ViewData["Title"] = "Admin Panel";
+}
+
+<div class="admin-shell">
+
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">🛡️ Moderation</span>
+            <h1 class="admin-title">Admin Panel</h1>
+            <p class="admin-subtitle">Review reports and manage user restrictions.</p>
+        </div>
+        <a asp-action="Reports" class="button button--secondary">
+            All Reports
+        </a>
+    </div>
+
+    <!-- Pending Reports -->
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">
+                Pending Reports
+                @if (Model.PendingReports.Count > 0)
+                {
+                    <span class="admin-badge admin-badge--warn">@Model.PendingReports.Count</span>
+                }
+            </h2>
+        </div>
+
+        @if (!Model.PendingReports.Any())
+        {
+            <div class="admin-empty">
+                <span class="admin-empty__icon">✅</span>
+                <p>No pending reports. Everything looks clean!</p>
+            </div>
+        }
+        else
+        {
+            <div class="report-list">
+                @foreach (var report in Model.PendingReports)
+                {
+                    <div class="report-card card">
+                        <div class="report-card__header">
+                            <div class="report-card__meta">
+                                <span class="report-card__type">@report.TargetType</span>
+                                <span class="report-card__category pill">@report.Category</span>
+                            </div>
+                            <time class="report-card__time" datetime="@report.CreatedAtUtc.ToString("o")">
+                                @report.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                            </time>
+                        </div>
+
+                        <p class="report-card__reason">@report.Reason</p>
+
+                        @if (!string.IsNullOrWhiteSpace(report.Explanation))
+                        {
+                            <p class="report-card__explanation muted-note">@report.Explanation</p>
+                        }
+
+                        <div class="report-card__footer">
+                            <div class="report-card__ids">
+                                <span class="muted-note">Reporter: <code>@report.ReporterUserId.ToString()[..8]…</code></span>
+                                @if (report.RelatedUserId.HasValue)
+                                {
+                                    <span class="muted-note">Reported user: <code>@report.RelatedUserId.Value.ToString()[..8]…</code></span>
+                                }
+                            </div>
+
+                            <div class="button-row">
+                                @if (report.RelatedUserId.HasValue)
+                                {
+                                    <!-- Ban modal trigger -->
+                                    <button class="button button--danger"
+                                            onclick="openBanModal('@report.RelatedUserId', '@report.ReportId')">
+                                        Ban User
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+<!-- Ban confirmation modal -->
+<div class="ban-overlay" id="banOverlay" hidden>
+    <div class="ban-modal card">
+        <button class="ban-modal__close" onclick="closeBanModal()" aria-label="Close">✕</button>
+        <h2 class="card__title">Ban User</h2>
+        <p class="card__subtitle">Choose the restriction duration. This action is logged.</p>
+
+        <form asp-action="BanUser" method="post" class="stack" id="banForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="userId" id="banUserId" />
+            <input type="hidden" name="reportId" id="banReportId" />
+
+            <div class="field">
+                <label for="banReason">Reason</label>
+                <textarea id="banReason" name="reason" placeholder="Brief reason for this restriction…" required></textarea>
+            </div>
+
+            <div class="ban-duration-row">
+                <button type="submit" name="permanent" value="false" class="button button--primary ban-btn">
+                    🕐 7-Day Ban
+                </button>
+                <button type="submit" name="permanent" value="true" class="button button--danger ban-btn">
+                    🚫 Permanent Ban
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openBanModal(userId, reportId) {
+            document.getElementById('banUserId').value = userId;
+            document.getElementById('banReportId').value = reportId;
+            document.getElementById('banOverlay').removeAttribute('hidden');
+        }
+
+        function closeBanModal() {
+            document.getElementById('banOverlay').setAttribute('hidden', '');
+            document.getElementById('banReason').value = '';
+        }
+
+        document.getElementById('banOverlay').addEventListener('click', function (e) {
+            if (e.target === this) closeBanModal();
+        });
+    </script>
+}

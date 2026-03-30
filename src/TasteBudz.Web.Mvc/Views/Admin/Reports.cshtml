@@ -1,0 +1,158 @@
+﻿@model AdminReportsViewModel
+
+@{
+    ViewData["Title"] = "All Reports";
+}
+
+<div class="admin-shell">
+
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">🛡️ Moderation</span>
+            <h1 class="admin-title">Reports</h1>
+            <p class="admin-subtitle">@Model.TotalCount report(s) total.</p>
+        </div>
+        <a asp-action="Index" class="button button--secondary">← Back to Panel</a>
+    </div>
+
+    <!-- Status filter tabs -->
+    <div class="admin-tabs">
+        <a asp-action="Reports" class="admin-tab @(Model.FilterStatus == null ? "admin-tab--active" : "")">All</a>
+        <a asp-action="Reports" asp-route-status="Pending" class="admin-tab @(Model.FilterStatus == TasteBudz.Backend.Domain.ModerationReportStatus.Pending ? "admin-tab--active" : "")">Pending</a>
+        <a asp-action="Reports" asp-route-status="Resolved" class="admin-tab @(Model.FilterStatus == TasteBudz.Backend.Domain.ModerationReportStatus.Resolved ? "admin-tab--active" : "")">Resolved</a>
+    </div>
+
+    <section class="admin-section">
+        @if (!Model.Reports.Any())
+        {
+            <div class="admin-empty">
+                <span class="admin-empty__icon">📭</span>
+                <p>No reports match this filter.</p>
+            </div>
+        }
+        else
+        {
+            <div class="report-list">
+                @foreach (var report in Model.Reports)
+                {
+                    <div class="report-card card">
+                        <div class="report-card__header">
+                            <div class="report-card__meta">
+                                <span class="report-card__type">@report.TargetType</span>
+                                <span class="pill @(report.Status == TasteBudz.Backend.Domain.ModerationReportStatus.Pending ? "pill--open" : "pill--confirmed")">
+                                    @report.Status
+                                </span>
+                                <span class="report-card__category pill">@report.Category</span>
+                            </div>
+                            <time class="report-card__time" datetime="@report.CreatedAtUtc.ToString("o")">
+                                @report.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy")
+                            </time>
+                        </div>
+
+                        <p class="report-card__reason">@report.Reason</p>
+
+                        @if (!string.IsNullOrWhiteSpace(report.Explanation))
+                        {
+                            <p class="muted-note">@report.Explanation</p>
+                        }
+
+                        <div class="report-card__footer">
+                            <div class="report-card__ids">
+                                <span class="muted-note">Reporter: <code>@report.ReporterUserId.ToString()[..8]…</code></span>
+                                @if (report.RelatedUserId.HasValue)
+                                {
+                                    <span class="muted-note">Subject: <code>@report.RelatedUserId.Value.ToString()[..8]…</code></span>
+                                }
+                            </div>
+
+                            @if (report.Status == TasteBudz.Backend.Domain.ModerationReportStatus.Pending && report.RelatedUserId.HasValue)
+                            {
+                                <div class="button-row">
+                                    <button class="button button--danger"
+                                            onclick="openBanModal('@report.RelatedUserId', '@report.ReportId')">
+                                        Ban User
+                                    </button>
+                                </div>
+                            }
+
+                            @if (report.Status == TasteBudz.Backend.Domain.ModerationReportStatus.Resolved)
+                            {
+                                <span class="muted-note">
+                                    Resolved @report.ResolvedAtUtc?.ToLocalTime().ToString("MMM d, yyyy")
+                                    @if (!string.IsNullOrWhiteSpace(report.ResolutionDecision))
+                                    {
+                                        <span>· @report.ResolutionDecision</span>
+                                    }
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Pagination -->
+            @if (Model.TotalPages > 1)
+            {
+                <div class="admin-pagination">
+                    @if (Model.CurrentPage > 1)
+                    {
+                        <a asp-action="Reports" asp-route-page="@(Model.CurrentPage - 1)" asp-route-status="@Model.FilterStatus" class="button button--secondary">← Prev</a>
+                    }
+                    <span class="muted-note">Page @Model.CurrentPage of @Model.TotalPages</span>
+                    @if (Model.CurrentPage < Model.TotalPages)
+                    {
+                        <a asp-action="Reports" asp-route-page="@(Model.CurrentPage + 1)" asp-route-status="@Model.FilterStatus" class="button button--secondary">Next →</a>
+                    }
+                </div>
+            }
+        }
+    </section>
+</div>
+
+<!-- Ban modal (same as index) -->
+<div class="ban-overlay" id="banOverlay" hidden>
+    <div class="ban-modal card">
+        <button class="ban-modal__close" onclick="closeBanModal()" aria-label="Close">✕</button>
+        <h2 class="card__title">Ban User</h2>
+        <p class="card__subtitle">Choose the restriction duration. This action is logged.</p>
+
+        <form asp-action="BanUser" method="post" class="stack" id="banForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="userId" id="banUserId" />
+            <input type="hidden" name="reportId" id="banReportId" />
+
+            <div class="field">
+                <label for="banReason">Reason</label>
+                <textarea id="banReason" name="reason" placeholder="Brief reason for this restriction…" required></textarea>
+            </div>
+
+            <div class="ban-duration-row">
+                <button type="submit" name="permanent" value="false" class="button button--primary ban-btn">
+                    🕐 7-Day Ban
+                </button>
+                <button type="submit" name="permanent" value="true" class="button button--danger ban-btn">
+                    🚫 Permanent Ban
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openBanModal(userId, reportId) {
+            document.getElementById('banUserId').value = userId;
+            document.getElementById('banReportId').value = reportId;
+            document.getElementById('banOverlay').removeAttribute('hidden');
+        }
+
+        function closeBanModal() {
+            document.getElementById('banOverlay').setAttribute('hidden', '');
+            document.getElementById('banReason').value = '';
+        }
+
+        document.getElementById('banOverlay').addEventListener('click', function (e) {
+            if (e.target === this) closeBanModal();
+        });
+    </script>
+}

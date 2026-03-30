@@ -1,0 +1,136 @@
+﻿@{
+    ViewData["Title"] = "TasteBudz — Find Your Food Friends";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="home-shell">
+
+    <!-- ── Hero ─────────────────────────────────────────────── -->
+    <section class="home-hero">
+        <div class="home-hero__copy">
+            <span class="eyebrow">🍜 Welcome to TasteBudz</span>
+            <h1 class="home-hero__heading">
+                Life's better<br />
+                when you eat<br />
+                <em>together.</em>
+            </h1>
+            <p class="home-hero__tagline">
+                TasteBudz connects food lovers who share the same cravings, schedules, and appetite for
+                adventure — so no great meal ever has to be eaten alone.
+            </p>
+            <div class="home-hero__cta button-row">
+                <a asp-controller="Account" asp-action="CreateAccount" class="button button--primary home-cta-btn">
+                    Get Started Free
+                </a>
+                <a asp-controller="Account" asp-action="Login" class="button button--secondary">
+                    Log In
+                </a>
+            </div>
+        </div>
+
+        <div class="home-hero__visual" aria-hidden="true">
+            <div class="hero-card hero-card--back">
+                <div class="hero-card__avatar">S</div>
+                <div class="hero-card__info">
+                    <strong>Sofia R.</strong>
+                    <span>Loves ramen &amp; dim sum</span>
+                </div>
+            </div>
+            <div class="hero-card hero-card--front">
+                <div class="hero-card__avatar">M</div>
+                <div class="hero-card__info">
+                    <strong>Marcus T.</strong>
+                    <span>BBQ &amp; street food fanatic</span>
+                </div>
+                <div class="hero-card__match">🍔 Match!</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Mission Statement ─────────────────────────────────── -->
+    <section class="home-mission">
+        <div class="home-mission__inner card">
+            <span class="home-mission__label eyebrow">Our Mission</span>
+            <blockquote class="home-mission__quote">
+                "Food is the universal language — and we believe every shared meal is an opportunity to
+                forge a real connection. TasteBudz exists to turn a simple craving into a meaningful
+                experience, bringing together people who love good food and even better company."
+            </blockquote>
+        </div>
+    </section>
+
+    <!-- ── Features ─────────────────────────────────────────── -->
+    <section class="home-features">
+        <div class="home-features__header">
+            <span class="eyebrow">What You Can Do</span>
+            <h2 class="home-features__title">Everything you need<br />to eat well, together.</h2>
+        </div>
+
+        <div class="features-grid">
+
+            <div class="feature-card card">
+                <div class="feature-card__icon">🔍</div>
+                <h3 class="feature-card__title">Discover Your Budz</h3>
+                <p class="feature-card__desc">
+                    Swipe through profiles matched to your cuisine preferences and dietary style.
+                    Like someone? If they like you back, you're Budz.
+                </p>
+            </div>
+
+            <div class="feature-card card">
+                <div class="feature-card__icon">💬</div>
+                <h3 class="feature-card__title">Chat Instantly</h3>
+                <p class="feature-card__desc">
+                    Message your Budz one-on-one to plan your next bite. Real-time chat keeps
+                    the conversation flowing from "where should we go?" to "see you there!"
+                </p>
+            </div>
+
+            <div class="feature-card card">
+                <div class="feature-card__icon">📅</div>
+                <h3 class="feature-card__title">Plan Events</h3>
+                <p class="feature-card__desc">
+                    Create dining events — open to all or invite-only — pick a restaurant, set a
+                    time, and watch your squad fill up the table.
+                </p>
+            </div>
+
+            <div class="feature-card card">
+                <div class="feature-card__icon">👥</div>
+                <h3 class="feature-card__title">Join Groups</h3>
+                <p class="feature-card__desc">
+                    Find or create groups centred around a shared taste — from spicy food lovers to
+                    weekend brunch crews. Communities that eat together, stay together.
+                </p>
+            </div>
+
+            <div class="feature-card card">
+                <div class="feature-card__icon">🗺️</div>
+                <h3 class="feature-card__title">Explore Restaurants</h3>
+                <p class="feature-card__desc">
+                    Browse local restaurants, filter by cuisine and price, and pin the perfect spot
+                    to your next event — all without leaving the app.
+                </p>
+            </div>
+
+            <div class="feature-card card">
+                <div class="feature-card__icon">🔔</div>
+                <h3 class="feature-card__title">Stay in the Loop</h3>
+                <p class="feature-card__desc">
+                    Get notified when you match with a new Bud, receive an event invite, or when
+                    your group plans something tasty. Never miss a meal again.
+                </p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ── Final CTA ─────────────────────────────────────────── -->
+    <section class="home-cta-strip">
+        <h2 class="home-cta-strip__heading">Ready to find your food friends?</h2>
+        <a asp-controller="Account" asp-action="CreateAccount" class="button button--primary home-cta-btn">
+            Create a Free Account
+        </a>
+    </section>
+
+</div>

@@ -33,8 +33,13 @@
                 }
                 else
                 {
+                    <a asp-controller="Home" asp-action="Index">Home</a>
                     <a asp-controller="Account" asp-action="Login">Log In</a>
                     <a asp-controller="Account" asp-action="CreateAccount">Create Account</a>
+                }
+                @if (User.IsInRole("Admin") || User.IsInRole("Moderator"))
+                {
+                    <a asp-controller="Admin" asp-action="Index">Admin</a>
                 }
             </nav>
         </div>
