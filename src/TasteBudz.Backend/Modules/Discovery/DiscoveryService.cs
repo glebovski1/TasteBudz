@@ -2,6 +2,8 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.Concurrency;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -20,8 +22,11 @@ public sealed class DiscoveryService(
     IDiscoveryRepository discoveryRepository,
     RestrictionService restrictionService,
     INotificationService notificationService,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null,
+    IKeyedLockProvider? keyedLockProvider = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<ListResponse<DiscoveryProfilePreviewDto>> SearchAsync(Guid currentUserId, SearchPeopleQuery query, CancellationToken cancellationToken = default)
     {
         var candidates = await GetDiscoverableUsersAsync(currentUserId, cancellationToken);
@@ -74,31 +79,26 @@ public sealed class DiscoveryService(
 
         await EnsureDiscoverableSubjectAsync(currentUser.UserId, subjectUserId, cancellationToken);
 
-        var now = clock.UtcNow;
-        var swipe = new SwipeDecision(currentUser.UserId, subjectUserId, decision, now);
-        await discoveryRepository.SaveSwipeDecisionAsync(swipe, cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                var now = clock.UtcNow;
+                var swipe = new SwipeDecision(currentUser.UserId, subjectUserId, decision, now);
+                await discoveryRepository.SaveSwipeDecisionAsync(swipe, cancellationToken);
 
-        var reciprocal = await discoveryRepository.GetSwipeDecisionAsync(subjectUserId, currentUser.UserId, cancellationToken);
-        var existingConnection = await discoveryRepository.GetBudConnectionAsync(currentUser.UserId, subjectUserId, cancellationToken);
-        var isBudMatch = decision == SwipeDecisionType.Like &&
-                         reciprocal?.Decision == SwipeDecisionType.Like;
-        Guid? budConnectionId = existingConnection?.Id;
+                var budLock = keyedLockProvider is null
+                    ? null
+                    : await keyedLockProvider.AcquireAsync(GetBudLockKey(currentUser.UserId, subjectUserId), cancellationToken);
 
-        if (isBudMatch && existingConnection?.State != BudConnectionState.Connected)
-        {
-            var connection = new BudConnection(
-                existingConnection?.Id ?? Guid.NewGuid(),
-                NormalizePair(currentUser.UserId, subjectUserId).Lower,
-                NormalizePair(currentUser.UserId, subjectUserId).Higher,
-                BudConnectionState.Connected,
-                existingConnection?.CreatedAtUtc ?? now,
-                null);
-            await discoveryRepository.SaveBudConnectionAsync(connection, cancellationToken);
-            await NotifyBudMatchAsync(connection, cancellationToken);
-            budConnectionId = connection.Id;
-        }
+                if (budLock is not null)
+                {
+                    await using var _ = budLock;
+                    return await FinalizeSwipeAsync(currentUser.UserId, subjectUserId, decision, now, cancellationToken);
+                }
 
-        return new SwipeDecisionResultDto(subjectUserId, decision, isBudMatch, budConnectionId);
+                return await FinalizeSwipeAsync(currentUser.UserId, subjectUserId, decision, now, cancellationToken);
+            },
+            cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<BudConnectionDto>> ListMyBudzAsync(Guid currentUserId, CancellationToken cancellationToken = default)
@@ -218,4 +218,46 @@ public sealed class DiscoveryService(
 
     private static (Guid Lower, Guid Higher) NormalizePair(Guid first, Guid second) =>
         first.CompareTo(second) <= 0 ? (first, second) : (second, first);
+
+    private async Task<SwipeDecisionResultDto> FinalizeSwipeAsync(
+        Guid currentUserId,
+        Guid subjectUserId,
+        SwipeDecisionType decision,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var reciprocal = await discoveryRepository.GetSwipeDecisionAsync(subjectUserId, currentUserId, cancellationToken);
+        var existingConnection = await discoveryRepository.GetBudConnectionAsync(currentUserId, subjectUserId, cancellationToken);
+        var isBudMatch = decision == SwipeDecisionType.Like && reciprocal?.Decision == SwipeDecisionType.Like;
+        Guid? budConnectionId = existingConnection?.Id;
+
+        if (isBudMatch && existingConnection?.State != BudConnectionState.Connected)
+        {
+            var pair = NormalizePair(currentUserId, subjectUserId);
+            var connection = new BudConnection(
+                existingConnection?.Id ?? Guid.NewGuid(),
+                pair.Lower,
+                pair.Higher,
+                BudConnectionState.Connected,
+                existingConnection?.CreatedAtUtc ?? now,
+                null);
+            await discoveryRepository.SaveBudConnectionAsync(connection, cancellationToken);
+            var persistedConnection = await discoveryRepository.GetBudConnectionAsync(currentUserId, subjectUserId, cancellationToken) ?? connection;
+
+            if (existingConnection?.State != BudConnectionState.Connected)
+            {
+                await NotifyBudMatchAsync(persistedConnection, cancellationToken);
+            }
+
+            budConnectionId = persistedConnection.Id;
+        }
+
+        return new SwipeDecisionResultDto(subjectUserId, decision, isBudMatch, budConnectionId);
+    }
+
+    private static string GetBudLockKey(Guid firstUserId, Guid secondUserId)
+    {
+        var pair = NormalizePair(firstUserId, secondUserId);
+        return $"bud:{pair.Lower:N}:{pair.Higher:N}";
+    }
 }

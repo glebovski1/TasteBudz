@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -22,8 +23,10 @@ public sealed class EventParticipationService(
     RestrictionService restrictionService,
     EventLifecycleService lifecycleService,
     IKeyedLockProvider keyedLockProvider,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<EventParticipantDto> JoinOpenEventAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default)
     {
         await restrictionService.EnsureNotRestrictedAsync(
@@ -80,11 +83,15 @@ public sealed class EventParticipationService(
             null,
             null);
 
-        await eventRepository.SaveParticipantAsync(participant, cancellationToken);
-        await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
-        await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventJoined, $"{currentUser.Username} joined {eventRecord.Title ?? "your event"}.", cancellationToken);
-
-        return await MapParticipantAsync(participant, cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await eventRepository.SaveParticipantAsync(participant, cancellationToken);
+                await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventJoined, $"{currentUser.Username} joined {eventRecord.Title ?? "your event"}.", cancellationToken);
+                return await MapParticipantAsync(participant, cancellationToken);
+            },
+            cancellationToken);
     }
 
     public async Task<EventParticipantDto> UpdateMyParticipationAsync(CurrentUser currentUser, Guid eventId, UpdateMyParticipationRequest request, CancellationToken cancellationToken = default)
@@ -158,10 +165,15 @@ public sealed class EventParticipationService(
                     RemovedAtUtc = null,
                 };
 
-                await eventRepository.SaveParticipantAsync(updated, cancellationToken);
-                await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
-                await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventJoined, $"{currentUser.Username} joined {eventRecord.Title ?? "your event"}.", cancellationToken);
-                return await MapParticipantAsync(updated, cancellationToken);
+                return await persistenceTransactionRunner.ExecuteAsync(
+                    async () =>
+                    {
+                        await eventRepository.SaveParticipantAsync(updated, cancellationToken);
+                        await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                        await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventJoined, $"{currentUser.Username} joined {eventRecord.Title ?? "your event"}.", cancellationToken);
+                        return await MapParticipantAsync(updated, cancellationToken);
+                    },
+                    cancellationToken);
 
             case EventParticipantState.Left:
                 if (participant.UserId == eventRecord.HostUserId)
@@ -181,10 +193,15 @@ public sealed class EventParticipationService(
                     LeftAtUtc = now,
                 };
 
-                await eventRepository.SaveParticipantAsync(updated, cancellationToken);
-                await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
-                await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventLeft, $"{currentUser.Username} left {eventRecord.Title ?? "your event"}.", cancellationToken);
-                return await MapParticipantAsync(updated, cancellationToken);
+                return await persistenceTransactionRunner.ExecuteAsync(
+                    async () =>
+                    {
+                        await eventRepository.SaveParticipantAsync(updated, cancellationToken);
+                        await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                        await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventLeft, $"{currentUser.Username} left {eventRecord.Title ?? "your event"}.", cancellationToken);
+                        return await MapParticipantAsync(updated, cancellationToken);
+                    },
+                    cancellationToken);
 
             case EventParticipantState.Declined:
                 if (eventRecord.EventType != EventType.Closed)
@@ -215,9 +232,14 @@ public sealed class EventParticipationService(
                     RemovedAtUtc = null,
                 };
 
-                await eventRepository.SaveParticipantAsync(updated, cancellationToken);
-                await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
-                return await MapParticipantAsync(updated, cancellationToken);
+                return await persistenceTransactionRunner.ExecuteAsync(
+                    async () =>
+                    {
+                        await eventRepository.SaveParticipantAsync(updated, cancellationToken);
+                        await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                        return await MapParticipantAsync(updated, cancellationToken);
+                    },
+                    cancellationToken);
 
             default:
                 throw ApiException.BadRequest("Unsupported participation state.");
@@ -262,8 +284,13 @@ public sealed class EventParticipationService(
             RemovedAtUtc = now,
         };
 
-        await eventRepository.SaveParticipantAsync(updated, cancellationToken);
-        await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await eventRepository.SaveParticipantAsync(updated, cancellationToken);
+                await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+            },
+            cancellationToken);
     }
 
     private async Task<Event> GetSynchronizedEventAsync(Guid eventId, CancellationToken cancellationToken)

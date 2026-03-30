@@ -21,15 +21,15 @@ This document exists to:
 Current team reality:
 
 - backend implementation is owned separately from frontend implementation
-- final database implementation is owned separately from backend implementation
-- backend documentation is ahead of the current codebase
+- SQLite runtime persistence is now implemented for the current backend modules
+- backend documentation must stay aligned with the implemented SQLite path
 
 Implications:
 
 - backend work must not wait for frontend completion before testing begins
 - backend business rules and HTTP contracts should be proven independently of frontend UI work
-- repository and persistence boundaries should allow backend logic to be developed before the final database path is complete
-- persistence-sensitive workflows still require later validation against the real relational path
+- repository and persistence boundaries should continue to isolate service logic from storage details
+- persistence-sensitive workflows must be validated against the real SQLite relational path, not against in-memory shortcuts alone
 
 This is a backend testing strategy, not a frontend QA plan and not a database performance tuning plan.
 
@@ -220,19 +220,19 @@ Recommended additions as the backend matures:
 | Integration host | `WebApplicationFactory<Program>` | Best fit for realistic ASP.NET Core API testing |
 | Assertions | FluentAssertions | Improves readability of behavior-focused tests |
 | Test doubles | simple fakes first, mocking only when needed | Keeps tests explicit and less brittle |
-| Database reset | Respawn or controlled cleanup strategy | Keeps persistence tests repeatable |
-| Real DB test environment | local SQL Server test DB or containerized SQL Server | Needed for realistic relational and concurrency proof |
+| Database reset | recreate temporary SQLite databases from canonical SQL scripts | Keeps persistence tests repeatable and aligned to the approved runtime schema |
+| Real DB test environment | temporary SQLite files per test or per fixture | Matches the implemented MVP runtime path and supports relational/concurrency proof |
 
-Avoid treating EF Core in-memory behavior as equivalent to SQL Server behavior for relational correctness.
+Avoid treating EF Core in-memory behavior as equivalent to SQLite relational behavior for transactional correctness.
 
 ## 12. Test Data and Determinism
 
 - Use explicit builders or factories for users, events, groups, messages, and restrictions.
 - Introduce a clock abstraction so `DecisionAt`, completion, and time-based restrictions can be tested deterministically.
-- Seed restaurant data deterministically.
+- Seed restaurant and ZIP-coordinate data deterministically from the canonical SQLite seed script.
 - Create helpers for authenticated test users with clear roles such as User, Host, GroupOwner, Moderator, and Admin.
 - Keep scenario data compact and readable.
-- Reset persistence state between integration tests.
+- Reset persistence state between integration tests by recreating the temporary SQLite database from canonical SQL assets.
 
 ## 13. Core Scenario Catalogue
 

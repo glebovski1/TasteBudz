@@ -1,11 +1,11 @@
-// In-memory restaurant catalog repository backed by the seeded store.
+// In-memory restaurant catalog repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Restaurants;
 
 /// <summary>
-/// Reads restaurants and ZIP centroids from the shared in-memory store.
+/// Reads restaurants and ZIP centroids from the shared in-memory test store.
 /// </summary>
 public sealed class InMemoryRestaurantRepository(InMemoryTasteBudzStore store) : IRestaurantRepository
 {

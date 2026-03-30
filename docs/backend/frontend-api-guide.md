@@ -8,15 +8,15 @@ Use [implementation-status.md](./implementation-status.md) for what is actually 
 
 ## 1. Current Backend State
 
-The backend is currently `Backend-logic ready`, not `Backend-complete`.
+The backend is currently `Backend-complete` for the implemented MVP module surface.
 
 Implications:
 
 - the implemented API surface is usable for frontend work
 - service logic and API behavior are in place
-- runtime persistence is still in-memory
-- data should not be treated as durable across restarts
-- some persistence-backed and production-style concurrency guarantees are not finished yet
+- runtime persistence is SQLite-backed for the implemented modules
+- data is durable within the configured SQLite database file
+- Development and IntegrationTesting may recreate local databases from canonical SQL scripts, so test/dev data should still be treated as disposable
 
 ## 2. API Basics
 
@@ -215,4 +215,4 @@ These documented routes/features are not implemented yet and should not be used 
 - treat [api-endpoints.md](./api-endpoints.md) as the contract reference
 - build against the implemented MVP routes first
 - handle `401`, `403`, `404`, and `409` explicitly in UI flows
-- avoid frontend assumptions about persistence durability while the app still uses in-memory storage
+- avoid depending on development/test seed records beyond documented API contracts

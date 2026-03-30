@@ -1,11 +1,11 @@
-// In-memory event repository used by the MVP runtime and automated tests.
+// In-memory event repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Events;
 
 /// <summary>
-/// Stores events and participant rows inside the shared in-memory store.
+/// Stores events and participant rows inside the shared in-memory test store.
 /// </summary>
 public sealed class InMemoryEventRepository(InMemoryTasteBudzStore store) : IEventRepository
 {

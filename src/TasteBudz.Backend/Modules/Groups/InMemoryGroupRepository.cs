@@ -1,4 +1,4 @@
-// In-memory group repository used by the current MVP implementation.
+// In-memory group repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 

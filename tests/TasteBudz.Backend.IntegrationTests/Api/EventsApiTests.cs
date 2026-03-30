@@ -298,4 +298,122 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Equal("Matching browse event", item.Title);
         Assert.Equal(ownerSession.CurrentUser.UserId, item.HostUserId);
     }
+
+    [Fact]
+    public async Task OpenEventJoin_WhenTwoGuestsRaceForFinalSeat_AllowsExactlyOneJoin()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestOneClient = factory.CreateClient();
+        using var guestTwoClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestOneSession = await ApiTestHelpers.RegisterAsync(guestOneClient, username: "guestone", email: "guestone@example.com");
+        var guestTwoSession = await ApiTestHelpers.RegisterAsync(guestTwoClient, username: "guesttwo", email: "guesttwo@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestOneClient, guestOneSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestTwoClient, guestTwoSession.AccessToken);
+
+        var createResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Last seat race",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(1),
+            Capacity = 2,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var joinResponses = await Task.WhenAll(
+            guestOneClient.PostAsync($"/api/v1/events/{created!.EventId}/participants", null),
+            guestTwoClient.PostAsync($"/api/v1/events/{created.EventId}/participants", null));
+        var participantsResponse = await hostClient.GetAsync($"/api/v1/events/{created.EventId}/participants");
+        var participants = await participantsResponse.Content.ReadFromJsonAsync<EventParticipantDto[]>(ApiTestHelpers.JsonOptions) ?? Array.Empty<EventParticipantDto>();
+
+        Assert.Equal(1, joinResponses.Count(response => response.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(1, joinResponses.Count(response => response.StatusCode == HttpStatusCode.Conflict));
+        Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
+        Assert.Equal(2, participants.Count(participant => participant.State == EventParticipantState.Joined));
+    }
+
+    [Fact]
+    public async Task ClosedEventInviteAcceptance_WhenTwoGuestsRaceForFinalSeat_AllowsExactlyOneAcceptance()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+        using var samClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+        ApiTestHelpers.SetBearer(samClient, samSession.AccessToken);
+
+        var createResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Closed race",
+            EventType = EventType.Closed,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(2),
+            Capacity = 2,
+            CuisineTarget = "Thai",
+            InviteUsernames = new[] { "guest", "sam" },
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var joinResponses = await Task.WhenAll(
+            guestClient.PatchAsJsonAsync($"/api/v1/events/{created!.EventId}/participants/me", new UpdateMyParticipationRequest
+            {
+                State = EventParticipantState.Joined,
+            }),
+            samClient.PatchAsJsonAsync($"/api/v1/events/{created.EventId}/participants/me", new UpdateMyParticipationRequest
+            {
+                State = EventParticipantState.Joined,
+            }));
+        var participantsResponse = await hostClient.GetAsync($"/api/v1/events/{created.EventId}/participants");
+        var participants = await participantsResponse.Content.ReadFromJsonAsync<EventParticipantDto[]>(ApiTestHelpers.JsonOptions) ?? Array.Empty<EventParticipantDto>();
+
+        Assert.Equal(1, joinResponses.Count(response => response.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(1, joinResponses.Count(response => response.StatusCode == HttpStatusCode.Conflict));
+        Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
+        Assert.Equal(2, participants.Count(participant => participant.State == EventParticipantState.Joined));
+        Assert.Equal(1, participants.Count(participant => participant.State == EventParticipantState.Invited));
+    }
+
+    [Fact]
+    public async Task OpenEventJoin_AfterDecisionAt_ReturnsConflictAndKeepsHostAsOnlyParticipant()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "DecisionAt lock",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddMinutes(10),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var joinResponse = await guestClient.PostAsync($"/api/v1/events/{created!.EventId}/participants", null);
+        var problem = await joinResponse.Content.ReadFromJsonAsync<ProblemDetails>(ApiTestHelpers.JsonOptions);
+        var participantsResponse = await hostClient.GetAsync($"/api/v1/events/{created.EventId}/participants");
+        var participants = await participantsResponse.Content.ReadFromJsonAsync<EventParticipantDto[]>(ApiTestHelpers.JsonOptions) ?? Array.Empty<EventParticipantDto>();
+
+        Assert.Equal(HttpStatusCode.Conflict, joinResponse.StatusCode);
+        Assert.Contains("application/problem+json", joinResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(409, problem!.Status);
+        Assert.Equal("This event can no longer be joined.", problem.Detail);
+        Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
+        Assert.Single(participants);
+        Assert.Equal(hostSession.CurrentUser.UserId, participants[0].UserId);
+    }
 }

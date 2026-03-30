@@ -1,11 +1,11 @@
-// In-memory moderation repository used by the MVP runtime and automated tests.
+// In-memory moderation repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Moderation;
 
 /// <summary>
-/// Stores moderation-side records in the shared in-memory state store.
+/// Stores moderation-side records in the shared in-memory test state store.
 /// </summary>
 public sealed class InMemoryModerationRepository(InMemoryTasteBudzStore store) : IModerationRepository
 {
