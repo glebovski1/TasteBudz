@@ -5,3 +5,4 @@
 *.db-wal
 *.sqlite-shm
 *.sqlite-wal
+!TasteBudz.sqlite

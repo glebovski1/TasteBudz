@@ -14,6 +14,7 @@ public static class SqliteDatabaseBootstrapper
     public static async Task EnsureInitializedAsync(
         string connectionString,
         bool initializeOnStartup,
+        bool seedTestDataOnStartup,
         string environmentName,
         ILogger logger,
         CancellationToken cancellationToken = default)
@@ -25,7 +26,16 @@ public static class SqliteDatabaseBootstrapper
 
         if (canInitialize)
         {
-            await InitializeSchemaAsync(connectionString, cancellationToken);
+            var shouldSeedTestData =
+                seedTestDataOnStartup &&
+                !await HasAnyUserAccountsAsync(connectionString, cancellationToken);
+
+            if (seedTestDataOnStartup && !shouldSeedTestData)
+            {
+                logger.LogInformation("Skipping development test-data seed because the SQLite database already contains user accounts.");
+            }
+
+            await InitializeSchemaAsync(connectionString, shouldSeedTestData, cancellationToken);
         }
 
         await ValidateRequiredTablesAsync(connectionString, cancellationToken);
@@ -53,14 +63,17 @@ public static class SqliteDatabaseBootstrapper
             }
         }
 
-        await InitializeSchemaAsync(connectionString, cancellationToken);
+        await InitializeSchemaAsync(connectionString, seedTestData: false, cancellationToken);
         await ValidateRequiredTablesAsync(connectionString, cancellationToken);
     }
 
-    private static async Task InitializeSchemaAsync(string connectionString, CancellationToken cancellationToken)
+    private static async Task InitializeSchemaAsync(string connectionString, bool seedTestData, CancellationToken cancellationToken)
     {
         var schemaScript = await File.ReadAllTextAsync(GetBundledScriptPath("dbTasteBudz.sqlite.sql"), cancellationToken);
         var seedScript = await File.ReadAllTextAsync(GetBundledScriptPath("dbTasteBudz.sqlite.seed.sql"), cancellationToken);
+        var testDataScript = seedTestData
+            ? await File.ReadAllTextAsync(GetBundledScriptPath("dbTasteBudz.sqlite.testdata.sql"), cancellationToken)
+            : null;
         var builder = new SqliteConnectionStringBuilder(connectionString);
 
         if (!string.IsNullOrWhiteSpace(builder.DataSource) &&
@@ -78,7 +91,9 @@ public static class SqliteDatabaseBootstrapper
         await connection.OpenAsync(cancellationToken);
 
         await using var command = connection.CreateCommand();
-        command.CommandText = $"{schemaScript}{Environment.NewLine}{seedScript}";
+        command.CommandText = string.Join(
+            Environment.NewLine,
+            new[] { schemaScript, seedScript, testDataScript }.Where(script => !string.IsNullOrWhiteSpace(script)));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -99,6 +114,44 @@ public static class SqliteDatabaseBootstrapper
                 throw new InvalidOperationException($"The configured SQLite database is missing required table '{tableName}'.");
             }
         }
+    }
+
+    private static async Task<bool> HasAnyUserAccountsAsync(string connectionString, CancellationToken cancellationToken)
+    {
+        var builder = new SqliteConnectionStringBuilder(connectionString);
+
+        if (!string.IsNullOrWhiteSpace(builder.DataSource) &&
+            !string.Equals(builder.DataSource, ":memory:", StringComparison.Ordinal))
+        {
+            var directory = Path.GetDirectoryName(builder.DataSource);
+
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                return false;
+            }
+
+            if (!File.Exists(builder.DataSource))
+            {
+                return false;
+            }
+        }
+
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'UserAccounts';";
+
+        var hasUserAccountsTable = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) == 1;
+
+        if (!hasUserAccountsTable)
+        {
+            return false;
+        }
+
+        command.CommandText = "SELECT COUNT(*) FROM UserAccounts;";
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) > 0;
     }
 
     private static string[] BuildRequiredTables()

@@ -42,6 +42,80 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         Assert.Contains("UserRoles", invalidOperation.Message);
     }
 
+    [Fact]
+    public async Task SeedTestDataOnStartup_WhenEnabled_PopulatesDevelopmentAccounts()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        await using var connection = new SqliteConnection(customFactory.ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM UserAccounts WHERE Username = 'alex';";
+
+        var count = Convert.ToInt32(await command.ExecuteScalarAsync());
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task SeedTestDataOnStartup_WhenDisabled_DoesNotPopulateDevelopmentAccounts()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "false",
+        });
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        await using var connection = new SqliteConnection(customFactory.ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM UserAccounts;";
+
+        var count = Convert.ToInt32(await command.ExecuteScalarAsync());
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task SeedTestDataOnStartup_WhenDatabaseAlreadyHasUsers_DoesNotReapplySeedUsers()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+
+        await SqliteDatabaseBootstrapper.RecreateDatabaseAsync(customFactory.ConnectionString);
+        await InsertUserAsync(
+            customFactory.ConnectionString,
+            id: "99999999-9999-9999-9999-999999999999",
+            username: "alex",
+            email: "alex-existing@tastebudz.local");
+
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        await using var connection = new SqliteConnection(customFactory.ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM UserAccounts;";
+
+        var count = Convert.ToInt32(await command.ExecuteScalarAsync());
+        Assert.Equal(1, count);
+    }
+
     private static async Task DropTableAsync(string connectionString, string tableName)
     {
         await using var connection = new SqliteConnection(connectionString);
@@ -49,6 +123,28 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
 
         await using var command = connection.CreateCommand();
         command.CommandText = $"DROP TABLE {tableName};";
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task InsertUserAsync(string connectionString, string id, string username, string email)
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO UserAccounts
+                (Id, Username, NormalizedUsername, Email, NormalizedEmail, PasswordHash, Status, CreatedAtUtc, UpdatedAtUtc, DeletedAtUtc)
+            VALUES
+                ($id, $username, $normalizedUsername, $email, $normalizedEmail, $passwordHash, 0, '2026-03-30T12:00:00Z', '2026-03-30T12:00:00Z', NULL);
+            """;
+        command.Parameters.AddWithValue("$id", id);
+        command.Parameters.AddWithValue("$username", username);
+        command.Parameters.AddWithValue("$normalizedUsername", username.ToUpperInvariant());
+        command.Parameters.AddWithValue("$email", email);
+        command.Parameters.AddWithValue("$normalizedEmail", email.ToUpperInvariant());
+        command.Parameters.AddWithValue("$passwordHash", "seed-test-hash");
         await command.ExecuteNonQueryAsync();
     }
 }

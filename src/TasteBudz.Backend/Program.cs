@@ -30,6 +30,7 @@ var persistenceOptions = app.Services.GetRequiredService<IOptions<PersistenceOpt
 await SqliteDatabaseBootstrapper.EnsureInitializedAsync(
     normalizedConnectionString,
     persistenceOptions.InitializeSqliteOnStartup,
+    persistenceOptions.SeedTestDataOnStartup,
     app.Environment.EnvironmentName,
     app.Logger,
     app.Lifetime.ApplicationStopping);

@@ -8,4 +8,6 @@ public sealed class PersistenceOptions
     public const string SectionName = "Persistence";
 
     public bool InitializeSqliteOnStartup { get; set; }
+
+    public bool SeedTestDataOnStartup { get; set; }
 }

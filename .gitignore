@@ -4,6 +4,10 @@ obj/
 *.user
 *.suo
 *.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+!src/TasteBudz.Database/TasteBudz.sqlite
 *.log
 *.DS_Store
 artifacts/coverage/
