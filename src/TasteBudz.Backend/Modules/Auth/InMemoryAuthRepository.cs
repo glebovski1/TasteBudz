@@ -1,11 +1,11 @@
-// In-memory account and session repository used by the MVP runtime and tests.
+// In-memory account and session repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Auth;
 
 /// <summary>
-/// Stores auth data in the shared in-memory store behind the repository boundary.
+/// Stores auth data in the shared in-memory test store behind the repository boundary.
 /// </summary>
 public sealed class InMemoryAuthRepository(InMemoryTasteBudzStore store) : IAuthRepository
 {

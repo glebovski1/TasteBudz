@@ -6,11 +6,11 @@ Core constraints:
 
 - ASP.NET Core Web API backend
 - single deployable modular monolith
-- SQL Server / Azure SQL
+- SQLite runtime persistence for the implemented MVP backend
 - thin controllers, service-owned business rules
 - repository boundary around persistence
 - no microservices, event sourcing, or speculative enterprise patterns
-- persistence implementation intentionally left open
+- canonical schema kept in source-controlled SQLite SQL scripts with EF Core runtime mappings
 
 ## 1. Overview
 
@@ -66,7 +66,7 @@ Rules:
 - Light domain model with explicit invariants
 - Clear module boundaries
 - Single deployable backend
-- Persistence-neutral internals behind repositories
+- Persistence-neutral module boundaries behind repositories
 - Feature-flagged growth for later capabilities
 
 ## 4. Module Structure
@@ -578,14 +578,15 @@ Flags should be checked at module entry points rather than scattered throughout 
 
 ## 10. Persistence Approach
 
-There is no single required persistence mechanism.
+The approved runtime persistence path for the implemented MVP backend is SQLite.
 
-The architecture remains valid with:
+Current architecture requirements:
 
-- EF Core
-- SQL-first or Dapper-style repositories
-- stored procedures
-- a hybrid mix
+- canonical schema and seed data live in source-controlled SQLite SQL scripts under `src/TasteBudz.Database`
+- EF Core plus `TasteBudzDbContext` are used as runtime repository plumbing against that canonical schema
+- the backend may auto-initialize or recreate SQLite databases from those scripts only in Development and IntegrationTesting
+- non-development environments should fail fast if the configured SQLite database is missing required tables
+- module repository interfaces remain the stable persistence boundary
 
 Stable requirements regardless of persistence style:
 
@@ -603,11 +604,14 @@ Recommended MVP pattern:
 - one repository interface per module or feature area
 - both read and write behavior in the same module repository when that keeps the design simple
 - no generic one-size-fits-all repository abstraction
+- separate persistence entities and mappings rather than exposing EF entities as API/domain contracts
 
 Required transaction boundaries include:
 
 - event participation and invite-state updates
 - moderation decision + restriction + audit log
+- auth registration/session rotation/account deletion
+- Bud connection creation from reciprocal swipe decisions
 - later group ownership changes and slot reservations
 
 Required concurrency protections include:

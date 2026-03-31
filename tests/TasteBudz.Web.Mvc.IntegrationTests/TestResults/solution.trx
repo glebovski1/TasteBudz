@@ -1,0 +1,462 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="b9b4080c-85c8-44c6-a3bb-905e04dc5d7b" name="uslep@YOBANOUT 2026-03-26 22:33:35" runUser="YOBANOUT\uslep" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-03-26T22:33:35.2565438-04:00" queuing="2026-03-26T22:33:35.2565442-04:00" start="2026-03-26T22:33:32.6410086-04:00" finish="2026-03-26T22:33:36.7017787-04:00" />
+  <TestSettings name="default" id="7112302c-aab0-4cf3-acfd-0bdae544426b">
+    <Deployment runDeploymentRoot="uslep_YOBANOUT_2026-03-26_22_33_35" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="210987b1-8195-49ba-b826-0d0344736b59" testId="b3b4869a-c8b7-26fd-0b22-8afd347f56a6" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests.GetAsync_WhenRefreshFailsForCurrentSession_SignsOutAndThrows" computerName="YOBANOUT" duration="00:00:00.0012989" startTime="2026-03-26T22:33:35.2447028-04:00" endTime="2026-03-26T22:33:35.2447029-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="210987b1-8195-49ba-b826-0d0344736b59" />
+    <UnitTestResult executionId="99a969b1-00b2-4526-9b6c-ecc3827d073b" testId="cf73a028-d179-91d5-492b-c2ae0fb9486c" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.InvalidLogin_RedisplaysFormWithBackendError" computerName="YOBANOUT" duration="00:00:00.0950853" startTime="2026-03-26T22:33:36.6515578-04:00" endTime="2026-03-26T22:33:36.6515579-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="99a969b1-00b2-4526-9b6c-ecc3827d073b" />
+    <UnitTestResult executionId="546db4be-19cd-4575-98e3-c22785f05853" testId="673dc857-a72c-c6b7-c5d1-003380ea343f" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.Login_WhenOnboardingComplete_RedirectsToDashboard" computerName="YOBANOUT" duration="00:00:00.1023261" startTime="2026-03-26T22:33:36.1067946-04:00" endTime="2026-03-26T22:33:36.1067947-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="546db4be-19cd-4575-98e3-c22785f05853" />
+    <UnitTestResult executionId="2ef9c5bf-d790-4942-9aee-3270acef832f" testId="53def8ab-234a-ffa3-b4a5-19a70787cd62" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.GroupApiServiceTests.BrowseDetailAndLinkedEvents_SendExpectedRoutes" computerName="YOBANOUT" duration="00:00:00.0066860" startTime="2026-03-26T22:33:35.2469842-04:00" endTime="2026-03-26T22:33:35.2469844-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2ef9c5bf-d790-4942-9aee-3270acef832f" />
+    <UnitTestResult executionId="de94d186-d5b0-43dc-a8b6-f8eec343eaa1" testId="e0e0e844-a64c-b477-58b7-d2f92493b3f1" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests.GetAsync_WhenRefreshFailsAfterAnotherRequestAlreadyUpdatedSession_RetriesWithNewStoredToken" computerName="YOBANOUT" duration="00:00:00.3335504" startTime="2026-03-26T22:33:35.2233679-04:00" endTime="2026-03-26T22:33:35.2233696-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="de94d186-d5b0-43dc-a8b6-f8eec343eaa1" />
+    <UnitTestResult executionId="f7c4d89c-f552-4d80-934d-8023b0bf2004" testId="d46dcc31-a24f-5309-5242-1fd2a030f7c9" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.NotificationApiServiceTests.ListAndUpdate_SendExpectedRoutesAndPayloads" computerName="YOBANOUT" duration="00:00:00.3422462" startTime="2026-03-26T22:33:35.2320516-04:00" endTime="2026-03-26T22:33:35.2320518-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f7c4d89c-f552-4d80-934d-8023b0bf2004" />
+    <UnitTestResult executionId="a8a55f3d-e1b6-439d-b823-dfdb59dba8fd" testId="35b63512-7665-cba2-7c86-292e4e050c4a" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.ModerationApiServiceTests.ModerationEndpoints_SendExpectedRoutesQueriesAndPayloads" computerName="YOBANOUT" duration="00:00:00.3623697" startTime="2026-03-26T22:33:35.2522333-04:00" endTime="2026-03-26T22:33:35.2522334-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a8a55f3d-e1b6-439d-b823-dfdb59dba8fd" />
+    <UnitTestResult executionId="72afbc03-5fa3-43c5-af40-cbc698045dcf" testId="5e6c7963-ca22-4d0e-191c-88dbf6caab63" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests.PostAndDeleteAsync_SupportResponseAndNoContentVariants" computerName="YOBANOUT" duration="00:00:00.0161879" startTime="2026-03-26T22:33:35.2445974-04:00" endTime="2026-03-26T22:33:35.2445974-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="72afbc03-5fa3-43c5-af40-cbc698045dcf" />
+    <UnitTestResult executionId="5ac671af-3448-49a8-8bc8-7d7278270e8a" testId="99269996-c1ca-623d-d1ce-26f74e381d4a" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendSessionCookieEventsTests.ValidatePrincipal_WhenBackendSessionExists_KeepsPrincipalAuthenticated" computerName="YOBANOUT" duration="00:00:00.2941543" startTime="2026-03-26T22:33:35.1840582-04:00" endTime="2026-03-26T22:33:35.1840584-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5ac671af-3448-49a8-8bc8-7d7278270e8a" />
+    <UnitTestResult executionId="862ade7b-3ec5-47a5-aaaa-cbab03c1cd2a" testId="479b5c7e-220e-1e74-ee53-24c17f416658" testName="TasteBudz.Web.Mvc.IntegrationTests.Configuration.BackendApiConfigurationTests.DevelopmentSettings_UseBackendHttpsBaseUrl" computerName="YOBANOUT" duration="00:00:00.2491751" startTime="2026-03-26T22:33:35.1417422-04:00" endTime="2026-03-26T22:33:35.1417669-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="862ade7b-3ec5-47a5-aaaa-cbab03c1cd2a" />
+    <UnitTestResult executionId="cfb15e16-0ad0-4180-8637-dc2b5785f3d8" testId="b48e1a0f-fc66-f478-f061-50a2eed0c4e4" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.Register_PostsToBackendAndRedirectsToProfileEdit" computerName="YOBANOUT" duration="00:00:00.1352105" startTime="2026-03-26T22:33:35.9118515-04:00" endTime="2026-03-26T22:33:35.9118516-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cfb15e16-0ad0-4180-8637-dc2b5785f3d8" />
+    <UnitTestResult executionId="444f8a83-6182-4f2f-9929-01fd7754c8ba" testId="24ca20c2-2e0c-8ee8-adc1-f9fabe80af43" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.Logout_ClearsLocalSessionAndProtectedPagesRedirectAgain" computerName="YOBANOUT" duration="00:00:00.8001623" startTime="2026-03-26T22:33:35.6912247-04:00" endTime="2026-03-26T22:33:35.6912248-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="444f8a83-6182-4f2f-9929-01fd7754c8ba" />
+    <UnitTestResult executionId="2b889d3f-a243-43e0-8828-c1fd63b5bb22" testId="0213fe46-1b7c-adf8-268b-f9b1142f3c2c" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.AuthCookie_UsesEightHourSlidingExpirationAndBackendSessionValidation" computerName="YOBANOUT" duration="00:00:00.0817819" startTime="2026-03-26T22:33:36.1887360-04:00" endTime="2026-03-26T22:33:36.1887363-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2b889d3f-a243-43e0-8828-c1fd63b5bb22" />
+    <UnitTestResult executionId="2b4c8f85-9038-404c-849a-e8ed9b69f451" testId="0bf6764c-9309-12e6-1866-6cd16690904f" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProfileEdit_PostsProfilePreferencesAndPrivacyThenRedirects" computerName="YOBANOUT" duration="00:00:00.1523661" startTime="2026-03-26T22:33:36.5561498-04:00" endTime="2026-03-26T22:33:36.5561499-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2b4c8f85-9038-404c-849a-e8ed9b69f451" />
+    <UnitTestResult executionId="195abb29-9703-4591-b842-457bc2d56c13" testId="d2b68d5e-4355-ed91-41d0-404551ed701f" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProtectedPages_WhenBackendSessionHasTimedOut_RedirectToLoginWithoutCallingBackend" computerName="YOBANOUT" duration="00:00:00.1091314" startTime="2026-03-26T22:33:36.4034100-04:00" endTime="2026-03-26T22:33:36.4034101-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="195abb29-9703-4591-b842-457bc2d56c13" />
+    <UnitTestResult executionId="b4da50b6-4f1f-43f2-89b7-18c4196b8c91" testId="a63259d1-2e19-b0d8-fe55-0b481b750d7f" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.ProfileApiServiceTests.CurrentUserAndProfileEndpoints_SendExpectedRoutesAndPayloads" computerName="YOBANOUT" duration="00:00:00.3599939" startTime="2026-03-26T22:33:35.2498911-04:00" endTime="2026-03-26T22:33:35.2498913-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b4da50b6-4f1f-43f2-89b7-18c4196b8c91" />
+    <UnitTestResult executionId="448c5632-0f7f-4c3c-bf48-fc9ba698929e" testId="1b2384ed-f3f7-62a5-4b1c-62d62193f6af" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.EventApiServiceTests.BrowseDetailAndParticipants_SendExpectedRoutes" computerName="YOBANOUT" duration="00:00:00.3497263" startTime="2026-03-26T22:33:35.2446186-04:00" endTime="2026-03-26T22:33:35.2446186-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="448c5632-0f7f-4c3c-bf48-fc9ba698929e" />
+    <UnitTestResult executionId="5b7428c8-1dab-4655-93e8-e0b32b39a977" testId="ba7d4ffe-b195-a135-221a-c30c5ad6e133" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.EventApiServiceTests.MutationEndpoints_SendExpectedBodiesAndRoutes" computerName="YOBANOUT" duration="00:00:00.0114478" startTime="2026-03-26T22:33:35.2511184-04:00" endTime="2026-03-26T22:33:35.2511185-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5b7428c8-1dab-4655-93e8-e0b32b39a977" />
+    <UnitTestResult executionId="1f7580ba-fa92-42d3-8818-69781f2765d4" testId="341483d4-e711-7314-4314-3af5da76cd58" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.ProfileApiServiceTests.AvailabilityAndBlocks_SendExpectedRoutesPayloadsAndDeletes" computerName="YOBANOUT" duration="00:00:00.0217629" startTime="2026-03-26T22:33:35.2717079-04:00" endTime="2026-03-26T22:33:35.2717080-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1f7580ba-fa92-42d3-8818-69781f2765d4" />
+    <UnitTestResult executionId="5da1f008-2992-40e6-8fdb-c24bdee10292" testId="30b0fc75-7fab-b44b-8f70-69c2a09853f8" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.MessagingApiServiceTests.MessageHistoryEndpoints_SendExpectedRoutesAndExposeHubMetadata" computerName="YOBANOUT" duration="00:00:00.3345879" startTime="2026-03-26T22:33:35.2243038-04:00" endTime="2026-03-26T22:33:35.2243040-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5da1f008-2992-40e6-8fdb-c24bdee10292" />
+    <UnitTestResult executionId="38cf1a1a-32a1-4e43-bf37-de1f1d475083" testId="2d26713f-e354-bc4d-a5dc-d02bfdefe1b2" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.RestaurantApiServiceTests.BrowseGetAndSuggestions_SendExpectedRoutes" computerName="YOBANOUT" duration="00:00:00.3448000" startTime="2026-03-26T22:33:35.2345264-04:00" endTime="2026-03-26T22:33:35.2345265-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="38cf1a1a-32a1-4e43-bf37-de1f1d475083" />
+    <UnitTestResult executionId="da586843-0f04-472e-945c-8b1496bec248" testId="64f97cd7-f306-bb4b-3465-4c7b49d4a2c6" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.GroupApiServiceTests.MutationEndpoints_SendExpectedBodiesRoutesAndDeletes" computerName="YOBANOUT" duration="00:00:00.3503246" startTime="2026-03-26T22:33:35.2446748-04:00" endTime="2026-03-26T22:33:35.2446748-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="da586843-0f04-472e-945c-8b1496bec248" />
+    <UnitTestResult executionId="6e6e3706-0459-4e4b-a061-4ef6f1a64a78" testId="2926945b-f6cc-d0e7-2916-3e37a55bf447" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProtectedPages_RedirectAnonymousUsersToLogin" computerName="YOBANOUT" duration="00:00:00.0843357" startTime="2026-03-26T22:33:35.7763394-04:00" endTime="2026-03-26T22:33:35.7763396-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6e6e3706-0459-4e4b-a061-4ef6f1a64a78" />
+    <UnitTestResult executionId="890a2e07-9733-4c0a-b557-b84cc72a3155" testId="a7b8384f-5f27-5c72-56dd-5a181ec2e834" testName="TasteBudz.Web.Mvc.IntegrationTests.Configuration.BackendApiConfigurationTests.BackendApiNamedClient_DisablesAutomaticRedirects" computerName="YOBANOUT" duration="00:00:00.3138202" startTime="2026-03-26T22:33:35.4550051-04:00" endTime="2026-03-26T22:33:35.4550056-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="890a2e07-9733-4c0a-b557-b84cc72a3155" />
+    <UnitTestResult executionId="e386e8c5-d5af-4edb-865f-b37cd14555b8" testId="ec74df8b-97b0-fc08-ed4a-5d754046bf05" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.DiscoveryApiServiceTests.DiscoveryEndpoints_SendExpectedRoutesAndPayloads" computerName="YOBANOUT" duration="00:00:00.3483724" startTime="2026-03-26T22:33:35.2382436-04:00" endTime="2026-03-26T22:33:35.2382438-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e386e8c5-d5af-4edb-865f-b37cd14555b8" />
+    <UnitTestResult executionId="3fadad67-bfe9-4e26-b9c4-a6ce6184fc79" testId="26ab94cb-9aac-08aa-d980-c45c272ddc86" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProtectedRequest_WhenBackendReturnsUnauthorized_RefreshesOnceAndRetriesWithNewToken" computerName="YOBANOUT" duration="00:00:00.1049138" startTime="2026-03-26T22:33:36.2938868-04:00" endTime="2026-03-26T22:33:36.2938869-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3fadad67-bfe9-4e26-b9c4-a6ce6184fc79" />
+    <UnitTestResult executionId="e9127cb6-5cc3-46da-878f-bec65252e7cb" testId="005f96d9-5d98-7b57-b3ca-d35a90edb4b2" testName="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.DashboardView_RendersBackendSummaryData" computerName="YOBANOUT" duration="00:00:00.0920890" startTime="2026-03-26T22:33:36.0041942-04:00" endTime="2026-03-26T22:33:36.0041945-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e9127cb6-5cc3-46da-878f-bec65252e7cb" />
+    <UnitTestResult executionId="908111ff-1b58-42fa-bcfe-139b70ac4a40" testId="6b798f8a-d088-00c3-4005-bb80a4b0eb79" testName="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendSessionCookieEventsTests.ValidatePrincipal_WhenBackendSessionIsMissing_RejectsPrincipalAndSignsOut" computerName="YOBANOUT" duration="00:00:00.0015548" startTime="2026-03-26T22:33:35.1856468-04:00" endTime="2026-03-26T22:33:35.1856470-04:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="908111ff-1b58-42fa-bcfe-139b70ac4a40" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Configuration.BackendApiConfigurationTests.DevelopmentSettings_UseBackendHttpsBaseUrl" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="479b5c7e-220e-1e74-ee53-24c17f416658">
+      <Execution id="862ade7b-3ec5-47a5-aaaa-cbab03c1cd2a" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Configuration.BackendApiConfigurationTests" name="DevelopmentSettings_UseBackendHttpsBaseUrl" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.InvalidLogin_RedisplaysFormWithBackendError" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="cf73a028-d179-91d5-492b-c2ae0fb9486c">
+      <Execution id="99a969b1-00b2-4526-9b6c-ecc3827d073b" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="InvalidLogin_RedisplaysFormWithBackendError" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProtectedPages_WhenBackendSessionHasTimedOut_RedirectToLoginWithoutCallingBackend" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="d2b68d5e-4355-ed91-41d0-404551ed701f">
+      <Execution id="195abb29-9703-4591-b842-457bc2d56c13" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="ProtectedPages_WhenBackendSessionHasTimedOut_RedirectToLoginWithoutCallingBackend" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.EventApiServiceTests.BrowseDetailAndParticipants_SendExpectedRoutes" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="1b2384ed-f3f7-62a5-4b1c-62d62193f6af">
+      <Execution id="448c5632-0f7f-4c3c-bf48-fc9ba698929e" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.EventApiServiceTests" name="BrowseDetailAndParticipants_SendExpectedRoutes" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.Register_PostsToBackendAndRedirectsToProfileEdit" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="b48e1a0f-fc66-f478-f061-50a2eed0c4e4">
+      <Execution id="cfb15e16-0ad0-4180-8637-dc2b5785f3d8" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="Register_PostsToBackendAndRedirectsToProfileEdit" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.ProfileApiServiceTests.CurrentUserAndProfileEndpoints_SendExpectedRoutesAndPayloads" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="a63259d1-2e19-b0d8-fe55-0b481b750d7f">
+      <Execution id="b4da50b6-4f1f-43f2-89b7-18c4196b8c91" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.ProfileApiServiceTests" name="CurrentUserAndProfileEndpoints_SendExpectedRoutesAndPayloads" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProfileEdit_PostsProfilePreferencesAndPrivacyThenRedirects" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="0bf6764c-9309-12e6-1866-6cd16690904f">
+      <Execution id="2b4c8f85-9038-404c-849a-e8ed9b69f451" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="ProfileEdit_PostsProfilePreferencesAndPrivacyThenRedirects" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.Logout_ClearsLocalSessionAndProtectedPagesRedirectAgain" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="24ca20c2-2e0c-8ee8-adc1-f9fabe80af43">
+      <Execution id="444f8a83-6182-4f2f-9929-01fd7754c8ba" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="Logout_ClearsLocalSessionAndProtectedPagesRedirectAgain" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Configuration.BackendApiConfigurationTests.BackendApiNamedClient_DisablesAutomaticRedirects" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="a7b8384f-5f27-5c72-56dd-5a181ec2e834">
+      <Execution id="890a2e07-9733-4c0a-b557-b84cc72a3155" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Configuration.BackendApiConfigurationTests" name="BackendApiNamedClient_DisablesAutomaticRedirects" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendSessionCookieEventsTests.ValidatePrincipal_WhenBackendSessionExists_KeepsPrincipalAuthenticated" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="99269996-c1ca-623d-d1ce-26f74e381d4a">
+      <Execution id="5ac671af-3448-49a8-8bc8-7d7278270e8a" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendSessionCookieEventsTests" name="ValidatePrincipal_WhenBackendSessionExists_KeepsPrincipalAuthenticated" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendSessionCookieEventsTests.ValidatePrincipal_WhenBackendSessionIsMissing_RejectsPrincipalAndSignsOut" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="6b798f8a-d088-00c3-4005-bb80a4b0eb79">
+      <Execution id="908111ff-1b58-42fa-bcfe-139b70ac4a40" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendSessionCookieEventsTests" name="ValidatePrincipal_WhenBackendSessionIsMissing_RejectsPrincipalAndSignsOut" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.RestaurantApiServiceTests.BrowseGetAndSuggestions_SendExpectedRoutes" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="2d26713f-e354-bc4d-a5dc-d02bfdefe1b2">
+      <Execution id="38cf1a1a-32a1-4e43-bf37-de1f1d475083" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.RestaurantApiServiceTests" name="BrowseGetAndSuggestions_SendExpectedRoutes" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.Login_WhenOnboardingComplete_RedirectsToDashboard" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="673dc857-a72c-c6b7-c5d1-003380ea343f">
+      <Execution id="546db4be-19cd-4575-98e3-c22785f05853" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="Login_WhenOnboardingComplete_RedirectsToDashboard" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.DiscoveryApiServiceTests.DiscoveryEndpoints_SendExpectedRoutesAndPayloads" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="ec74df8b-97b0-fc08-ed4a-5d754046bf05">
+      <Execution id="e386e8c5-d5af-4edb-865f-b37cd14555b8" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.DiscoveryApiServiceTests" name="DiscoveryEndpoints_SendExpectedRoutesAndPayloads" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.MessagingApiServiceTests.MessageHistoryEndpoints_SendExpectedRoutesAndExposeHubMetadata" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="30b0fc75-7fab-b44b-8f70-69c2a09853f8">
+      <Execution id="5da1f008-2992-40e6-8fdb-c24bdee10292" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.MessagingApiServiceTests" name="MessageHistoryEndpoints_SendExpectedRoutesAndExposeHubMetadata" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.DashboardView_RendersBackendSummaryData" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="005f96d9-5d98-7b57-b3ca-d35a90edb4b2">
+      <Execution id="e9127cb6-5cc3-46da-878f-bec65252e7cb" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="DashboardView_RendersBackendSummaryData" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.NotificationApiServiceTests.ListAndUpdate_SendExpectedRoutesAndPayloads" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="d46dcc31-a24f-5309-5242-1fd2a030f7c9">
+      <Execution id="f7c4d89c-f552-4d80-934d-8023b0bf2004" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.NotificationApiServiceTests" name="ListAndUpdate_SendExpectedRoutesAndPayloads" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProtectedRequest_WhenBackendReturnsUnauthorized_RefreshesOnceAndRetriesWithNewToken" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="26ab94cb-9aac-08aa-d980-c45c272ddc86">
+      <Execution id="3fadad67-bfe9-4e26-b9c4-a6ce6184fc79" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="ProtectedRequest_WhenBackendReturnsUnauthorized_RefreshesOnceAndRetriesWithNewToken" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests.PostAndDeleteAsync_SupportResponseAndNoContentVariants" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="5e6c7963-ca22-4d0e-191c-88dbf6caab63">
+      <Execution id="72afbc03-5fa3-43c5-af40-cbc698045dcf" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests" name="PostAndDeleteAsync_SupportResponseAndNoContentVariants" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.ModerationApiServiceTests.ModerationEndpoints_SendExpectedRoutesQueriesAndPayloads" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="35b63512-7665-cba2-7c86-292e4e050c4a">
+      <Execution id="a8a55f3d-e1b6-439d-b823-dfdb59dba8fd" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.ModerationApiServiceTests" name="ModerationEndpoints_SendExpectedRoutesQueriesAndPayloads" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.ProtectedPages_RedirectAnonymousUsersToLogin" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="2926945b-f6cc-d0e7-2916-3e37a55bf447">
+      <Execution id="6e6e3706-0459-4e4b-a061-4ef6f1a64a78" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="ProtectedPages_RedirectAnonymousUsersToLogin" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.ProfileApiServiceTests.AvailabilityAndBlocks_SendExpectedRoutesPayloadsAndDeletes" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="341483d4-e711-7314-4314-3af5da76cd58">
+      <Execution id="1f7580ba-fa92-42d3-8818-69781f2765d4" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.ProfileApiServiceTests" name="AvailabilityAndBlocks_SendExpectedRoutesPayloadsAndDeletes" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.GroupApiServiceTests.BrowseDetailAndLinkedEvents_SendExpectedRoutes" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="53def8ab-234a-ffa3-b4a5-19a70787cd62">
+      <Execution id="2ef9c5bf-d790-4942-9aee-3270acef832f" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.GroupApiServiceTests" name="BrowseDetailAndLinkedEvents_SendExpectedRoutes" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests.GetAsync_WhenRefreshFailsForCurrentSession_SignsOutAndThrows" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="b3b4869a-c8b7-26fd-0b22-8afd347f56a6">
+      <Execution id="210987b1-8195-49ba-b826-0d0344736b59" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests" name="GetAsync_WhenRefreshFailsForCurrentSession_SignsOutAndThrows" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.GroupApiServiceTests.MutationEndpoints_SendExpectedBodiesRoutesAndDeletes" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="64f97cd7-f306-bb4b-3465-4c7b49d4a2c6">
+      <Execution id="da586843-0f04-472e-945c-8b1496bec248" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.GroupApiServiceTests" name="MutationEndpoints_SendExpectedBodiesRoutesAndDeletes" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.EventApiServiceTests.MutationEndpoints_SendExpectedBodiesAndRoutes" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="ba7d4ffe-b195-a135-221a-c30c5ad6e133">
+      <Execution id="5b7428c8-1dab-4655-93e8-e0b32b39a977" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.EventApiServiceTests" name="MutationEndpoints_SendExpectedBodiesAndRoutes" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests.GetAsync_WhenRefreshFailsAfterAnotherRequestAlreadyUpdatedSession_RetriesWithNewStoredToken" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="e0e0e844-a64c-b477-58b7-d2f92493b3f1">
+      <Execution id="de94d186-d5b0-43dc-a8b6-f8eec343eaa1" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Services.BackendHttpClientTests" name="GetAsync_WhenRefreshFailsAfterAnotherRequestAlreadyUpdatedSession_RetriesWithNewStoredToken" />
+    </UnitTest>
+    <UnitTest name="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests.AuthCookie_UsesEightHourSlidingExpirationAndBackendSessionValidation" storage="c:\users\uslep\source\repos\tastebudz\tests\tastebudz.web.mvc.integrationtests\bin\debug\net9.0\tastebudz.web.mvc.integrationtests.dll" id="0213fe46-1b7c-adf8-268b-f9b1142f3c2c">
+      <Execution id="2b889d3f-a243-43e0-8828-c1fd63b5bb22" />
+      <TestMethod codeBase="C:\Users\uslep\source\repos\TasteBudz\tests\TasteBudz.Web.Mvc.IntegrationTests\bin\Debug\net9.0\TasteBudz.Web.Mvc.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="TasteBudz.Web.Mvc.IntegrationTests.Api.AccountAndProfileMvcTests" name="AuthCookie_UsesEightHourSlidingExpirationAndBackendSessionValidation" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="b3b4869a-c8b7-26fd-0b22-8afd347f56a6" executionId="210987b1-8195-49ba-b826-0d0344736b59" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf73a028-d179-91d5-492b-c2ae0fb9486c" executionId="99a969b1-00b2-4526-9b6c-ecc3827d073b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="673dc857-a72c-c6b7-c5d1-003380ea343f" executionId="546db4be-19cd-4575-98e3-c22785f05853" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="53def8ab-234a-ffa3-b4a5-19a70787cd62" executionId="2ef9c5bf-d790-4942-9aee-3270acef832f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e0e0e844-a64c-b477-58b7-d2f92493b3f1" executionId="de94d186-d5b0-43dc-a8b6-f8eec343eaa1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d46dcc31-a24f-5309-5242-1fd2a030f7c9" executionId="f7c4d89c-f552-4d80-934d-8023b0bf2004" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="35b63512-7665-cba2-7c86-292e4e050c4a" executionId="a8a55f3d-e1b6-439d-b823-dfdb59dba8fd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5e6c7963-ca22-4d0e-191c-88dbf6caab63" executionId="72afbc03-5fa3-43c5-af40-cbc698045dcf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="99269996-c1ca-623d-d1ce-26f74e381d4a" executionId="5ac671af-3448-49a8-8bc8-7d7278270e8a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="479b5c7e-220e-1e74-ee53-24c17f416658" executionId="862ade7b-3ec5-47a5-aaaa-cbab03c1cd2a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b48e1a0f-fc66-f478-f061-50a2eed0c4e4" executionId="cfb15e16-0ad0-4180-8637-dc2b5785f3d8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="24ca20c2-2e0c-8ee8-adc1-f9fabe80af43" executionId="444f8a83-6182-4f2f-9929-01fd7754c8ba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0213fe46-1b7c-adf8-268b-f9b1142f3c2c" executionId="2b889d3f-a243-43e0-8828-c1fd63b5bb22" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0bf6764c-9309-12e6-1866-6cd16690904f" executionId="2b4c8f85-9038-404c-849a-e8ed9b69f451" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d2b68d5e-4355-ed91-41d0-404551ed701f" executionId="195abb29-9703-4591-b842-457bc2d56c13" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a63259d1-2e19-b0d8-fe55-0b481b750d7f" executionId="b4da50b6-4f1f-43f2-89b7-18c4196b8c91" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1b2384ed-f3f7-62a5-4b1c-62d62193f6af" executionId="448c5632-0f7f-4c3c-bf48-fc9ba698929e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ba7d4ffe-b195-a135-221a-c30c5ad6e133" executionId="5b7428c8-1dab-4655-93e8-e0b32b39a977" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="341483d4-e711-7314-4314-3af5da76cd58" executionId="1f7580ba-fa92-42d3-8818-69781f2765d4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="30b0fc75-7fab-b44b-8f70-69c2a09853f8" executionId="5da1f008-2992-40e6-8fdb-c24bdee10292" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2d26713f-e354-bc4d-a5dc-d02bfdefe1b2" executionId="38cf1a1a-32a1-4e43-bf37-de1f1d475083" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="64f97cd7-f306-bb4b-3465-4c7b49d4a2c6" executionId="da586843-0f04-472e-945c-8b1496bec248" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2926945b-f6cc-d0e7-2916-3e37a55bf447" executionId="6e6e3706-0459-4e4b-a061-4ef6f1a64a78" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a7b8384f-5f27-5c72-56dd-5a181ec2e834" executionId="890a2e07-9733-4c0a-b557-b84cc72a3155" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ec74df8b-97b0-fc08-ed4a-5d754046bf05" executionId="e386e8c5-d5af-4edb-865f-b37cd14555b8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="26ab94cb-9aac-08aa-d980-c45c272ddc86" executionId="3fadad67-bfe9-4e26-b9c4-a6ce6184fc79" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="005f96d9-5d98-7b57-b3ca-d35a90edb4b2" executionId="e9127cb6-5cc3-46da-878f-bec65252e7cb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6b798f8a-d088-00c3-4005-bb80a4b0eb79" executionId="908111ff-1b58-42fa-bcfe-139b70ac4a40" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="28" executed="28" passed="28" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 9.0.14)&#xD;
+[xUnit.net 00:00:01.22]   Discovering: TasteBudz.Web.Mvc.IntegrationTests&#xD;
+[xUnit.net 00:00:01.26]   Discovered:  TasteBudz.Web.Mvc.IntegrationTests&#xD;
+[xUnit.net 00:00:01.26]   Starting:    TasteBudz.Web.Mvc.IntegrationTests&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.2927ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 5.0578ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0968ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1443ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0835ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1436ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/me/dashboard&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/me/dashboard&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0475ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0689ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/logout&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/logout&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0418ms - 204&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.088ms - 204&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/register&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/register&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.3363ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.3939ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0735ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1116ms - 200&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0631ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1112ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0117ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0442ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0922ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1479ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/me/dashboard&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/me/dashboard&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0503ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0661ms - 200&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.1203ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1721ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.1028ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1501ms - 200&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0551ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1112ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0111ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0457ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0678ms - 401&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1311ms - 401&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/refresh&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/refresh&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.108ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1378ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0652ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0975ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/me/dashboard&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/me/dashboard&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0383ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0708ms - 200&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.1522ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.212ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0954ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1394ms - 200&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0659ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1232ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0136ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0524ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/onboarding/status&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0758ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1302ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/profiles/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/profiles/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0588ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0833ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/preferences/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/preferences/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0467ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0751ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request GET https://backend.test/api/v1/privacy-settings/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request GET https://backend.test/api/v1/privacy-settings/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0325ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0534ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request PATCH https://backend.test/api/v1/profiles/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request PATCH https://backend.test/api/v1/profiles/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.1363ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.2013ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request PUT https://backend.test/api/v1/preferences/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request PUT https://backend.test/api/v1/preferences/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.108ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.1361ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request PATCH https://backend.test/api/v1/privacy-settings/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request PATCH https://backend.test/api/v1/privacy-settings/me&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.0505ms - 200&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.0753ms - 200&#xD;
+warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]&#xD;
+      Failed to determine the https port for redirect.&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[100]&#xD;
+      Start processing HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[100]&#xD;
+      Sending HTTP request POST https://backend.test/api/v1/auth/login&#xD;
+info: System.Net.Http.HttpClient.BackendApi.ClientHandler[101]&#xD;
+      Received HTTP response headers after 0.1172ms - 401&#xD;
+info: System.Net.Http.HttpClient.BackendApi.LogicalHandler[101]&#xD;
+      End processing HTTP request after 0.164ms - 401&#xD;
+[xUnit.net 00:00:03.07]   Finished:    TasteBudz.Web.Mvc.IntegrationTests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

@@ -1,11 +1,11 @@
-// In-memory messaging repository used by the MVP runtime and tests.
+// In-memory messaging repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Messaging;
 
 /// <summary>
-/// Stores chat threads by scope and messages by identifier in the shared in-memory store.
+/// Stores chat threads by scope and messages by identifier in the shared in-memory test store.
 /// </summary>
 public sealed class InMemoryMessagingRepository(InMemoryTasteBudzStore store) : IMessagingRepository
 {

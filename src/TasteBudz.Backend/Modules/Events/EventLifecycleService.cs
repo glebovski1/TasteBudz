@@ -1,5 +1,6 @@
 // Recalculates event lifecycle state from the current clock and participant counts.
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Notifications;
 
@@ -11,8 +12,10 @@ namespace TasteBudz.Backend.Modules.Events;
 public sealed class EventLifecycleService(
     IEventRepository eventRepository,
     INotificationService notificationService,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<Event> SynchronizeAsync(Event eventRecord, CancellationToken cancellationToken = default)
     {
         var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
@@ -20,8 +23,13 @@ public sealed class EventLifecycleService(
 
         if (updated != eventRecord)
         {
-            await eventRepository.SaveAsync(updated, cancellationToken);
-            await WriteLifecycleNotificationsAsync(eventRecord, updated, participants, cancellationToken);
+            await persistenceTransactionRunner.ExecuteAsync(
+                async () =>
+                {
+                    await eventRepository.SaveAsync(updated, cancellationToken);
+                    await WriteLifecycleNotificationsAsync(eventRecord, updated, participants, cancellationToken);
+                },
+                cancellationToken);
         }
 
         return updated;

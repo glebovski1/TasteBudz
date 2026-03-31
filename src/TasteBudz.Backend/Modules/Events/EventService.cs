@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -27,8 +28,10 @@ public sealed class EventService(
     EventLifecycleService lifecycleService,
     EventInviteService eventInviteService,
     IKeyedLockProvider keyedLockProvider,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     /// <summary>
     /// Creates a new event, auto-joins the host, and optionally seeds closed-event invite records.
     /// </summary>
@@ -84,19 +87,23 @@ public sealed class EventService(
             null,
             null);
 
-        await eventRepository.SaveAsync(eventRecord, cancellationToken);
-        // Hosts count as the first joined participant immediately after event creation.
-        await eventRepository.SaveParticipantAsync(
-            new EventParticipant(eventRecord.Id, currentUser.UserId, EventParticipantState.Joined, null, now, now, null, null),
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await eventRepository.SaveAsync(eventRecord, cancellationToken);
+                await eventRepository.SaveParticipantAsync(
+                    new EventParticipant(eventRecord.Id, currentUser.UserId, EventParticipantState.Joined, null, now, now, null, null),
+                    cancellationToken);
+
+                if (invitees.Length > 0)
+                {
+                    await eventInviteService.InviteResolvedAsync(currentUser, eventRecord, invitees, cancellationToken);
+                }
+
+                var synchronized = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                return await MapDetailAsync(synchronized, cancellationToken);
+            },
             cancellationToken);
-
-        if (invitees.Length > 0)
-        {
-            await eventInviteService.InviteResolvedAsync(currentUser, eventRecord, invitees, cancellationToken);
-        }
-
-        var synchronized = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
-        return await MapDetailAsync(synchronized, cancellationToken);
     }
 
     /// <summary>
@@ -195,11 +202,15 @@ public sealed class EventService(
             UpdatedAtUtc = clock.UtcNow,
         };
 
-        await eventRepository.SaveAsync(candidate, cancellationToken);
-        var synchronized = await lifecycleService.SynchronizeAsync(candidate, cancellationToken);
-        await NotifyParticipantsOfUpdateAsync(candidate, participants, cancellationToken);
-
-        return await MapDetailAsync(synchronized, cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await eventRepository.SaveAsync(candidate, cancellationToken);
+                var synchronized = await lifecycleService.SynchronizeAsync(candidate, cancellationToken);
+                await NotifyParticipantsOfUpdateAsync(candidate, participants, cancellationToken);
+                return await MapDetailAsync(synchronized, cancellationToken);
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -255,8 +266,13 @@ public sealed class EventService(
             UpdatedAtUtc = now,
         };
 
-        await eventRepository.SaveAsync(cancelled, cancellationToken);
-        await NotifyCancellationAsync(cancelled, cancellationToken);
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await eventRepository.SaveAsync(cancelled, cancellationToken);
+                await NotifyCancellationAsync(cancelled, cancellationToken);
+            },
+            cancellationToken);
     }
 
     /// <summary>

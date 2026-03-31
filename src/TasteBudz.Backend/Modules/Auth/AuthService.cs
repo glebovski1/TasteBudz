@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Profiles;
@@ -16,8 +17,10 @@ public sealed class AuthService(
     IProfileRepository profileRepository,
     IPasswordHasher passwordHasher,
     ITokenGenerator tokenGenerator,
-    IClock clock)
+    IClock clock,
+    IPersistenceTransactionRunner? transactionRunner = null)
 {
+    private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromHours(8);
     private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
     private static readonly Regex ZipCodePattern = new("^[0-9]{5}$", RegexOptions.Compiled);
@@ -58,14 +61,16 @@ public sealed class AuthService(
             now,
             null);
 
-        await authRepository.CreateAccountAsync(account, cancellationToken);
-
-        // Registration also seeds the default profile-side records expected by onboarding and discovery.
-        await profileRepository.SaveProfileAsync(new UserProfile(userId, username, null, zipCode, null, now, now), cancellationToken);
-        await profileRepository.SavePreferencesAsync(new UserPreferences(userId, Array.Empty<string>(), null, Array.Empty<string>(), Array.Empty<string>(), now), cancellationToken);
-        await profileRepository.SavePrivacySettingsAsync(new PrivacySettings(userId, true, now), cancellationToken);
-
-        return await CreateSessionAsync(account, cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.CreateAccountAsync(account, cancellationToken);
+                await profileRepository.SaveProfileAsync(new UserProfile(userId, username, null, zipCode, null, now, now), cancellationToken);
+                await profileRepository.SavePreferencesAsync(new UserPreferences(userId, Array.Empty<string>(), null, Array.Empty<string>(), Array.Empty<string>(), now), cancellationToken);
+                await profileRepository.SavePrivacySettingsAsync(new PrivacySettings(userId, true, now), cancellationToken);
+                return await CreateSessionAsync(account, cancellationToken);
+            },
+            cancellationToken);
     }
 
     public async Task<SessionDto> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -96,9 +101,13 @@ public sealed class AuthService(
             throw ApiException.Unauthorized("The refresh token does not map to an active account.");
         }
 
-        // Refresh rotates the old session instead of extending it in place.
-        await authRepository.RevokeSessionAsync(session.Id, clock.UtcNow, cancellationToken);
-        return await CreateSessionAsync(account, cancellationToken);
+        return await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.RevokeSessionAsync(session.Id, clock.UtcNow, cancellationToken);
+                return await CreateSessionAsync(account, cancellationToken);
+            },
+            cancellationToken);
     }
 
     public async Task LogoutAsync(Guid userId, string accessToken, CancellationToken cancellationToken = default)
@@ -131,8 +140,13 @@ public sealed class AuthService(
             UpdatedAtUtc = now,
         };
 
-        await authRepository.UpdateAccountAsync(deletedAccount, cancellationToken);
-        await authRepository.RevokeAllSessionsForUserAsync(userId, now, cancellationToken);
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.UpdateAccountAsync(deletedAccount, cancellationToken);
+                await authRepository.RevokeAllSessionsForUserAsync(userId, now, cancellationToken);
+            },
+            cancellationToken);
     }
 
     private async Task<SessionDto> CreateSessionAsync(UserAccount account, CancellationToken cancellationToken)

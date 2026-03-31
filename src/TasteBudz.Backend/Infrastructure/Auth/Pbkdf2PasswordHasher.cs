@@ -1,4 +1,4 @@
-// PBKDF2-based password hasher used by the MVP's in-memory auth flow.
+// PBKDF2-based password hasher used by the backend auth flow.
 using System.Security.Cryptography;
 
 namespace TasteBudz.Backend.Infrastructure.Auth;

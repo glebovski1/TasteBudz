@@ -434,3 +434,21 @@ Store the backend testing strategy in `docs/backend/testing-strategy.md` and tre
 - Contributors now have one stable place to look for backend testing expectations.
 - Test-related guidance can evolve without overloading architecture or API documents.
 - Future test strategy changes should be reconciled with requirements, architecture, domain, API, and accepted ADRs.
+
+## [ADR-023] SQLite Is the Approved MVP Runtime Persistence Path
+
+- Date: 2026-03-26
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+The implemented MVP backend now needs a real relational runtime store for currently shipped modules without expanding scope into multi-provider persistence or migration-heavy infrastructure. Earlier repository process docs still pointed at SQL Server / Azure SQL, while runtime code and tests needed a simpler approved path for capstone delivery.
+
+### Decision
+Use SQLite as the only approved runtime persistence target for the implemented MVP backend modules. Keep the canonical schema and seed data in source-controlled SQLite SQL scripts under `src/TasteBudz.Database/`, and use EF Core repository implementations plus a shared `TasteBudzDbContext` only as the runtime access layer against that schema. Development and integration-test environments may initialize or recreate databases from those canonical SQL scripts; other environments must use an already prepared database.
+
+### Consequences
+- Runtime persistence is now relational and durable for the implemented backend slices without introducing a second provider.
+- Module repository interfaces remain the persistence boundary, and service-layer business rules stay unchanged at the HTTP contract level.
+- The checked-in `.sqlite` database file is a disposable artifact, not a schema authority.
+- Docs and tests must align to SQLite as the current MVP runtime direction unless a later ADR explicitly changes provider strategy.

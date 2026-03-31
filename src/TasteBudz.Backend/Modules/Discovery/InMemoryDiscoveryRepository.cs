@@ -1,4 +1,4 @@
-// In-memory discovery repository used until a relational persistence path is defined.
+// In-memory discovery repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 

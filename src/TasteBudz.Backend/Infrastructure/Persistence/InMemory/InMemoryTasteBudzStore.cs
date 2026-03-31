@@ -1,4 +1,4 @@
-// Shared in-memory backing store used by all repository implementations during the MVP phase.
+// Shared in-memory backing store used by unit-test repository doubles.
 using TasteBudz.Backend.Domain;
 
 namespace TasteBudz.Backend.Infrastructure.Persistence.InMemory;

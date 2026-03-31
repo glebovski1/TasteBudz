@@ -1,11 +1,11 @@
-// In-memory profile repository used by the MVP runtime and automated tests.
+// In-memory profile repository used by unit tests.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 
 namespace TasteBudz.Backend.Modules.Profiles;
 
 /// <summary>
-/// Stores profile-side data in the shared in-memory store.
+/// Stores profile-side data in the shared in-memory test store.
 /// </summary>
 public sealed class InMemoryProfileRepository(InMemoryTasteBudzStore store) : IProfileRepository
 {
