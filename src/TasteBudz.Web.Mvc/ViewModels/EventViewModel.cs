@@ -76,7 +76,6 @@ public sealed record EventCreateViewModel
     public Guid? SelectedRestaurantId { get; set; }
     public string? SelectedRestaurantName { get; set; }
 
-    // Available restaurants populated server-side
     public IReadOnlyList<RestaurantPickerItem> Restaurants { get; init; } = [];
 
     public CreateEventRequest ToRequest() => new()
@@ -127,18 +126,45 @@ public sealed class EventDetailViewModel
     public bool IsHost { get; init; }
     public bool IsParticipant { get; init; }
     public Guid? GroupId { get; init; }
+    public IReadOnlyList<EventParticipantItem> Participants { get; init; } = [];
 
-    public static EventDetailViewModel FromDto(EventDetailDto dto, Guid currentUserId) => new()
+    public static EventDetailViewModel FromDto(
+        EventDetailDto dto,
+        IReadOnlyCollection<EventParticipantDto> participants,
+        Guid currentUserId) => new()
+        {
+            EventId = dto.EventId,
+            Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Event" : dto.Title,
+            EventType = dto.EventType.ToString(),
+            Status = dto.Status.ToString(),
+            EventStartAtUtc = dto.EventStartAtUtc,
+            Capacity = dto.Capacity,
+            ActiveParticipants = dto.ActiveParticipants,
+            CuisineTarget = dto.CuisineTarget,
+            IsHost = dto.HostUserId == currentUserId,
+            GroupId = dto.GroupId,
+            Participants = participants
+                .Where(p => p.State == EventParticipantState.Joined)
+                .Select(p => EventParticipantItem.FromDto(p, dto.HostUserId))
+                .ToList(),
+            IsParticipant = participants.Any(p =>
+                p.UserId == currentUserId &&
+                p.State == EventParticipantState.Joined),
+        };
+}
+
+public sealed class EventParticipantItem
+{
+    public Guid UserId { get; init; }
+    public string DisplayName { get; init; } = string.Empty;
+    public string Username { get; init; } = string.Empty;
+    public bool IsHost { get; init; }
+
+    public static EventParticipantItem FromDto(EventParticipantDto dto, Guid hostUserId) => new()
     {
-        EventId = dto.EventId,
-        Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Event" : dto.Title,
-        EventType = dto.EventType.ToString(),
-        Status = dto.Status.ToString(),
-        EventStartAtUtc = dto.EventStartAtUtc,
-        Capacity = dto.Capacity,
-        ActiveParticipants = dto.ActiveParticipants,
-        CuisineTarget = dto.CuisineTarget,
-        IsHost = dto.HostUserId == currentUserId,
-        GroupId = dto.GroupId,
+        UserId = dto.UserId,
+        DisplayName = dto.DisplayName,
+        Username = dto.Username,
+        IsHost = dto.UserId == hostUserId,
     };
 }

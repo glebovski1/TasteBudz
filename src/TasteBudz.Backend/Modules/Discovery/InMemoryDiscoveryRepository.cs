@@ -48,8 +48,16 @@ public sealed class InMemoryDiscoveryRepository(InMemoryTasteBudzStore store) : 
     {
         lock (store.SyncRoot)
         {
-            // Bud connections are symmetric, so the pair key is normalized to a stable order.
             store.BudConnections[ToNormalizedPairKey(connection.UserOneId, connection.UserTwoId)] = connection;
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task RemoveBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            store.BudConnections.Remove(ToNormalizedPairKey(firstUserId, secondUserId));
             return Task.CompletedTask;
         }
     }

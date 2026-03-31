@@ -1,0 +1,245 @@
+﻿@*
+    Drop this partial once in _Layout.cshtml just before the Scripts section.
+    Any page can then call: window.openUserCard(userId) to open the modal.
+*@
+
+@Html.AntiForgeryToken()
+
+<div id="userCardOverlay" class="usercard-overlay" aria-modal="true" role="dialog" aria-labelledby="ucName" hidden>
+    <div class="usercard-modal">
+
+        <button class="usercard-close" id="ucClose" aria-label="Close">&#x2715;</button>
+
+        @* ── Loading state ── *@
+        <div class="usercard-loading" id="ucLoading">Loading&#x2026;</div>
+
+        @* ── Profile view (shown first) ── *@
+        <div id="ucProfileView" hidden>
+
+            <div class="usercard-avatar" id="ucAvatar" aria-hidden="true"></div>
+            <h2 class="usercard-name" id="ucName"></h2>
+            <p class="usercard-username" id="ucUsername"></p>
+            <p class="usercard-bio" id="ucBio"></p>
+            <div class="usercard-pills" id="ucPills"></div>
+
+            <hr class="usercard-divider" />
+
+            <div class="usercard-actions" id="ucActions"></div>
+
+            <p class="usercard-feedback" id="ucFeedback" hidden></p>
+
+        </div>
+
+        @* ── Report view (only shown when Report is clicked) ── *@
+        <div id="ucReportView" hidden>
+
+            <button class="usercard-back" id="ucReportBack">&#x2190; Back</button>
+            <h3 class="usercard-report-title">Report User</h3>
+
+            <div class="field">
+                <label for="ucReportCategory">Category</label>
+                <select id="ucReportCategory">
+                    <option value="Harassment">Harassment</option>
+                    <option value="Spam">Spam</option>
+                    <option value="Inappropriate Content">Inappropriate Content</option>
+                    <option value="Fake Profile">Fake Profile</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="ucReportReason">Reason <span style="color:red">*</span></label>
+                <input id="ucReportReason" type="text" maxlength="80" placeholder="Brief description&#x2026;" />
+            </div>
+
+            <div class="field">
+                <label for="ucReportDetail">Additional details (optional)</label>
+                <textarea id="ucReportDetail" maxlength="500" rows="3" placeholder="Any extra context&#x2026;"></textarea>
+            </div>
+
+            <div class="button-row">
+                <button class="button button--primary" id="ucReportSubmit">Submit Report</button>
+            </div>
+
+            <p class="usercard-feedback" id="ucReportFeedback" hidden></p>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+    (function () {
+        const token          = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? "";
+        const overlay        = document.getElementById("userCardOverlay");
+        const loading        = document.getElementById("ucLoading");
+        const profileView    = document.getElementById("ucProfileView");
+        const reportView     = document.getElementById("ucReportView");
+        const avatar         = document.getElementById("ucAvatar");
+        const name           = document.getElementById("ucName");
+        const username       = document.getElementById("ucUsername");
+        const bio            = document.getElementById("ucBio");
+        const pills          = document.getElementById("ucPills");
+        const actions        = document.getElementById("ucActions");
+        const feedback       = document.getElementById("ucFeedback");
+        const reportBack     = document.getElementById("ucReportBack");
+        const reportSubmit   = document.getElementById("ucReportSubmit");
+        const reportFeedback = document.getElementById("ucReportFeedback");
+
+        let currentUserId = null;
+
+        // ── Public API ─────────────────────────────────────────────────────────────
+        window.openUserCard = async function (userId) {
+            currentUserId = userId;
+            resetModal();
+            overlay.hidden = false;
+            document.body.style.overflow = "hidden";
+
+            try {
+                const res  = await fetch(`/UserCard/Profile/${userId}`);
+                const data = await res.json();
+
+                if (!res.ok) { showError(data.error ?? "Could not load profile."); return; }
+
+                renderProfile(data);
+            } catch {
+                showError("Could not load profile.");
+            }
+        };
+
+        // ── Close ──────────────────────────────────────────────────────────────────
+        document.getElementById("ucClose").addEventListener("click", closeModal);
+        overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
+        document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+        function closeModal() {
+            overlay.hidden = true;
+            document.body.style.overflow = "";
+            currentUserId = null;
+        }
+
+        // ── Render profile view ────────────────────────────────────────────────────
+        function renderProfile(data) {
+            avatar.textContent   = (data.displayName ?? "?")[0].toUpperCase();
+            name.textContent     = data.displayName;
+            username.textContent = "@@" + data.username;
+            bio.textContent      = data.bio || "No bio yet.";
+
+            pills.innerHTML = "";
+            if (data.socialGoal) pills.appendChild(makePill(data.socialGoal));
+            if (data.zipCode)    pills.appendChild(makePill("ZIP " + data.zipCode));
+
+            actions.innerHTML = "";
+            if (data.isBud) {
+                actions.appendChild(makeBtn("Un-Bud", "button--secondary", () => doUnBud(data.userId)));
+            }
+            actions.appendChild(makeBtn("Block",  "button--danger", () => doBlock(data.userId)));
+            actions.appendChild(makeBtn("Report", "button--ghost",  () => showReportView()));
+
+            loading.hidden     = true;
+            profileView.hidden = false;
+        }
+
+        // ── View switching ─────────────────────────────────────────────────────────
+        function showReportView() {
+            profileView.hidden = true;
+            reportView.hidden  = false;
+            document.getElementById("ucReportReason").value = "";
+            document.getElementById("ucReportDetail").value = "";
+            reportFeedback.hidden = true;
+        }
+
+        reportBack.addEventListener("click", () => {
+            reportView.hidden  = true;
+            profileView.hidden = false;
+        });
+
+        // ── Actions ────────────────────────────────────────────────────────────────
+        async function doUnBud(userId) {
+            const res = await post("/UserCard/UnBud", { userId });
+            if (res.ok) showFeedback("Removed from your Budz.", true);
+            else        showFeedback((await res.json()).error ?? "Failed.", false);
+        }
+
+        async function doBlock(userId) {
+            if (!confirm("Block this user? You will be removed from any shared events or groups they host.")) return;
+            const res = await post("/UserCard/Block", { userId });
+            if (res.ok) { showFeedback("User blocked.", true); setTimeout(closeModal, 1500); }
+            else        showFeedback((await res.json()).error ?? "Failed.", false);
+        }
+
+        reportSubmit.addEventListener("click", async () => {
+            const reason = document.getElementById("ucReportReason").value.trim();
+            if (!reason) {
+                reportFeedback.textContent = "Please enter a reason.";
+                reportFeedback.className   = "usercard-feedback usercard-feedback--err";
+                reportFeedback.hidden      = false;
+                return;
+            }
+
+            const res = await post("/UserCard/Report", {
+                userId:      currentUserId,
+                category:    document.getElementById("ucReportCategory").value,
+                reason,
+                explanation: document.getElementById("ucReportDetail").value.trim() || null,
+            });
+
+            if (res.ok) {
+                reportFeedback.textContent = "Report submitted. Thank you.";
+                reportFeedback.className   = "usercard-feedback usercard-feedback--ok";
+                reportFeedback.hidden      = false;
+                setTimeout(() => { reportView.hidden = true; profileView.hidden = false; }, 1500);
+            } else {
+                const err = await res.json();
+                reportFeedback.textContent = err.error ?? "Failed to submit report.";
+                reportFeedback.className   = "usercard-feedback usercard-feedback--err";
+                reportFeedback.hidden      = false;
+            }
+        });
+
+        // ── Helpers ────────────────────────────────────────────────────────────────
+        function post(url, body) {
+            return fetch(url, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": token },
+                body:    JSON.stringify(body),
+            });
+        }
+
+        function makeBtn(label, cls, onClick) {
+            const btn = document.createElement("button");
+            btn.className   = `button ${cls}`;
+            btn.textContent = label;
+            btn.addEventListener("click", onClick);
+            return btn;
+        }
+
+        function makePill(text) {
+            const span = document.createElement("span");
+            span.className   = "pill";
+            span.textContent = text;
+            return span;
+        }
+
+        function showFeedback(msg, success) {
+            feedback.textContent = msg;
+            feedback.className   = "usercard-feedback " + (success ? "usercard-feedback--ok" : "usercard-feedback--err");
+            feedback.hidden      = false;
+        }
+
+        function showError(msg) {
+            loading.hidden     = true;
+            profileView.hidden = false;
+            showFeedback(msg, false);
+        }
+
+        function resetModal() {
+            loading.hidden     = false;
+            profileView.hidden = true;
+            reportView.hidden  = true;
+            feedback.hidden    = true;
+            pills.innerHTML    = "";
+            actions.innerHTML  = "";
+        }
+    }());
+</script>

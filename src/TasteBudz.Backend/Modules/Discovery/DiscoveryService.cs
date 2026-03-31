@@ -14,7 +14,7 @@ using TasteBudz.Backend.Modules.Profiles;
 namespace TasteBudz.Backend.Modules.Discovery;
 
 /// <summary>
-/// Owns user discovery filters, swipe decisions, and mutual Budz creation.
+/// Owns user discovery filters, swipe decisions, and mutual Budz creation and removal.
 /// </summary>
 public sealed class DiscoveryService(
     IAuthRepository authRepository,
@@ -120,6 +120,27 @@ public sealed class DiscoveryService(
             .ToArray();
     }
 
+    /// <summary>
+    /// Removes a mutual Bud connection between two users.
+    /// Also clears both directional swipe decisions so they can re-match later.
+    /// </summary>
+    public async Task RemoveBudAsync(Guid currentUserId, Guid otherUserId, CancellationToken cancellationToken = default)
+    {
+        if (currentUserId == otherUserId)
+        {
+            throw ApiException.BadRequest("You cannot remove yourself.");
+        }
+
+        var connection = await discoveryRepository.GetBudConnectionAsync(currentUserId, otherUserId, cancellationToken);
+
+        if (connection is null || connection.State != BudConnectionState.Connected)
+        {
+            throw ApiException.NotFound("No active Bud connection was found.");
+        }
+
+        await discoveryRepository.RemoveBudConnectionAsync(currentUserId, otherUserId, cancellationToken);
+    }
+
     private async Task<DiscoveryProfilePreviewDto[]> GetDiscoverableUsersAsync(Guid currentUserId, CancellationToken cancellationToken)
     {
         var accounts = await authRepository.ListActiveAccountsAsync(cancellationToken);
@@ -128,20 +149,11 @@ public sealed class DiscoveryService(
 
         foreach (var account in accounts)
         {
-            if (account.Id == currentUserId)
-            {
-                continue;
-            }
+            if (account.Id == currentUserId) continue;
 
-            if (!profiles.TryGetValue(account.Id, out var profile))
-            {
-                continue;
-            }
+            if (!profiles.TryGetValue(account.Id, out var profile)) continue;
 
-            if (!await CanDiscoverAsync(currentUserId, account.Id, cancellationToken))
-            {
-                continue;
-            }
+            if (!await CanDiscoverAsync(currentUserId, account.Id, cancellationToken)) continue;
 
             results.Add(ToPreview(account, profile));
         }
@@ -171,21 +183,14 @@ public sealed class DiscoveryService(
     {
         var subjectPrivacy = await profileRepository.GetPrivacySettingsAsync(subjectUserId, cancellationToken);
 
-        if (subjectPrivacy?.DiscoveryEnabled == false)
-        {
-            return false;
-        }
+        if (subjectPrivacy?.DiscoveryEnabled == false) return false;
 
         if (await profileRepository.GetBlockAsync(currentUserId, subjectUserId, cancellationToken) is not null ||
             await profileRepository.GetBlockAsync(subjectUserId, currentUserId, cancellationToken) is not null)
-        {
             return false;
-        }
 
         if (await restrictionService.IsRestrictedAsync(subjectUserId, RestrictionScope.DiscoveryVisibility, cancellationToken))
-        {
             return false;
-        }
 
         return true;
     }
@@ -194,10 +199,7 @@ public sealed class DiscoveryService(
     {
         var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
 
-        if (!accounts.ContainsKey(connection.UserOneId) || !accounts.ContainsKey(connection.UserTwoId))
-        {
-            return;
-        }
+        if (!accounts.ContainsKey(connection.UserOneId) || !accounts.ContainsKey(connection.UserTwoId)) return;
 
         var now = clock.UtcNow;
         await notificationService.CreateAsync(
@@ -209,15 +211,11 @@ public sealed class DiscoveryService(
     }
 
     private static DiscoveryProfilePreviewDto ToPreview(UserAccount account, UserProfile profile) =>
-        new(
-            account.Id,
-            account.Username,
-            profile.DisplayName,
-            profile.Bio,
-            profile.SocialGoal);
+        new(account.Id, account.Username, profile.DisplayName, profile.Bio, profile.SocialGoal);
 
     private static (Guid Lower, Guid Higher) NormalizePair(Guid first, Guid second) =>
         first.CompareTo(second) <= 0 ? (first, second) : (second, first);
+}
 
     private async Task<SwipeDecisionResultDto> FinalizeSwipeAsync(
         Guid currentUserId,

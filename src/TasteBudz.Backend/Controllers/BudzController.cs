@@ -1,4 +1,4 @@
-// HTTP endpoint for listing the authenticated user's Budz.
+// HTTP endpoint for listing and removing the authenticated user's Budz.
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Infrastructure.Auth;
@@ -10,7 +10,7 @@ namespace TasteBudz.Backend.Controllers;
 [ApiController]
 [Route("api/v1/budz")]
 /// <summary>
-/// Returns the authenticated user's current mutual Budz connections.
+/// Returns and manages the authenticated user's mutual Budz connections.
 /// </summary>
 public sealed class BudzController(
     DiscoveryService discoveryService,
@@ -19,4 +19,11 @@ public sealed class BudzController(
     [HttpGet]
     public Task<IReadOnlyCollection<BudConnectionDto>> List(CancellationToken cancellationToken) =>
         discoveryService.ListMyBudzAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, cancellationToken);
+
+    [HttpDelete("{otherUserId:guid}")]
+    public async Task<IActionResult> Remove(Guid otherUserId, CancellationToken cancellationToken)
+    {
+        await discoveryService.RemoveBudAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, otherUserId, cancellationToken);
+        return NoContent();
+    }
 }
