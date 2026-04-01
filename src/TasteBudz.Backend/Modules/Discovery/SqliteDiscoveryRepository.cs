@@ -81,6 +81,20 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task RemoveBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default)
+    {
+        var (lower, higher) = NormalizePair(firstUserId, secondUserId);
+        var entity = await dbContext.BudConnections.FirstOrDefaultAsync(item => item.UserOneId == lower && item.UserTwoId == higher, cancellationToken);
+
+        if (entity is null)
+        {
+            return;
+        }
+
+        dbContext.BudConnections.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<BudConnection>> ListBudConnectionsAsync(CancellationToken cancellationToken = default) =>
         (await dbContext.BudConnections.AsNoTracking().ToListAsync(cancellationToken))
         .Select(MapConnection)
