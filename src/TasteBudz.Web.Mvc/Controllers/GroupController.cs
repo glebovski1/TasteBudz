@@ -49,13 +49,13 @@ public sealed class GroupController : Controller
     // ── GET /Group/Create ────────────────────────────────────────────────────
 
     [HttpGet]
-    public IActionResult Create() => View(new GroupCreateViewModel());
+    public IActionResult CreateGroup() => View(new GroupCreateViewModel());
 
     // ── POST /Group/Create ───────────────────────────────────────────────────
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(GroupCreateViewModel model, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateGroup(GroupCreateViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return View(model);
