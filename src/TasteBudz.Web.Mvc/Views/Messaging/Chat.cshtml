@@ -1,7 +1,10 @@
 ﻿@model ChatViewModel
+@using TasteBudz.Web.Mvc.Services
 
 @{
     ViewData["Title"] = Model.Title;
+    var hubUrl = ViewData["HubUrl"]?.ToString() ?? "";
+    var accessToken = ViewData["BackendAccessToken"]?.ToString() ?? "";
 }
 
 <section class="profile-shell">
@@ -40,7 +43,7 @@
                    id="messageInput"
                    type="text"
                    maxlength="500"
-                   placeholder="Type a message…"
+                   placeholder="Type a message&#x2026;"
                    aria-label="Message input"
                    required />
             <button class="chat-compose__send" type="submit" id="sendBtn" disabled>Send</button>
@@ -51,21 +54,22 @@
 </section>
 
 @section Scripts {
-    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script>
         (function () {
             // ── Config ────────────────────────────────────────────────────────────────
-            const SCOPE_TYPE  = "@Model.ScopeType";   // "Event" or "Group"
-            const SCOPE_ID    = "@Model.ScopeId";
-            const HUB_URL     = "@MessagingApiService.HubPath";  // "/hubs/chat"
+            const SCOPE_TYPE   = "@Model.ScopeType";
+            const SCOPE_ID     = "@Model.ScopeId";
+            const HUB_URL      = "@hubUrl";       // Full backend URL e.g. https://localhost:7118/hubs/chat
+            const ACCESS_TOKEN = "@accessToken";  // Backend bearer token from MVC session
 
             // ── Elements ──────────────────────────────────────────────────────────────
-            const historyEl   = document.getElementById("chatHistory");
-            const statusEl    = document.getElementById("chatStatus");
-            const emptyEl     = document.getElementById("emptyState");
-            const form        = document.getElementById("chatForm");
-            const input       = document.getElementById("messageInput");
-            const sendBtn     = document.getElementById("sendBtn");
+            const historyEl = document.getElementById("chatHistory");
+            const statusEl  = document.getElementById("chatStatus");
+            const emptyEl   = document.getElementById("emptyState");
+            const form      = document.getElementById("chatForm");
+            const input     = document.getElementById("messageInput");
+            const sendBtn   = document.getElementById("sendBtn");
 
             // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -80,32 +84,35 @@
                 wrapper.className = "chat-message";
                 wrapper.dataset.messageId = msg.messageId;
 
-                const now = new Date(msg.createdAtUtc);
-                const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                const time = new Date(msg.createdAtUtc)
+                    .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-                wrapper.innerHTML = `
-                    <span class="chat-message__author">${escHtml(msg.senderDisplayName)}</span>
-                    <span class="chat-message__time">${time}</span>
-                    <p class="chat-message__body">${escHtml(msg.body)}</p>`;
+                wrapper.innerHTML =
+                    `<span class="chat-message__author">${escHtml(msg.senderDisplayName)}</span>` +
+                    `<span class="chat-message__time">${time}</span>` +
+                    `<p class="chat-message__body">${escHtml(msg.body)}</p>`;
 
                 historyEl.appendChild(wrapper);
                 historyEl.scrollTop = historyEl.scrollHeight;
             }
 
             function escHtml(str) {
-                return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+                return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             }
 
             // ── SignalR connection ────────────────────────────────────────────────────
 
             const connection = new signalR.HubConnectionBuilder()
-                .withUrl(HUB_URL)
+                .withUrl(HUB_URL, {
+                    // Send the backend bearer token so the hub can authenticate the request.
+                    accessTokenFactory: () => ACCESS_TOKEN
+                })
                 .withAutomaticReconnect()
                 .build();
 
             connection.on("@MessagingApiService.MessageReceivedEventName", appendMessage);
 
-            connection.onreconnecting(() => setStatus("Reconnecting…"));
+            connection.onreconnecting(() => setStatus("Reconnecting&#x2026;"));
             connection.onreconnected(() => setStatus(""));
             connection.onclose(() => setStatus("Disconnected. Refresh to reconnect."));
 
@@ -116,7 +123,7 @@
                     sendBtn.disabled = false;
                     setStatus("");
                 } catch (err) {
-                    setStatus("Could not connect to chat. Retrying…");
+                    setStatus("Could not connect to chat. Retrying&#x2026;");
                     setTimeout(startConnection, 5000);
                 }
             }
@@ -147,7 +154,6 @@
                 }
             });
 
-            // Enable send button only when input has text
             input.addEventListener("input", () => {
                 sendBtn.disabled = input.value.trim().length === 0 ||
                                    connection.state !== signalR.HubConnectionState.Connected;

@@ -23,6 +23,15 @@
         <div class="button-row">
             <a asp-action="Index" class="button button--secondary">Back to Groups</a>
 
+            @* Chat button — visible to all members *@
+            @if (Model.IsCurrentUserMember || Model.IsCurrentUserOwner)
+            {
+                <a asp-controller="Messaging"
+                   asp-action="GroupChat"
+                   asp-route-groupId="@Model.GroupId"
+                   class="button button--secondary">💬 Chat</a>
+            }
+
             @if (Model.IsCurrentUserMember && !Model.IsCurrentUserOwner)
             {
                 <form asp-action="Leave" asp-route-groupId="@Model.GroupId" method="post" style="display:inline;">
@@ -34,7 +43,7 @@
                 </form>
             }
 
-            @if (!Model.IsCurrentUserMember)
+            @if (!Model.IsCurrentUserMember && !Model.IsCurrentUserOwner)
             {
                 <form asp-action="Join" asp-route-groupId="@Model.GroupId" method="post" style="display:inline;">
                     @Html.AntiForgeryToken()

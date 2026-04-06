@@ -18,6 +18,22 @@ builder.Services
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
+// Allow the MVC frontend to connect to the SignalR hub cross-origin.
+// In development the MVC app runs on a different port (7115) than the backend (7118).
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("MvcFrontend", policy =>
+    {
+        var mvcOrigin = builder.Configuration["BackendApi:MvcOrigin"] ?? "https://localhost:7115";
+        policy
+            .WithOrigins(mvcOrigin)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); // Required for SignalR
+    });
+});
+
 // Register the modular backend services and shared infrastructure used by the MVP backend.
 builder.Services.AddTasteBudzFoundation(builder.Configuration);
 
@@ -43,6 +59,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("MvcFrontend");  // Must be before UseAuthentication
 app.UseAuthentication();
 app.UseAuthorization();
 

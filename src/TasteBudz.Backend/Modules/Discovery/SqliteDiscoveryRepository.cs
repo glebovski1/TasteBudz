@@ -97,4 +97,9 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
 
     private static (Guid Lower, Guid Higher) NormalizePair(Guid firstUserId, Guid secondUserId) =>
         firstUserId.CompareTo(secondUserId) <= 0 ? (firstUserId, secondUserId) : (secondUserId, firstUserId);
+
+    public Task RemoveBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
 }

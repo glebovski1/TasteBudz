@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TasteBudz.Backend.Domain;
+using Microsoft.Extensions.Options;
 using TasteBudz.Backend.Modules.Messaging;
+using TasteBudz.Web.Mvc.Options;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
@@ -16,15 +17,18 @@ public sealed class MessagingController : Controller
     private readonly MessagingApiService messagingApiService;
     private readonly ProfileApiService profileApiService;
     private readonly UserSessionService userSessionService;
+    private readonly string backendBaseUrl;
 
     public MessagingController(
         MessagingApiService messagingApiService,
         ProfileApiService profileApiService,
-        UserSessionService userSessionService)
+        UserSessionService userSessionService,
+        IOptions<BackendApiOptions> backendOptions)
     {
         this.messagingApiService = messagingApiService;
         this.profileApiService = profileApiService;
         this.userSessionService = userSessionService;
+        this.backendBaseUrl = backendOptions.Value.BaseUrl.TrimEnd('/');
     }
 
     // GET /Messaging/Chat
@@ -55,7 +59,9 @@ public sealed class MessagingController : Controller
         try
         {
             var history = await messagingApiService.ListEventMessagesAsync(eventId, cancellationToken: cancellationToken);
-            return View("Chat", ChatViewModel.ForEvent(eventId, history.Items));
+            var model = ChatViewModel.ForEvent(eventId, history.Items);
+            SetHubUrl();
+            return View("Chat", model);
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -64,6 +70,7 @@ public sealed class MessagingController : Controller
         catch
         {
             TempData["StatusMessage"] = "Could not load chat history.";
+            SetHubUrl();
             return View("Chat", ChatViewModel.ForEvent(eventId, []));
         }
     }
@@ -75,7 +82,9 @@ public sealed class MessagingController : Controller
         try
         {
             var history = await messagingApiService.ListGroupMessagesAsync(groupId, cancellationToken: cancellationToken);
-            return View("Chat", ChatViewModel.ForGroup(groupId, history.Items));
+            var model = ChatViewModel.ForGroup(groupId, history.Items);
+            SetHubUrl();
+            return View("Chat", model);
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -84,8 +93,21 @@ public sealed class MessagingController : Controller
         catch
         {
             TempData["StatusMessage"] = "Could not load chat history.";
+            SetHubUrl();
             return View("Chat", ChatViewModel.ForGroup(groupId, []));
         }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Passes the full backend hub URL to the view so SignalR connects to the
+    /// correct server (the backend) rather than the MVC frontend.
+    /// </summary>
+    private void SetHubUrl()
+    {
+        ViewData["HubUrl"] = $"{backendBaseUrl}{MessagingApiService.HubPath}";
+        ViewData["BackendAccessToken"] = userSessionService.GetSession()?.AccessToken ?? "";
     }
 
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)

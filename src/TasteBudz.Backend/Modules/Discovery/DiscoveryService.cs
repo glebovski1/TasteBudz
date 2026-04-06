@@ -215,7 +215,7 @@ public sealed class DiscoveryService(
 
     private static (Guid Lower, Guid Higher) NormalizePair(Guid first, Guid second) =>
         first.CompareTo(second) <= 0 ? (first, second) : (second, first);
-}
+
 
     private async Task<SwipeDecisionResultDto> FinalizeSwipeAsync(
         Guid currentUserId,
