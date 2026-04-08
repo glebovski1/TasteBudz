@@ -12,6 +12,7 @@ namespace TasteBudz.Web.Mvc.Controllers;
 /// Serves the chat inbox and the shared chat panel for event and group scopes.
 /// </summary>
 [Authorize]
+[Route("[controller]/[action]")]
 public sealed class MessagingController : Controller
 {
     private readonly MessagingApiService messagingApiService;
@@ -54,6 +55,7 @@ public sealed class MessagingController : Controller
 
     // GET /Messaging/EventChat/{eventId}
     [HttpGet]
+    [HttpGet("{eventId:guid}")]
     public async Task<IActionResult> EventChat(Guid eventId, CancellationToken cancellationToken)
     {
         try
@@ -77,6 +79,7 @@ public sealed class MessagingController : Controller
 
     // GET /Messaging/GroupChat/{groupId}
     [HttpGet]
+    [HttpGet("{groupId:guid}")]
     public async Task<IActionResult> GroupChat(Guid groupId, CancellationToken cancellationToken)
     {
         try

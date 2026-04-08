@@ -59,12 +59,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("MvcFrontend");  // Must be before UseAuthentication
+app.UseRouting();
+app.UseCors("MvcFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<ChatHub>("/hubs/chat").RequireCors("MvcFrontend");
 
 app.Run();
 

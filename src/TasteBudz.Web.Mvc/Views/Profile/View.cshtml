@@ -17,9 +17,6 @@
         <button onclick="showSection('groups')">Groups</button>
     </div>
 
-    <!--Profile Banner-->
-
-
     <!--Tab Panels-->
     <div class="profile-content">
 
@@ -34,11 +31,17 @@
                 {
                     @foreach (var item in Model.Budz)
                     {
-                        <article class="summary-card">
-                            <strong>@item.DisplayName</strong>
-                            <span>@item.Username</span>
-
-                            <button class="button button--secondary" onclick="openUserCard('@item.UserId')">View Profile</button>
+                        <article class="summary-card member-row">
+                            <button class="member-row__profile-trigger"
+                                    onclick="openUserCard('@item.UserId')"
+                                    aria-label="View @item.DisplayName's profile">
+                                <div class="member-row__avatar">@item.DisplayName.Substring(0, 1).ToUpper()</div>
+                            </button>
+                            <button class="member-row__info member-row__info--clickable"
+                                    onclick="openUserCard('@item.UserId')">
+                                <strong>@item.DisplayName</strong>
+                                <span>@@@item.Username</span>
+                            </button>
                         </article>
                     }
                 }
@@ -56,13 +59,23 @@
                 {
                     @foreach (var item in Model.ActiveEvents)
                     {
-                        <article class="summary-card">
-                            <strong>@item.Title</strong>
-                            <time datetime="@item.EventStartAtUtc.ToString("O")">
-                                @item.EventStartAtUtc.LocalDateTime.ToString("ddd, MMM d 'at' h:mm tt")
-                            </time>
-                            <div>
+                        <article class="summary-card member-row">
+                            <div class="member-row__info">
+                                <strong>@item.Title</strong>
+                                <time datetime="@item.EventStartAtUtc.ToString("O")">
+                                    @item.EventStartAtUtc.LocalDateTime.ToString("ddd, MMM d 'at' h:mm tt")
+                                </time>
                                 <span class="@StatusClass(item.Status)">@item.Status</span>
+                            </div>
+                            <div class="button-row" style="margin-left:auto;">
+                                <a asp-controller="Event"
+                                   asp-action="EventDetails"
+                                   asp-route-eventId="@item.EventId"
+                                   class="button button--secondary">View</a>
+                                <a asp-controller="Messaging"
+                                   asp-action="EventChat"
+                                   asp-route-eventId="@item.EventId"
+                                   class="button button--secondary">💬</a>
                             </div>
                         </article>
                     }
@@ -81,9 +94,21 @@
                 {
                     @foreach (var item in Model.ActiveGroups)
                     {
-                        <article class="summary-card">
-                            <strong>@item.Name</strong>
-                            <span>@item.Visibility group</span>
+                        <article class="summary-card member-row">
+                            <div class="member-row__info">
+                                <strong>@item.Name</strong>
+                                <span>@item.Visibility group</span>
+                            </div>
+                            <div class="button-row" style="margin-left:auto;">
+                                <a asp-controller="Group"
+                                   asp-action="Manage"
+                                   asp-route-groupId="@item.GroupId"
+                                   class="button button--secondary">View</a>
+                                <a asp-controller="Messaging"
+                                   asp-action="GroupChat"
+                                   asp-route-groupId="@item.GroupId"
+                                   class="button button--secondary">💬</a>
+                            </div>
                         </article>
                     }
                 }

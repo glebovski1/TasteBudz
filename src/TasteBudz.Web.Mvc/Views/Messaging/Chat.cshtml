@@ -58,7 +58,8 @@
     <script>
         (function () {
             // ── Config ────────────────────────────────────────────────────────────────
-            const SCOPE_TYPE   = "@Model.ScopeType";
+            // FIXED — numeric value: Event=0, Group=1
+            const SCOPE_TYPE   = @((int)Model.ScopeType);
             const SCOPE_ID     = "@Model.ScopeId";
             const HUB_URL      = "@hubUrl";       // Full backend URL e.g. https://localhost:7118/hubs/chat
             const ACCESS_TOKEN = "@accessToken";  // Backend bearer token from MVC session
@@ -123,9 +124,10 @@
                     sendBtn.disabled = false;
                     setStatus("");
                 } catch (err) {
-                    setStatus("Could not connect to chat. Retrying&#x2026;");
-                    setTimeout(startConnection, 5000);
-                }
+    console.error("SignalR connection error:", err);
+    setStatus("Could not connect: " + (err?.message ?? err));
+    setTimeout(startConnection, 5000);
+}
             }
 
             startConnection();

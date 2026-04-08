@@ -86,6 +86,19 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
         .Select(MapConnection)
         .ToArray();
 
+    public async Task RemoveBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default)
+    {
+        var (lower, higher) = NormalizePair(firstUserId, secondUserId);
+        var entity = await dbContext.BudConnections
+            .FirstOrDefaultAsync(item => item.UserOneId == lower && item.UserTwoId == higher, cancellationToken);
+
+        if (entity is not null)
+        {
+            dbContext.BudConnections.Remove(entity);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private static BudConnection MapConnection(BudConnectionEntity entity) =>
         new(
             entity.Id,
@@ -97,9 +110,4 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
 
     private static (Guid Lower, Guid Higher) NormalizePair(Guid firstUserId, Guid secondUserId) =>
         firstUserId.CompareTo(secondUserId) <= 0 ? (firstUserId, secondUserId) : (secondUserId, firstUserId);
-
-    public Task RemoveBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
 }
