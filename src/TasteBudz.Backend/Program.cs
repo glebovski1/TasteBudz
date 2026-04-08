@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+builder.Services.AddCors();
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
@@ -19,25 +20,16 @@ builder.Services
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// Allow the MVC frontend to connect to the SignalR hub cross-origin.
-// In development the MVC app runs on a different port (7115) than the backend (7118).
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("MvcFrontend", policy =>
-    {
-        var mvcOrigin = builder.Configuration["BackendApi:MvcOrigin"] ?? "https://localhost:7115";
-        policy
-            .WithOrigins(mvcOrigin)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials(); // Required for SignalR
-    });
-});
-
 // Register the modular backend services and shared infrastructure used by the MVP backend.
 builder.Services.AddTasteBudzFoundation(builder.Configuration);
 
 var app = builder.Build();
+var allowedCorsOrigins = app.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()?
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? [];
 
 var normalizedConnectionString = SqliteConnectionStringHelper.Normalize(
     builder.Configuration.GetConnectionString("TasteBudz") ?? throw new InvalidOperationException("ConnectionStrings:TasteBudz must be configured."),
@@ -60,12 +52,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseCors("MvcFrontend");
+app.UseCors(policy =>
+{
+    if (allowedCorsOrigins.Length > 0)
+    {
+        policy
+            .WithOrigins(allowedCorsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    }
+});
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat").RequireCors("MvcFrontend");
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
 
