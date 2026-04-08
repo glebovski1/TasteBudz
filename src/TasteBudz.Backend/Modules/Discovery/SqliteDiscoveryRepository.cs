@@ -80,7 +80,7 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
-
+   
     public async Task<IReadOnlyCollection<BudConnection>> ListBudConnectionsAsync(CancellationToken cancellationToken = default) =>
         (await dbContext.BudConnections.AsNoTracking().ToListAsync(cancellationToken))
         .Select(MapConnection)
