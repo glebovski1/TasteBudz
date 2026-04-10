@@ -141,3 +141,4 @@ INSERT OR IGNORE INTO UserRestrictions (Id, SubjectUserId, IssuedByUserId, Moder
 
 INSERT OR IGNORE INTO AuditLogEntries (Id, ActionType, ActorUserId, TargetEntityType, TargetEntityId, CreatedAtUtc, Details) VALUES
 ('00000000-0000-0000-0000-000000008201', 'RestrictionCreated', '00000000-0000-0000-0000-000000000104', 'UserRestriction', '00000000-0000-0000-0000-000000008101', '2026-03-25T20:00:05Z', '{"scope":"DiscoveryVisibility","subjectUserId":"00000000-0000-0000-0000-000000000106","source":"test-seed"}');
+

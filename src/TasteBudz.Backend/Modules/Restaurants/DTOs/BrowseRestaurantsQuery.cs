@@ -20,6 +20,8 @@ public sealed class BrowseRestaurantsQuery
     [Range(1, int.MaxValue)]
     public int Page { get; init; } = 1;
 
-    [Range(1, 100)]
+    // Raised from 100 to 2000 to support loading the full local restaurant
+    // catalog onto the event creation map without pagination.
+    [Range(1, 2000)]
     public int PageSize { get; init; } = 20;
 }

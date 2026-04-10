@@ -46,3 +46,28 @@ INSERT OR IGNORE INTO RestaurantCuisines (RestaurantId, CuisineId) VALUES
 ('77777777-7777-7777-7777-777777777777', '10000000-0000-0000-0000-000000000011'),
 ('88888888-8888-8888-8888-888888888888', '10000000-0000-0000-0000-000000000012'),
 ('88888888-8888-8888-8888-888888888888', '10000000-0000-0000-0000-000000000013');
+
+-- Admin user account
+INSERT OR IGNORE INTO UserAccounts (Id, Username, NormalizedUsername, Email, NormalizedEmail, PasswordHash, Status, CreatedAtUtc, UpdatedAtUtc, DeletedAtUtc) VALUES
+('00000000-0000-0000-0000-000000000001', 'admin', 'ADMIN', 'admin@tastebudz.local', 'ADMIN@TASTEBUDZ.LOCAL', 'v1.100000.kvK24+vGXOGGfIuMxSAPvog==.6fQ4hz2iYQv44F+3DVEj80v8laFK7RLUKaGgi3RXMpQ=', 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', NULL);
+
+-- Admin profile
+INSERT OR IGNORE INTO UserProfiles (UserId, DisplayName, Bio, HomeAreaZipCode, SocialGoal, CreatedAtUtc, UpdatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000000001', 'Admin', NULL, '45202', NULL, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+
+-- Admin preferences (required for onboarding check)
+INSERT OR IGNORE INTO UserPreferences (UserId, SpiceTolerance, UpdatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000000001', NULL, '2026-01-01T00:00:00Z');
+
+-- Privacy settings
+INSERT OR IGNORE INTO PrivacySettings (UserId, DiscoveryEnabled, UpdatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000000001', 0, '2026-01-01T00:00:00Z');
+
+-- Grant Admin role (2 = Admin in UserRole enum)
+INSERT OR IGNORE INTO UserRoles (UserId, Role) VALUES
+('00000000-0000-0000-0000-000000000001', 2);
+
+UPDATE UserAccounts 
+SET PasswordHash = 'v1.100000.kvK24+vGXOGfIuMxSAPvog==.6fQ4hz2iYQv44F+3DVEj80v8laFK7RLUKaGgi3RXMpQ='
+WHERE Username = 'admin';
+

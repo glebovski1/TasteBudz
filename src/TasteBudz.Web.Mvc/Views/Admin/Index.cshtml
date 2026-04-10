@@ -10,14 +10,34 @@
         <div>
             <span class="eyebrow">🛡️ Moderation</span>
             <h1 class="admin-title">Admin Panel</h1>
-            <p class="admin-subtitle">Review reports and manage user restrictions.</p>
+            <p class="admin-subtitle">Review reports, manage restrictions, and maintain data.</p>
         </div>
         <a asp-action="Reports" class="button button--secondary">
             All Reports
         </a>
     </div>
 
-    <!-- Pending Reports -->
+    @* ── Restaurant Data ── *@
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">🍽️ Restaurant Catalog</h2>
+        </div>
+        <p class="muted-note" style="margin-bottom:0.75rem;">
+            Import real restaurant data from OpenStreetMap for all seeded ZIP codes.
+            Free, no API key required. Safe to run multiple times — existing entries are skipped.
+            Allow up to 30 seconds per ZIP code for the query to complete.
+        </p>
+        <form asp-action="ImportRestaurants" method="post" style="display:inline;">
+            @Html.AntiForgeryToken()
+            <button type="submit"
+                    class="button button--primary"
+                    onclick="return confirm('Run restaurant import from OpenStreetMap? This may take a minute.')">
+                Import Restaurants from OpenStreetMap
+            </button>
+        </form>
+    </section>
+
+    @* ── Pending Reports ── *@
     <section class="admin-section">
         <div class="admin-section__header">
             <h2 class="admin-section__title">
@@ -67,11 +87,9 @@
                                     <span class="muted-note">Reported user: <code>@report.RelatedUserId.Value.ToString()[..8]…</code></span>
                                 }
                             </div>
-
                             <div class="button-row">
                                 @if (report.RelatedUserId.HasValue)
                                 {
-                                    <!-- Ban modal trigger -->
                                     <button class="button button--danger"
                                             onclick="openBanModal('@report.RelatedUserId', '@report.ReportId')">
                                         Ban User
@@ -92,17 +110,14 @@
         <button class="ban-modal__close" onclick="closeBanModal()" aria-label="Close">✕</button>
         <h2 class="card__title">Ban User</h2>
         <p class="card__subtitle">Choose the restriction duration. This action is logged.</p>
-
         <form asp-action="BanUser" method="post" class="stack" id="banForm">
             @Html.AntiForgeryToken()
             <input type="hidden" name="userId" id="banUserId" />
             <input type="hidden" name="reportId" id="banReportId" />
-
             <div class="field">
                 <label for="banReason">Reason</label>
                 <textarea id="banReason" name="reason" placeholder="Brief reason for this restriction…" required></textarea>
             </div>
-
             <div class="ban-duration-row">
                 <button type="submit" name="permanent" value="false" class="button button--primary ban-btn">
                     🕐 7-Day Ban
@@ -122,12 +137,10 @@
             document.getElementById('banReportId').value = reportId;
             document.getElementById('banOverlay').removeAttribute('hidden');
         }
-
         function closeBanModal() {
             document.getElementById('banOverlay').setAttribute('hidden', '');
             document.getElementById('banReason').value = '';
         }
-
         document.getElementById('banOverlay').addEventListener('click', function (e) {
             if (e.target === this) closeBanModal();
         });

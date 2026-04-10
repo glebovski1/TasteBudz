@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
@@ -219,7 +220,9 @@ public sealed class EventController : Controller
     {
         try
         {
-            var restaurants = await restaurantApiService.BrowseAsync(cancellationToken: cancellationToken);
+            var restaurants = await restaurantApiService.BrowseAsync(
+            new BrowseRestaurantsQuery { PageSize = 2000 },
+            cancellationToken: cancellationToken);
             return model with
             {
                 Restaurants = restaurants.Items
