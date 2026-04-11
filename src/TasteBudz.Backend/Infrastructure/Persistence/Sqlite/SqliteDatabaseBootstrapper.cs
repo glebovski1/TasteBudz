@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
 namespace TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
@@ -9,7 +10,7 @@ namespace TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 /// </summary>
 public static class SqliteDatabaseBootstrapper
 {
-    private static readonly Lazy<string[]> RequiredTables = new(BuildRequiredTables);
+    private static readonly Lazy<IReadOnlyDictionary<string, string[]>> RequiredTableColumns = new(BuildRequiredTableColumns);
 
     public static async Task EnsureInitializedAsync(
         string connectionString,
@@ -38,7 +39,7 @@ public static class SqliteDatabaseBootstrapper
             await InitializeSchemaAsync(connectionString, shouldSeedTestData, cancellationToken);
         }
 
-        await ValidateRequiredTablesAsync(connectionString, cancellationToken);
+        await ValidateRequiredSchemaAsync(connectionString, cancellationToken);
         logger.LogInformation("SQLite backend persistence is ready.");
     }
 
@@ -64,7 +65,7 @@ public static class SqliteDatabaseBootstrapper
         }
 
         await InitializeSchemaAsync(connectionString, seedTestData: false, cancellationToken);
-        await ValidateRequiredTablesAsync(connectionString, cancellationToken);
+        await ValidateRequiredSchemaAsync(connectionString, cancellationToken);
     }
 
     private static async Task InitializeSchemaAsync(string connectionString, bool seedTestData, CancellationToken cancellationToken)
@@ -97,12 +98,12 @@ public static class SqliteDatabaseBootstrapper
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task ValidateRequiredTablesAsync(string connectionString, CancellationToken cancellationToken)
+    private static async Task ValidateRequiredSchemaAsync(string connectionString, CancellationToken cancellationToken)
     {
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        foreach (var tableName in RequiredTables.Value)
+        foreach (var (tableName, requiredColumns) in RequiredTableColumns.Value)
         {
             await using var command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $name;";
@@ -113,7 +114,36 @@ public static class SqliteDatabaseBootstrapper
             {
                 throw new InvalidOperationException($"The configured SQLite database is missing required table '{tableName}'.");
             }
+
+            var actualColumns = await ListColumnsAsync(connection, tableName, cancellationToken);
+
+            foreach (var requiredColumn in requiredColumns)
+            {
+                if (!actualColumns.Contains(requiredColumn))
+                {
+                    throw new InvalidOperationException($"The configured SQLite database table '{tableName}' is missing required column '{requiredColumn}'.");
+                }
+            }
         }
+    }
+
+    private static async Task<HashSet<string>> ListColumnsAsync(
+        SqliteConnection connection,
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({QuoteSqliteIdentifier(tableName)});";
+
+        var columns = new HashSet<string>(StringComparer.Ordinal);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            columns.Add(reader.GetString(reader.GetOrdinal("name")));
+        }
+
+        return columns;
     }
 
     private static async Task<bool> HasAnyUserAccountsAsync(string connectionString, CancellationToken cancellationToken)
@@ -154,22 +184,54 @@ public static class SqliteDatabaseBootstrapper
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) > 0;
     }
 
-    private static string[] BuildRequiredTables()
+    private static IReadOnlyDictionary<string, string[]> BuildRequiredTableColumns()
     {
         var options = new DbContextOptionsBuilder<TasteBudzDbContext>()
             .UseSqlite("Data Source=:memory:")
             .Options;
 
         using var dbContext = new TasteBudzDbContext(options);
+        var tableColumns = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
 
-        return dbContext.Model.GetEntityTypes()
-            .Select(entityType => entityType.GetTableName())
-            .Where(tableName => !string.IsNullOrWhiteSpace(tableName))
-            .Select(tableName => tableName!)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(tableName => tableName, StringComparer.Ordinal)
-            .ToArray();
+        // The SQL scripts remain the schema authority; this catches drift that would break EF runtime access.
+        foreach (var entityType in dbContext.Model.GetEntityTypes())
+        {
+            var tableName = entityType.GetTableName();
+
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                continue;
+            }
+
+            if (!tableColumns.TryGetValue(tableName, out var columns))
+            {
+                columns = new SortedSet<string>(StringComparer.Ordinal);
+                tableColumns[tableName] = columns;
+            }
+
+            var storeObject = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
+
+            foreach (var property in entityType.GetProperties())
+            {
+                var columnName = property.GetColumnName(storeObject);
+
+                if (!string.IsNullOrWhiteSpace(columnName))
+                {
+                    columns.Add(columnName);
+                }
+            }
+        }
+
+        return tableColumns
+            .OrderBy(item => item.Key, StringComparer.Ordinal)
+            .ToDictionary(
+                item => item.Key,
+                item => item.Value.ToArray(),
+                StringComparer.Ordinal);
     }
+
+    private static string QuoteSqliteIdentifier(string identifier) =>
+        "\"" + identifier.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
 
     private static string GetBundledScriptPath(string fileName) =>
         Path.Combine(AppContext.BaseDirectory, "DatabaseScripts", fileName);

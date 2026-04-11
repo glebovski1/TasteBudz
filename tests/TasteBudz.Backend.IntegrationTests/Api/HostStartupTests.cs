@@ -43,6 +43,29 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task OldRuntimeTableShape_WithInitializationDisabled_FailsFastOnStartup()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:InitializeSqliteOnStartup"] = "false",
+        });
+
+        await SqliteDatabaseBootstrapper.RecreateDatabaseAsync(customFactory.ConnectionString);
+        await DropTableAsync(customFactory.ConnectionString, "MediaAssets");
+        await CreateOldMediaAssetsTableAsync(customFactory.ConnectionString);
+
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            using var client = customFactory.CreateClient();
+            await client.GetAsync("/definitely-missing");
+        });
+
+        var invalidOperation = Assert.IsType<InvalidOperationException>(exception);
+        Assert.Contains("MediaAssets", invalidOperation.Message);
+        Assert.Contains("missing required column", invalidOperation.Message);
+    }
+
+    [Fact]
     public async Task SeedTestDataOnStartup_WhenEnabled_PopulatesDevelopmentAccounts()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
@@ -123,6 +146,27 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
 
         await using var command = connection.CreateCommand();
         command.CommandText = $"DROP TABLE {tableName};";
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task CreateOldMediaAssetsTableAsync(string connectionString)
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            CREATE TABLE MediaAssets (
+                Id TEXT NOT NULL PRIMARY KEY,
+                OwnerUserId TEXT NOT NULL,
+                ProfileUserId TEXT NULL,
+                GroupId TEXT NULL,
+                EventId TEXT NULL,
+                StorageUrl TEXT NOT NULL,
+                CreatedAtUtc TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """;
         await command.ExecuteNonQueryAsync();
     }
 

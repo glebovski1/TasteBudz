@@ -179,19 +179,7 @@
         restaurants.forEach(r => {
         const marker = L.marker([r.lat, r.lng], { icon: defaultIcon })
         .addTo(map)
-        .bindPopup(`
-        <strong>${r.name}</strong><br>
-        ${r.location}<br>
-        <span style="color:#888;">${r.priceTier} · ${r.cuisine}</span><br>
-        <button onclick="window.selectRestaurant('${r.id}', '${r.name.replace(/'/g, "\\'")}', this)"
-        style="margin-top:6px; padding:4px 10px; background:#e05a2b; color:#fff; border:none; border-radius:4px; cursor:pointer;">
-        Select
-        </button><br>
-        <a href="${r.googleMapsUrl}" target="_blank" rel="noopener noreferrer"
-        style="display:inline-block; margin-top:6px; color:#e05a2b; font-weight:700;">
-        Open in Google Maps
-        </a>
-        `);
+        .bindPopup(createRestaurantPopup(r));
 
         marker._restaurantId   = r.id;
         marker._restaurantName = r.name;
@@ -201,8 +189,7 @@
         marker.on("click", () => map.setView([r.lat, r.lng], 14));
         });
 
-        // Global function called by the popup button
-        window.selectRestaurant = function (id, name) {
+        function selectRestaurant(id, name) {
         hiddenId.value = id;
         label.textContent = "Selected: " + name;
         clearBtn.style.display = "inline-block";
@@ -218,7 +205,52 @@
         }
         }
         });
-        };
+        }
+
+        function createRestaurantPopup(restaurant) {
+        const container = document.createElement("div");
+
+        const name = document.createElement("strong");
+        name.textContent = restaurant.name;
+        container.appendChild(name);
+        container.appendChild(document.createElement("br"));
+
+        container.appendChild(document.createTextNode(restaurant.location));
+        container.appendChild(document.createElement("br"));
+
+        const meta = document.createElement("span");
+        meta.style.color = "#888";
+        meta.textContent = restaurant.priceTier + " · " + restaurant.cuisine;
+        container.appendChild(meta);
+        container.appendChild(document.createElement("br"));
+
+        const selectButton = document.createElement("button");
+        selectButton.type = "button";
+        selectButton.textContent = "Select";
+        selectButton.style.marginTop = "6px";
+        selectButton.style.padding = "4px 10px";
+        selectButton.style.background = "#e05a2b";
+        selectButton.style.color = "#fff";
+        selectButton.style.border = "none";
+        selectButton.style.borderRadius = "4px";
+        selectButton.style.cursor = "pointer";
+        selectButton.addEventListener("click", () => selectRestaurant(restaurant.id, restaurant.name));
+        container.appendChild(selectButton);
+        container.appendChild(document.createElement("br"));
+
+        const mapsLink = document.createElement("a");
+        mapsLink.href = restaurant.googleMapsUrl;
+        mapsLink.target = "_blank";
+        mapsLink.rel = "noopener noreferrer";
+        mapsLink.textContent = "Open in Google Maps";
+        mapsLink.style.display = "inline-block";
+        mapsLink.style.marginTop = "6px";
+        mapsLink.style.color = "#e05a2b";
+        mapsLink.style.fontWeight = "700";
+        container.appendChild(mapsLink);
+
+        return container;
+        }
 
         clearBtn.addEventListener("click", () => {
         hiddenId.value = "";

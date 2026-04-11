@@ -31,8 +31,9 @@ public sealed class EventMvcTests
                         new RestaurantDto(restaurantWithPlaceId, "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Japanese" }, 39.14, -84.51, "google-place-123", 1.2),
                         new RestaurantDto(restaurantWithoutPlaceId, "Taco Corner", "Cincinnati", "OH", "45202", PriceTier.One, new[] { "Mexican" }, 39.10, -84.50, null, 2.4),
                         new RestaurantDto(Guid.NewGuid(), "OpenStreetMap Bistro", "Cincinnati", "OH", "45206", PriceTier.Two, new[] { "American" }, 39.13, -84.48, "osm:987654321", 2.8),
+                        new RestaurantDto(Guid.NewGuid(), "<img src=x onerror=alert(1)>", "Cincinnati", "OH", "45206", PriceTier.Two, new[] { "American" }, 39.12, -84.47, null, 3.1),
                     },
-                    3)));
+                    4)));
 
         using var response = await client.GetAsync("/Event/CreateEvent");
         var html = await response.Content.ReadAsStringAsync();
@@ -42,6 +43,8 @@ public sealed class EventMvcTests
         Assert.Contains("query_place_id=google-place-123", html);
         Assert.Contains("Taco%20Corner%2C%20Cincinnati%2C%20OH%2045202", html);
         Assert.Contains("OpenStreetMap%20Bistro%2C%20Cincinnati%2C%20OH%2045206", html);
+        Assert.DoesNotContain("onclick=\"window.selectRestaurant", html);
+        Assert.DoesNotContain("<img src=x onerror=alert(1)>", html);
         Assert.DoesNotContain("query_place_id=osm", html);
         Assert.DoesNotContain("query_place_id=osm%3A", html);
         factory.BackendHandler.AssertDrained();
