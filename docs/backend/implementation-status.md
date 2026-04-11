@@ -5,7 +5,7 @@ This document tracks the current backend implementation state.
 It is a progress tracker, not a source of product or architecture truth.
 Use the primary backend documents for requirements, architecture, domain rules, API contracts, and testing policy.
 
-Last verified: 2026-03-26
+Last verified: 2026-04-11
 
 ## 1. Overall State
 
@@ -13,7 +13,8 @@ Current overall state:
 
 - foundation is implemented
 - the currently implemented MVP backend slices are `Backend-complete`
-- later and feature-flagged backend slices remain intentionally out of scope
+- feature-flagged restaurant operations are implemented but disabled by default
+- remaining later backend slices remain intentionally out of scope
 
 Using the definitions in `docs/backend/implementation-approach.md`:
 
@@ -25,9 +26,11 @@ Current practical assessment:
 - Auth and Access: `Backend-complete`
 - Profiles: `Backend-complete`
 - Restaurants: `Backend-complete`
+- Restaurant Operations: feature-flagged implemented slice, disabled by default
 - Events: `Backend-complete`
 - Groups: `Backend-complete`
 - Discovery / Budz: `Backend-complete`
+- Media: `Backend-complete`
 - Notifications: `Backend-complete`
 - Messaging: `Backend-complete`
 - Moderation and Audit: `Backend-complete`
@@ -61,9 +64,11 @@ Current runtime persistence note:
 | Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion |
 | Profiles | Implemented slice | Onboarding status, profile update/read, preferences, availability, privacy, blocks, dashboard summaries |
 | Restaurants | Implemented slice | Browse, detail, deterministic suggestions, seeded catalog |
+| Restaurant Operations | Feature-flagged implemented slice | Admin-managed restaurant admin assignments, managed restaurant profile edits, slot CRUD/cancel, event-host slot reservations, discount simulation; disabled by default |
 | Events | Implemented slice | Browse, create, detail, update, participants, join, leave/accept/decline, invite, cancel, lifecycle sync, owner-only group link, restriction checks |
 | Groups | Implemented slice | Browse/search, create/detail/update, join/leave, owner removal, private invites, linked-event listing |
 | Discovery / Budz | Implemented slice | Search, swipe candidates, Like/Pass decisions, reciprocal Budz creation, privacy/block/restriction filtering |
+| Media | Implemented slice | Database-backed image storage, profile-avatar upload/replacement, report-evidence attachments, context-based media access |
 | Notifications | Implemented slice | In-app notification center list/read API over existing workflow notifications |
 | Messaging | Implemented slice | Shared SignalR chat hub plus paged event/group message history with scope-derived auth |
 | Moderation and Audit | Implemented slice | Report submission, moderation queue/detail/resolve, scoped restrictions, admin audit-log query |
@@ -75,6 +80,7 @@ Implemented controller surface as of 2026-03-09:
 - `/api/v1/auth/*`
 - `/api/v1/onboarding/status`
 - `/api/v1/profiles/me`
+- `/api/v1/profiles/me/avatar`
 - `/api/v1/preferences/me`
 - `/api/v1/availability/recurring`
 - `/api/v1/availability/one-off`
@@ -87,9 +93,12 @@ Implemented controller surface as of 2026-03-09:
 - `/api/v1/account/deletion`
 - `/api/v1/restaurants`
 - `/api/v1/restaurants/{restaurantId}`
+- `/api/v1/restaurants/{restaurantId}/slots` (feature-flagged)
 - `/api/v1/restaurants/suggestions`
+- `/api/v1/admin/restaurants/{restaurantId}/admin-assignments` (feature-flagged)
 - `/api/v1/events`
 - `/api/v1/events/{eventId}`
+- `/api/v1/events/{eventId}/slot-reservations` (feature-flagged)
 - `/api/v1/events/{eventId}/participants`
 - `/api/v1/events/{eventId}/participants/me`
 - `/api/v1/events/{eventId}/participants/{userId}/removal`
@@ -112,32 +121,41 @@ Implemented controller surface as of 2026-03-09:
 - `/api/v1/notifications`
 - `/api/v1/notifications/{notificationId}`
 - `/api/v1/reports`
+- `/api/v1/reports/{reportId}/attachments`
+- `/api/v1/media/{mediaAssetId}`
 - `/api/v1/moderation/reports`
 - `/api/v1/moderation/reports/{reportId}`
 - `/api/v1/moderation/restrictions`
 - `/api/v1/moderation/restrictions/{restrictionId}`
 - `/api/v1/audit-logs`
+- `/api/v1/restaurant-admin/restaurants` (feature-flagged)
+- `/api/v1/restaurant-admin/restaurants/{restaurantId}` (feature-flagged)
+- `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` (feature-flagged)
+- `/api/v1/restaurant-admin/slots/{slotId}` (feature-flagged)
+- `/api/v1/restaurant-admin/slots/{slotId}/cancellation` (feature-flagged)
 - `/hubs/chat`
 
 Not yet implemented from later/feature-flagged API shape:
 
 - group ownership transfer and dissolution endpoints
 - direct chat endpoints
-- restaurant operations/discount endpoints
+- payment simulation and checkout endpoints
 
 ## 5. Test Status
 
-Current automated test status as of 2026-03-26:
+Current automated test status as of 2026-04-11:
 
-- 53 unit tests
-- 44 integration tests
-- 97 passing tests total
+- 59 backend unit tests
+- 54 backend integration tests
+- 35 MVC integration tests
+- 148 passing solution tests total
 
 Current covered areas:
 
 - password hashing
 - auth registration, login, refresh, logout, duplicate-credential handling, and protected endpoint access
 - profile update workflows
+- profile-avatar upload/replacement and media retrieval behavior
 - recurring and one-off availability edge cases
 - blocks and dashboard behavior
 - restaurant browse and suggestion behavior
@@ -156,13 +174,19 @@ Current covered areas:
 - notification-center read/update behavior
 - event chat and group chat authorization plus hub delivery
 - report, restriction, role-enforcement, and audit-log workflows
+- report-evidence attachment upload/list/download authorization
+- restaurant-admin assignment grant/revoke role behavior
+- restaurant-admin assignment authorization checks
+- restaurant slot validation and cancellation behavior
+- event-host slot reservation invariants and same-slot conflict behavior
+- discount activation and cutoff freeze behavior
 - ProblemDetails behavior for selected failure cases
 - persistence-backed API and workflow coverage for the implemented module set via temporary SQLite databases rebuilt from canonical SQL assets
 
 Important testing gaps still open:
 
-- later/disabled features such as direct chat and group ownership transfer remain intentionally untested at runtime
-- restaurant-admin operations, slots, and discounts remain out of scope and unimplemented
+- later/disabled features such as direct chat, group ownership transfer/dissolution, payment simulation, and checkout behavior remain intentionally untested at runtime
+- restaurant operations need a final launch-readiness review before default flags are enabled
 
 ## 6. Gaps To Backend-Complete
 
@@ -173,7 +197,8 @@ Remaining gaps apply to later or intentionally deferred scope:
 1. Keep later/feature-flagged modules disabled until explicitly promoted:
    - direct chat
    - group ownership transfer/dissolution
-   - restaurant operations and discounts
+   - restaurant operations and discounts until explicitly enabled for launch
+   - payment simulation and checkout behavior
 2. If a future persistence-provider change is approved, document it explicitly and re-prove relational and concurrency behavior for that provider.
 
 ## 7. Suggested Next Focus

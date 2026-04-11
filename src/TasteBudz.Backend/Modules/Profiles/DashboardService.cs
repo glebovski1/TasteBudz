@@ -4,6 +4,7 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Media;
 
 namespace TasteBudz.Backend.Modules.Profiles;
 
@@ -13,6 +14,7 @@ namespace TasteBudz.Backend.Modules.Profiles;
 public sealed class DashboardService(
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
+    IMediaRepository mediaRepository,
     UserEventQueryService userEventQueryService,
     UserGroupQueryService userGroupQueryService,
     DiscoveryService discoveryService)
@@ -57,8 +59,9 @@ public sealed class DashboardService(
             ?? throw ApiException.NotFound("The current account could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
+        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
 
-        return new ProfileDto(account.Id, account.Username, account.Email, profile.DisplayName, profile.Bio, profile.HomeAreaZipCode, profile.SocialGoal);
+        return new ProfileDto(account.Id, account.Username, account.Email, profile.DisplayName, profile.Bio, profile.HomeAreaZipCode, profile.SocialGoal, avatar?.Id);
     }
 
     private async Task<IReadOnlyCollection<DashboardBudSummaryDto>> ListMyBudzAsync(Guid userId, CancellationToken cancellationToken)

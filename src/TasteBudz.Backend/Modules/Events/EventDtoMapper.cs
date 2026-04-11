@@ -1,5 +1,6 @@
 // Internal mapping helpers that convert event domain records into API contracts.
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.Modules.Events;
 
@@ -23,7 +24,11 @@ internal static class EventDtoMapper
             eventRecord.CuisineTarget,
             eventRecord.GroupId);
 
-    internal static EventDetailDto ToDetail(Event eventRecord, int activeParticipants) =>
+    internal static EventDetailDto ToDetail(
+        Event eventRecord,
+        int activeParticipants,
+        EventSlotReservationDto? slotReservation = null,
+        DiscountActivationDto? discountActivation = null) =>
         new(
             eventRecord.Id,
             eventRecord.Title,
@@ -38,7 +43,9 @@ internal static class EventDtoMapper
             eventRecord.SelectedRestaurantId,
             eventRecord.CuisineTarget,
             eventRecord.GroupId,
-            eventRecord.CancellationReason);
+            eventRecord.CancellationReason,
+            slotReservation,
+            discountActivation);
 
     internal static EventParticipantDto ToParticipant(EventParticipant participant, UserAccount account, UserProfile? profile) =>
         new(

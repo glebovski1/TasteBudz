@@ -9,6 +9,7 @@ public enum UserRole
     User,
     Moderator,
     Admin,
+    RestaurantAdmin,
 }
 
 /// <summary>
@@ -215,4 +216,22 @@ public enum RestrictionStatus
     Active,
     Expired,
     Revoked,
+}
+
+/// <summary>
+/// Operational state for restaurant-managed availability slots.
+/// </summary>
+public enum RestaurantSlotStatus
+{
+    Open,
+    Cancelled,
+}
+
+/// <summary>
+/// Lifecycle state for a slot reservation linked to an event.
+/// </summary>
+public enum EventSlotReservationStatus
+{
+    Active,
+    Cancelled,
 }

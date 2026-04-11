@@ -3,8 +3,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.FeatureFlags;
+using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Messaging;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.Controllers;
 
@@ -19,7 +22,9 @@ public sealed class EventsController(
     EventService eventService,
     EventParticipationService eventParticipationService,
     EventInviteService eventInviteService,
+    EventSlotReservationService eventSlotReservationService,
     MessagingService messagingService,
+    IFeatureFlagService featureFlagService,
     ICurrentUserAccessor currentUserAccessor) : ControllerBase
 {
     [HttpGet]
@@ -73,5 +78,24 @@ public sealed class EventsController(
     {
         await eventService.CancelAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, eventId, request, cancellationToken);
         return NoContent();
+    }
+
+    [HttpPost("{eventId:guid}/slot-reservations")]
+    public Task<EventSlotReservationDto> ReserveSlot(
+        Guid eventId,
+        [FromBody] ReserveEventSlotRequest request,
+        CancellationToken cancellationToken)
+    {
+        EnsureSlotsEnabled();
+        return eventSlotReservationService.ReserveAsync(currentUserAccessor.GetRequiredCurrentUser(), eventId, request, cancellationToken);
+    }
+
+    private void EnsureSlotsEnabled()
+    {
+        if (!featureFlagService.IsRestaurantsOperationsEnabled() ||
+            !featureFlagService.IsRestaurantsSlotsEnabled())
+        {
+            throw ApiException.NotFound("Restaurant slots are not enabled.");
+        }
     }
 }

@@ -31,6 +31,14 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<Guid, Restaurant> Restaurants { get; } = new();
 
+    public Dictionary<string, RestaurantAdminAssignment> RestaurantAdminAssignments { get; } = new(StringComparer.Ordinal);
+
+    public Dictionary<Guid, RestaurantSlot> RestaurantSlots { get; } = new();
+
+    public Dictionary<Guid, EventSlotReservation> EventSlotReservations { get; } = new();
+
+    public Dictionary<Guid, DiscountActivation> DiscountActivations { get; } = new();
+
     public Dictionary<string, (double Latitude, double Longitude)> ZipCoordinates { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<Guid, Event> Events { get; } = new();
@@ -52,6 +60,8 @@ public sealed class InMemoryTasteBudzStore
     public Dictionary<string, ChatThread> ChatThreads { get; } = new(StringComparer.Ordinal);
 
     public Dictionary<Guid, ChatMessage> ChatMessages { get; } = new();
+
+    public Dictionary<Guid, MediaAsset> MediaAssets { get; } = new();
 
     public Dictionary<Guid, ModerationReport> ModerationReports { get; } = new();
 
@@ -90,11 +100,16 @@ public sealed class InMemoryTasteBudzStore
             Notifications.Clear();
             ChatThreads.Clear();
             ChatMessages.Clear();
+            MediaAssets.Clear();
             ModerationReports.Clear();
             ModerationActions.Clear();
             UserRestrictions.Clear();
             AuditLogEntries.Clear();
             Restaurants.Clear();
+            RestaurantAdminAssignments.Clear();
+            RestaurantSlots.Clear();
+            EventSlotReservations.Clear();
+            DiscountActivations.Clear();
             ZipCoordinates.Clear();
 
             SeedRestaurants();

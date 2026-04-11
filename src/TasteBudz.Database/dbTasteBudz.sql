@@ -545,18 +545,26 @@ BEGIN
         ProfileUserId UNIQUEIDENTIFIER NULL,
         GroupId UNIQUEIDENTIFIER NULL,
         EventId UNIQUEIDENTIFIER NULL,
-        StorageUrl NVARCHAR(2048) NOT NULL,
+        ReportId UNIQUEIDENTIFIER NULL,
+        OriginalFileName NVARCHAR(255) NOT NULL,
+        ContentType NVARCHAR(128) NOT NULL,
+        ContentLength BIGINT NOT NULL,
+        Content VARBINARY(MAX) NOT NULL,
         CreatedAtUtc DATETIMEOFFSET NOT NULL CONSTRAINT DF_MediaAssets_CreatedAtUtc DEFAULT SYSDATETIMEOFFSET(),
         CONSTRAINT FK_MediaAssets_OwnerUser FOREIGN KEY (OwnerUserId) REFERENCES dbo.UserAccounts (Id),
         CONSTRAINT FK_MediaAssets_ProfileUser FOREIGN KEY (ProfileUserId) REFERENCES dbo.UserProfiles (UserId),
         CONSTRAINT FK_MediaAssets_Group FOREIGN KEY (GroupId) REFERENCES dbo.Groups (Id),
         CONSTRAINT FK_MediaAssets_Event FOREIGN KEY (EventId) REFERENCES dbo.Events (Id),
+        CONSTRAINT FK_MediaAssets_Report FOREIGN KEY (ReportId) REFERENCES dbo.ModerationReports (Id),
         CONSTRAINT CK_MediaAssets_ExactlyOneContext CHECK (
             (CASE WHEN ProfileUserId IS NULL THEN 0 ELSE 1 END) +
             (CASE WHEN GroupId IS NULL THEN 0 ELSE 1 END) +
-            (CASE WHEN EventId IS NULL THEN 0 ELSE 1 END) = 1
+            (CASE WHEN EventId IS NULL THEN 0 ELSE 1 END) +
+            (CASE WHEN ReportId IS NULL THEN 0 ELSE 1 END) = 1
         ),
-        CONSTRAINT CK_MediaAssets_NonBlankStorageUrl CHECK (LEN(LTRIM(RTRIM(StorageUrl))) > 0)
+        CONSTRAINT CK_MediaAssets_NonBlankOriginalFileName CHECK (LEN(LTRIM(RTRIM(OriginalFileName))) > 0),
+        CONSTRAINT CK_MediaAssets_NonBlankContentType CHECK (LEN(LTRIM(RTRIM(ContentType))) > 0),
+        CONSTRAINT CK_MediaAssets_PositiveContentLength CHECK (ContentLength > 0)
     );
 END
 GO

@@ -26,6 +26,10 @@
                     <a asp-controller="Discovery" asp-action="Swipe">Find Budz</a>
                     <a asp-controller="Group" asp-action="Index">Groups</a>
                     <a asp-controller="Event" asp-action="Index">Events</a>
+                    @if (User.IsInRole("RestaurantAdmin"))
+                    {
+                        <a asp-controller="RestaurantAdmin" asp-action="Index">Restaurants</a>
+                    }
                     <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="tb-nav-logout">Log Out</button>

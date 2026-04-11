@@ -1,0 +1,140 @@
+@model RestaurantAdminManageViewModel
+
+@{
+    ViewData["Title"] = $"Manage {Model.Restaurant.Name}";
+}
+
+<section class="profile-shell">
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>@Model.Restaurant.Name</h1>
+            <p>@Model.Restaurant.City, @Model.Restaurant.State @Model.Restaurant.ZipCode</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Index" class="button button--secondary">Back</a>
+        </div>
+    </div>
+
+    <div class="editor-grid">
+        <section class="card stack">
+            <div>
+                <h2 class="card__title">Restaurant Profile</h2>
+                <p class="card__subtitle">Update the public catalog details used by event hosts.</p>
+            </div>
+            <form asp-action="UpdateRestaurant" method="post" class="stack">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="RestaurantForm.RestaurantId" />
+                <div class="field">
+                    <label asp-for="RestaurantForm.Name"></label>
+                    <input asp-for="RestaurantForm.Name" />
+                </div>
+                <div class="field">
+                    <label asp-for="RestaurantForm.City"></label>
+                    <input asp-for="RestaurantForm.City" />
+                </div>
+                <div class="field">
+                    <label asp-for="RestaurantForm.State"></label>
+                    <input asp-for="RestaurantForm.State" />
+                </div>
+                <div class="field">
+                    <label asp-for="RestaurantForm.ZipCode"></label>
+                    <input asp-for="RestaurantForm.ZipCode" />
+                </div>
+                <div class="field">
+                    <label asp-for="RestaurantForm.PriceTier"></label>
+                    <select asp-for="RestaurantForm.PriceTier" asp-items="Html.GetEnumSelectList<TasteBudz.Backend.Domain.PriceTier>()"></select>
+                </div>
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Save Profile</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel stack">
+            <div>
+                <h2>Create Slot</h2>
+                <p class="card__subtitle">Slots define a reservable window and capacity.</p>
+            </div>
+            <form asp-action="CreateSlot" method="post" class="stack">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="SlotForm.RestaurantId" />
+                <div class="field">
+                    <label asp-for="SlotForm.StartsAt"></label>
+                    <input asp-for="SlotForm.StartsAt" type="datetime-local" />
+                </div>
+                <div class="field">
+                    <label asp-for="SlotForm.EndsAt"></label>
+                    <input asp-for="SlotForm.EndsAt" type="datetime-local" />
+                </div>
+                <div class="field">
+                    <label asp-for="SlotForm.CutoffAt"></label>
+                    <input asp-for="SlotForm.CutoffAt" type="datetime-local" />
+                </div>
+                <div class="field">
+                    <label asp-for="SlotForm.Capacity"></label>
+                    <input asp-for="SlotForm.Capacity" type="number" min="2" max="8" />
+                </div>
+                <div class="field">
+                    <label asp-for="SlotForm.MinThresholdForDiscount"></label>
+                    <input asp-for="SlotForm.MinThresholdForDiscount" type="number" min="2" max="8" />
+                </div>
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Create Slot</button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <section class="panel stack">
+        <h2>Slots</h2>
+        @if (!Model.Slots.Any())
+        {
+            <p class="empty-state">No slots have been created.</p>
+        }
+        else
+        {
+            <div class="panel__items">
+                @foreach (var slot in Model.Slots)
+                {
+                    <article class="summary-card">
+                        <div>
+                            <strong>@slot.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</strong>
+                            <p class="muted-note">
+                                Ends @slot.EndsAtUtc.ToLocalTime().ToString("h:mm tt") |
+                                Capacity @slot.Capacity |
+                                Cutoff @slot.CutoffAtUtc.ToLocalTime().ToString("MMM d h:mm tt")
+                            </p>
+                            @if (slot.MinThresholdForDiscount.HasValue)
+                            {
+                                <p class="muted-note">Discount threshold: @slot.MinThresholdForDiscount.Value participants</p>
+                            }
+                            <span class="pill">@slot.Status</span>
+                            @if (!string.IsNullOrWhiteSpace(slot.CancellationReason))
+                            {
+                                <p class="muted-note">@slot.CancellationReason</p>
+                            }
+                        </div>
+
+                        @if (slot.Status == TasteBudz.Backend.Domain.RestaurantSlotStatus.Open)
+                        {
+                            <form asp-action="CancelSlot" method="post" class="stack" style="margin-left:auto; min-width:220px;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="restaurantId" value="@Model.Restaurant.RestaurantId" />
+                                <input type="hidden" name="slotId" value="@slot.SlotId" />
+                                <div class="field">
+                                    <label for="reason-@slot.SlotId">Cancel reason</label>
+                                    <input id="reason-@slot.SlotId" name="reason" maxlength="250" placeholder="Reason" />
+                                </div>
+                                <button type="submit"
+                                        class="button button--danger"
+                                        onclick="return confirm('Cancel this slot and any linked event?')">
+                                    Cancel Slot
+                                </button>
+                            </form>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>

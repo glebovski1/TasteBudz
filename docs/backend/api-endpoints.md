@@ -35,7 +35,9 @@ Key DTO families:
 - `RestaurantDto`
 - `EventSummaryDto`, `EventDetailDto`, `EventParticipantDto`
 - `GroupSummaryDto`, `GroupDetailDto`, `GroupInviteDto`
+- `RestaurantAdminAssignmentDto`, `RestaurantSlotDto`, `EventSlotReservationDto`, `DiscountActivationDto`
 - `DiscoveryProfilePreviewDto`, `BudConnectionDto`, `SwipeDecisionResultDto`
+- `MediaAssetDto`
 - `ChatMessageDto`
 - `NotificationDto`
 - `ReportDto`, `RestrictionDto`, `AuditLogEntryDto`
@@ -82,6 +84,7 @@ Representative request shapes:
 | Get Onboarding Status | GET | `/api/v1/onboarding/status` | Return onboarding completeness | Yes |
 | Get My Profile | GET | `/api/v1/profiles/me` | Return current-user profile | Yes |
 | Update My Profile | PATCH | `/api/v1/profiles/me` | Update profile fields | Yes |
+| Upload My Profile Avatar | POST | `/api/v1/profiles/me/avatar` | Upload or replace the current user's avatar image | Yes |
 | Get My Dashboard | GET | `/api/v1/me/dashboard` | Return profile/dashboard summary | Yes |
 | List My Events | GET | `/api/v1/me/events` | Return hosted/joined events | Yes |
 | List My Groups | GET | `/api/v1/me/groups` | Return active groups | Yes |
@@ -146,6 +149,12 @@ Representative request shapes:
 }
 ```
 
+Multipart avatar upload shape:
+
+- field name: `file`
+- allowed content types: `image/png`, `image/jpeg`, `image/gif`, `image/webp`
+- image bytes are stored directly in the application database in MVP
+
 ### 3.3 Restaurants
 
 | Endpoint | Method | Path | Description | Auth |
@@ -153,6 +162,7 @@ Representative request shapes:
 | Browse Restaurants | GET | `/api/v1/restaurants` | Browse/search/filter restaurants | Yes |
 | Get Restaurant Detail | GET | `/api/v1/restaurants/{restaurantId}` | Return restaurant details | Yes |
 | Get Restaurant Suggestions | GET | `/api/v1/restaurants/suggestions` | Return simple suggestion list | Yes |
+| Import Restaurants | POST | `/api/v1/restaurants/import` | Import OpenStreetMap restaurants into the local catalog | Admin |
 
 Query parameters:
 
@@ -163,6 +173,8 @@ Contract notes:
 
 - MVP suggestions remain simple and deterministic.
 - Midpoint logic is service behavior, not a separate domain entity.
+- The import endpoint is an admin-only catalog maintenance operation; user-facing restaurant browse/search remains local catalog-backed.
+- `externalPlaceId` values can be provider-qualified, such as `osm:<id>`.
 
 ### 3.4 Events
 
@@ -363,7 +375,19 @@ SignalR hub expectations:
 - `MessageReceived` is the server event name for broadcast delivery
 - use REST history endpoints for initial backfill and reconnection
 
-### 3.8 Notifications
+### 3.8 Media Assets
+
+| Endpoint | Method | Path | Description | Auth |
+|---|---|---|---|---|
+| Get Media Content | GET | `/api/v1/media/{mediaAssetId}` | Return authorized image bytes | Yes |
+
+Media contract notes:
+
+- media content is image-only in the current MVP slice
+- profile avatars are readable by authenticated users through the media endpoint
+- report-evidence attachments are readable only by the reporting user and moderator/admin roles
+
+### 3.9 Notifications
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
@@ -389,11 +413,13 @@ MVP notification contract:
 | `GroupInviteReceived` | User is invited to a private group | invited user | `groupId`, `groupName`, `inviterUserId` |
 | `BudMatchCreated` | Reciprocal Like creates a Bud connection | both Bud users | `otherUserId`, `connectionId` |
 
-### 3.9 Moderation and Audit
+### 3.10 Moderation and Audit
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
 | Submit Report | POST | `/api/v1/reports` | Submit moderation report | Yes |
+| Upload Report Attachment | POST | `/api/v1/reports/{reportId}/attachments` | Add image evidence to a pending report | Yes |
+| List Report Attachments | GET | `/api/v1/reports/{reportId}/attachments` | List authorized report evidence attachments | Reporter/Moderator/Admin |
 | List Moderation Reports | GET | `/api/v1/moderation/reports` | Return moderation queue | Moderator/Admin |
 | Get Moderation Report | GET | `/api/v1/moderation/reports/{reportId}` | Return report detail | Moderator/Admin |
 | Resolve Moderation Report | PATCH | `/api/v1/moderation/reports/{reportId}` | Resolve report | Moderator/Admin |
@@ -415,6 +441,12 @@ Representative request shapes:
   "relatedMessageId": "uuid"
 }
 ```
+
+Multipart report-attachment upload shape:
+
+- field name: `file`
+- only the reporting user may upload
+- resolved reports reject new attachments with a conflict response
 
 ```json
 {
@@ -477,26 +509,56 @@ Representative query parameter:
 
 - `window=tonight|this-week`
 
-### 4.4 Restaurant Operations (Later)
+### 4.4 Restaurant Operations (Feature-Flagged)
+
+These endpoints are implemented behind restaurant operation feature flags and remain disabled by default. `FeatureFlags:RestaurantsOperationsEnabled` gates assignment and managed-restaurant endpoints. `FeatureFlags:RestaurantsSlotsEnabled` gates slot listing, slot mutation, and slot reservation endpoints. `FeatureFlags:RestaurantsDiscountsEnabled` controls discount threshold evaluation and discount DTO output.
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
+| List Restaurant Admin Assignments | GET | `/api/v1/admin/restaurants/{restaurantId}/admin-assignments` | List active assignments for a restaurant | Admin |
+| Grant Restaurant Admin Assignment | POST | `/api/v1/admin/restaurants/{restaurantId}/admin-assignments` | Assign a user to manage a restaurant | Admin |
+| Revoke Restaurant Admin Assignment | DELETE | `/api/v1/admin/restaurants/{restaurantId}/admin-assignments/{userId}` | Revoke a user's restaurant assignment | Admin |
 | Get Managed Restaurants | GET | `/api/v1/restaurant-admin/restaurants` | List managed restaurants | RestaurantAdmin |
 | Update Managed Restaurant | PATCH | `/api/v1/restaurant-admin/restaurants/{restaurantId}` | Update restaurant profile | RestaurantAdmin |
+| List Managed Restaurant Slots | GET | `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` | List slots for an assigned restaurant | RestaurantAdmin |
 | Create Restaurant Slot | POST | `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` | Create slot | RestaurantAdmin |
 | Update Restaurant Slot | PATCH | `/api/v1/restaurant-admin/slots/{slotId}` | Update slot | RestaurantAdmin |
 | Cancel Restaurant Slot | POST | `/api/v1/restaurant-admin/slots/{slotId}/cancellation` | Cancel slot | RestaurantAdmin |
+| List Reservable Restaurant Slots | GET | `/api/v1/restaurants/{restaurantId}/slots` | List open, unreserved slots for event hosts | Yes |
 | Reserve Slot For Event | POST | `/api/v1/events/{eventId}/slot-reservations` | Link event to slot | EventHost |
 
 Representative request shapes:
 
 ```json
 {
-  "startsAt": "timestamp",
-  "endsAt": "timestamp",
+  "username": "restaurant-manager"
+}
+```
+
+```json
+{
+  "name": "Updated Restaurant",
+  "city": "Cincinnati",
+  "state": "OH",
+  "zipCode": "45202",
+  "priceTier": "Three",
+  "externalPlaceId": "osm:123456789"
+}
+```
+
+```json
+{
+  "startsAtUtc": "timestamp",
+  "endsAtUtc": "timestamp",
   "capacity": 8,
-  "cutoffAt": "timestamp",
+  "cutoffAtUtc": "timestamp",
   "minThresholdForDiscount": 6
+}
+```
+
+```json
+{
+  "reason": "Restaurant closed for maintenance"
 }
 ```
 
@@ -505,6 +567,19 @@ Representative request shapes:
   "slotId": "uuid"
 }
 ```
+
+Contract rules:
+
+- Disabled restaurant operation endpoints return `404 Not Found`.
+- Enabled endpoints still return `401 Unauthorized` or `403 Forbidden` for unauthenticated or unauthorized callers.
+- Assignment grant auto-adds `RestaurantAdmin`; revoke removes it only when no active assignments remain.
+- Restaurant admins can mutate only restaurants with an active assignment.
+- Slot capacity is 2 through 8; cutoff must be before or equal to slot start; discount threshold, when present, must be 2 through slot capacity.
+- Event slot reservation is host-only, requires an active event and open unreserved slot, and requires event time/capacity to fit the slot.
+- Reservation sets the event selected restaurant to the slot restaurant and clears cuisine target.
+- `EventDetailDto` may include nullable `slotReservation` and nullable `discountActivation`; event summaries do not include these fields.
+- Discount simulation uses joined participants as confirmed participants and freezes the final active/inactive result after cutoff.
+- Payment simulation, checkout state, and payment side effects are out of scope.
 
 ## 5. Recommended MVP Public Surface
 

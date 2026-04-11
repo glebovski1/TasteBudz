@@ -6,7 +6,7 @@ using TasteBudz.Backend.Modules.Restaurants;
 namespace TasteBudz.Web.Mvc.Services;
 
 /// <summary>
-/// Thin wrapper over restaurant browse, detail, and suggestion endpoints.
+/// Thin wrapper over restaurant browse, detail, suggestion, and import endpoints.
 /// </summary>
 public sealed class RestaurantApiService
 {
@@ -27,12 +27,74 @@ public sealed class RestaurantApiService
     public Task<RestaurantDto> GetAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
         backendHttpClient.GetAsync<RestaurantDto>($"/api/v1/restaurants/{restaurantId}", cancellationToken);
 
+    public Task<IReadOnlyCollection<RestaurantSlotDto>> ListReservableSlotsAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<RestaurantSlotDto>>($"/api/v1/restaurants/{restaurantId}/slots", cancellationToken);
+
     public Task<IReadOnlyCollection<RestaurantDto>> GetSuggestionsAsync(
         RestaurantSuggestionsQuery? query = null,
         CancellationToken cancellationToken = default) =>
         backendHttpClient.GetAsync<IReadOnlyCollection<RestaurantDto>>(
             BuildSuggestionsPath(query ?? new RestaurantSuggestionsQuery()),
             cancellationToken);
+
+    public Task<ImportResultDto> ImportFromOverpassAsync(CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<ImportResultDto>(
+            "/api/v1/restaurants/import",
+            cancellationToken: cancellationToken);
+
+    public Task<IReadOnlyCollection<RestaurantAdminAssignmentDto>> ListAdminAssignmentsAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<RestaurantAdminAssignmentDto>>(
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments",
+            cancellationToken);
+
+    public Task<RestaurantAdminAssignmentDto> GrantAdminAssignmentAsync(
+        Guid restaurantId,
+        CreateRestaurantAdminAssignmentRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CreateRestaurantAdminAssignmentRequest, RestaurantAdminAssignmentDto>(
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task RevokeAdminAssignmentAsync(Guid restaurantId, Guid userId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.DeleteAsync(
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments/{userId}",
+            cancellationToken: cancellationToken);
+
+    public Task<IReadOnlyCollection<RestaurantDto>> ListManagedRestaurantsAsync(CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<RestaurantDto>>("/api/v1/restaurant-admin/restaurants", cancellationToken);
+
+    public Task<RestaurantDto> UpdateManagedRestaurantAsync(
+        Guid restaurantId,
+        UpdateManagedRestaurantRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PatchAsync<UpdateManagedRestaurantRequest, RestaurantDto>(
+            $"/api/v1/restaurant-admin/restaurants/{restaurantId}",
+            request,
+            cancellationToken);
+
+    public Task<IReadOnlyCollection<RestaurantSlotDto>> ListManagedSlotsAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<RestaurantSlotDto>>(
+            $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
+            cancellationToken);
+
+    public Task<RestaurantSlotDto> CreateManagedSlotAsync(
+        Guid restaurantId,
+        CreateRestaurantSlotRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CreateRestaurantSlotRequest, RestaurantSlotDto>(
+            $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task CancelManagedSlotAsync(
+        Guid slotId,
+        CancelRestaurantSlotRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            $"/api/v1/restaurant-admin/slots/{slotId}/cancellation",
+            request,
+            cancellationToken: cancellationToken);
 
     private static string BuildBrowsePath(BrowseRestaurantsQuery query)
     {
@@ -101,3 +163,5 @@ public sealed class RestaurantApiService
         return $"/api/v1/restaurants/suggestions{builder.ToQueryString()}";
     }
 }
+
+public sealed record ImportResultDto(int Inserted, string Message);

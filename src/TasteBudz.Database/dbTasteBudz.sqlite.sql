@@ -242,6 +242,42 @@ CREATE TABLE IF NOT EXISTS RestaurantCuisines (
     FOREIGN KEY (CuisineId) REFERENCES Cuisines (Id)
 );
 
+CREATE TABLE IF NOT EXISTS RestaurantAdminAssignments (
+    RestaurantId TEXT NOT NULL,
+    UserId TEXT NOT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    RevokedAtUtc TEXT NULL,
+    PRIMARY KEY (RestaurantId, UserId),
+    FOREIGN KEY (RestaurantId) REFERENCES Restaurants (Id),
+    FOREIGN KEY (UserId) REFERENCES UserAccounts (Id),
+    CHECK (RevokedAtUtc IS NULL OR RevokedAtUtc >= CreatedAtUtc)
+);
+
+CREATE TABLE IF NOT EXISTS RestaurantSlots (
+    Id TEXT NOT NULL PRIMARY KEY,
+    RestaurantId TEXT NOT NULL,
+    StartsAtUtc TEXT NOT NULL,
+    EndsAtUtc TEXT NOT NULL,
+    Capacity INTEGER NOT NULL,
+    CutoffAtUtc TEXT NOT NULL,
+    MinThresholdForDiscount INTEGER NULL,
+    Status INTEGER NOT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    UpdatedAtUtc TEXT NOT NULL,
+    CancelledAtUtc TEXT NULL,
+    CancellationReason TEXT NULL,
+    FOREIGN KEY (RestaurantId) REFERENCES Restaurants (Id),
+    CHECK (EndsAtUtc > StartsAtUtc),
+    CHECK (CutoffAtUtc <= StartsAtUtc),
+    CHECK (Capacity BETWEEN 2 AND 8),
+    CHECK (MinThresholdForDiscount IS NULL OR MinThresholdForDiscount BETWEEN 2 AND Capacity),
+    CHECK (CancelledAtUtc IS NULL OR CancelledAtUtc >= CreatedAtUtc),
+    CHECK (
+        (Status = 1 AND CancelledAtUtc IS NOT NULL AND NULLIF(trim(CancellationReason), '') IS NOT NULL) OR
+        (Status <> 1 AND CancelledAtUtc IS NULL)
+    )
+);
+
 CREATE TABLE IF NOT EXISTS Events (
     Id TEXT NOT NULL PRIMARY KEY,
     HostUserId TEXT NOT NULL,
@@ -272,6 +308,39 @@ CREATE TABLE IF NOT EXISTS Events (
     ),
     CHECK (CancelledAtUtc IS NULL OR CancelledAtUtc >= CreatedAtUtc),
     CHECK (CompletedAtUtc IS NULL OR CompletedAtUtc >= EventStartAtUtc)
+);
+
+CREATE TABLE IF NOT EXISTS EventSlotReservations (
+    Id TEXT NOT NULL PRIMARY KEY,
+    EventId TEXT NOT NULL,
+    SlotId TEXT NOT NULL,
+    Status INTEGER NOT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    CancelledAtUtc TEXT NULL,
+    CancellationReason TEXT NULL,
+    FOREIGN KEY (EventId) REFERENCES Events (Id),
+    FOREIGN KEY (SlotId) REFERENCES RestaurantSlots (Id),
+    CHECK (CancelledAtUtc IS NULL OR CancelledAtUtc >= CreatedAtUtc),
+    CHECK (
+        (Status = 1 AND CancelledAtUtc IS NOT NULL AND NULLIF(trim(CancellationReason), '') IS NOT NULL) OR
+        (Status <> 1 AND CancelledAtUtc IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS UX_EventSlotReservations_Event_Active
+    ON EventSlotReservations (EventId)
+    WHERE Status = 0;
+
+CREATE UNIQUE INDEX IF NOT EXISTS UX_EventSlotReservations_Slot_Active
+    ON EventSlotReservations (SlotId)
+    WHERE Status = 0;
+
+CREATE TABLE IF NOT EXISTS DiscountActivations (
+    ReservationId TEXT NOT NULL PRIMARY KEY,
+    IsActive INTEGER NOT NULL,
+    IsFinalized INTEGER NOT NULL,
+    EvaluatedAtUtc TEXT NOT NULL,
+    FOREIGN KEY (ReservationId) REFERENCES EventSlotReservations (Id)
 );
 
 CREATE TABLE IF NOT EXISTS EventParticipants (
@@ -425,18 +494,27 @@ CREATE TABLE IF NOT EXISTS MediaAssets (
     ProfileUserId TEXT NULL,
     GroupId TEXT NULL,
     EventId TEXT NULL,
-    StorageUrl TEXT NOT NULL,
+    ReportId TEXT NULL,
+    OriginalFileName TEXT NOT NULL,
+    ContentType TEXT NOT NULL,
+    ContentLength INTEGER NOT NULL,
+    Content BLOB NOT NULL,
     CreatedAtUtc TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (OwnerUserId) REFERENCES UserAccounts (Id),
     FOREIGN KEY (ProfileUserId) REFERENCES UserProfiles (UserId),
     FOREIGN KEY (GroupId) REFERENCES Groups (Id),
     FOREIGN KEY (EventId) REFERENCES Events (Id),
+    FOREIGN KEY (ReportId) REFERENCES ModerationReports (Id),
     CHECK (
         (CASE WHEN ProfileUserId IS NULL THEN 0 ELSE 1 END) +
         (CASE WHEN GroupId IS NULL THEN 0 ELSE 1 END) +
-        (CASE WHEN EventId IS NULL THEN 0 ELSE 1 END) = 1
+        (CASE WHEN EventId IS NULL THEN 0 ELSE 1 END) +
+        (CASE WHEN ReportId IS NULL THEN 0 ELSE 1 END) = 1
     ),
-    CHECK (trim(StorageUrl) <> '')
+    CHECK (trim(OriginalFileName) <> ''),
+    CHECK (trim(ContentType) <> ''),
+    CHECK (ContentLength > 0),
+    CHECK (length(Content) = ContentLength)
 );
 
 CREATE TABLE IF NOT EXISTS UserSearchHistory (

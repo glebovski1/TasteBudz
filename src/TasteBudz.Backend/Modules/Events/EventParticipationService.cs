@@ -9,6 +9,7 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.Modules.Events;
 
@@ -24,7 +25,8 @@ public sealed class EventParticipationService(
     EventLifecycleService lifecycleService,
     IKeyedLockProvider keyedLockProvider,
     IClock clock,
-    IPersistenceTransactionRunner? transactionRunner = null)
+    IPersistenceTransactionRunner? transactionRunner = null,
+    DiscountEligibilityService? discountEligibilityService = null)
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     public async Task<EventParticipantDto> JoinOpenEventAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default)
@@ -88,6 +90,7 @@ public sealed class EventParticipationService(
             {
                 await eventRepository.SaveParticipantAsync(participant, cancellationToken);
                 await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                await EvaluateDiscountAsync(eventRecord.Id, cancellationToken);
                 await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventJoined, $"{currentUser.Username} joined {eventRecord.Title ?? "your event"}.", cancellationToken);
                 return await MapParticipantAsync(participant, cancellationToken);
             },
@@ -170,6 +173,7 @@ public sealed class EventParticipationService(
                     {
                         await eventRepository.SaveParticipantAsync(updated, cancellationToken);
                         await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                        await EvaluateDiscountAsync(eventRecord.Id, cancellationToken);
                         await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventJoined, $"{currentUser.Username} joined {eventRecord.Title ?? "your event"}.", cancellationToken);
                         return await MapParticipantAsync(updated, cancellationToken);
                     },
@@ -198,6 +202,7 @@ public sealed class EventParticipationService(
                     {
                         await eventRepository.SaveParticipantAsync(updated, cancellationToken);
                         await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                        await EvaluateDiscountAsync(eventRecord.Id, cancellationToken);
                         await NotifyHostAsync(eventRecord, currentUser.UserId, NotificationType.EventLeft, $"{currentUser.Username} left {eventRecord.Title ?? "your event"}.", cancellationToken);
                         return await MapParticipantAsync(updated, cancellationToken);
                     },
@@ -237,6 +242,7 @@ public sealed class EventParticipationService(
                     {
                         await eventRepository.SaveParticipantAsync(updated, cancellationToken);
                         await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                        await EvaluateDiscountAsync(eventRecord.Id, cancellationToken);
                         return await MapParticipantAsync(updated, cancellationToken);
                     },
                     cancellationToken);
@@ -289,6 +295,7 @@ public sealed class EventParticipationService(
             {
                 await eventRepository.SaveParticipantAsync(updated, cancellationToken);
                 await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+                await EvaluateDiscountAsync(eventRecord.Id, cancellationToken);
             },
             cancellationToken);
     }
@@ -324,5 +331,13 @@ public sealed class EventParticipationService(
         await notificationService.CreateAsync(
             new Notification(Guid.NewGuid(), eventRecord.HostUserId, notificationType, "Event", eventRecord.Id, message, clock.UtcNow, null),
             cancellationToken);
+    }
+
+    private async Task EvaluateDiscountAsync(Guid eventId, CancellationToken cancellationToken)
+    {
+        if (discountEligibilityService is not null)
+        {
+            await discountEligibilityService.EvaluateForEventAsync(eventId, cancellationToken);
+        }
     }
 }

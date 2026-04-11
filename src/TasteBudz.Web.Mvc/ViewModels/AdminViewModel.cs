@@ -1,11 +1,14 @@
 ﻿using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Moderation;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
 
 public sealed class AdminIndexViewModel
 {
     public IReadOnlyCollection<ModerationReportDto> PendingReports { get; init; } = [];
+    public bool RestaurantOperationsAvailable { get; init; }
+    public IReadOnlyCollection<RestaurantAssignmentPanelItem> RestaurantAssignments { get; init; } = [];
 }
 
 public sealed class AdminReportsViewModel
@@ -21,4 +24,10 @@ public sealed class AdminReportsViewModel
 public sealed class AdminReportDetailViewModel
 {
     public ModerationReportDto Report { get; init; } = null!;
+}
+
+public sealed class RestaurantAssignmentPanelItem
+{
+    public RestaurantDto Restaurant { get; init; } = null!;
+    public IReadOnlyCollection<RestaurantAdminAssignmentDto> Assignments { get; init; } = [];
 }

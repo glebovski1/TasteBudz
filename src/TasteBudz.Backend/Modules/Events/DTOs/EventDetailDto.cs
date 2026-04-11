@@ -1,4 +1,5 @@
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.Modules.Events;
 
@@ -16,4 +17,6 @@ public sealed record EventDetailDto(
     Guid? SelectedRestaurantId,
     string? CuisineTarget,
     Guid? GroupId,
-    string? CancellationReason);
+    string? CancellationReason,
+    EventSlotReservationDto? SlotReservation = null,
+    DiscountActivationDto? DiscountActivation = null);

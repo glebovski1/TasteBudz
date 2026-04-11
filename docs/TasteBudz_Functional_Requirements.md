@@ -6,6 +6,7 @@ Implement the following MVP items first. Each item references the owning require
 
 - Account auth + sessions + first-run onboarding (FR-001, FR-002)
 - Profile CRUD + dashboard summary + account deletion (FR-002)
+- Database-backed media assets for profile avatars and report evidence (FR-002, FR-025)
 - Preferences + availability windows (FR-003, FR-004)
 - Privacy controls + blocking (FR-005, FR-024)
 - Seeded restaurant catalog + Restaurant entity (FR-006)
@@ -21,7 +22,7 @@ Implement the following MVP items first. Each item references the owning require
 - Safety stack: report -> moderation queue -> scoped soft bans -> audit log (FR-025, FR-026, FR-027, FR-028)
 
 > MVP decisions locked for the capstone:
-> - Restaurants use a seeded internal catalog in MVP with no external API dependency.
+> - Restaurants use the internal catalog for MVP user-facing discovery; admin-only catalog import may populate it from OpenStreetMap/Overpass without making user browse/search depend on a live external API.
 > - Notifications are in-app only in MVP; no scheduled reminder jobs are required.
 > - People discovery in MVP includes search + swipe + mutual Budz; direct 1-on-1 messaging remains out of MVP UI.
 > - Basic query-based browse/search for open events and public groups is in scope; richer feed/caching is later.
@@ -129,6 +130,7 @@ Priority legend:
 **Acceptance Criteria**
 
 - Users can edit profile fields including display name/username, bio, ZIP code, and social goal.
+- Users can upload or replace one profile avatar image stored in the application database.
 - Users can view a personal dashboard with profile info plus summaries of active events, groups, and Budz.
 - Users can request account deletion.
 - Profile changes only affect the current user's data.
@@ -179,7 +181,7 @@ Priority legend:
 **Acceptance Criteria**
 
 - Restaurants are stored with name, city/state/ZIP, cuisine tags, and price tier.
-- Restaurants may optionally store latitude/longitude and an external PlaceId.
+- Restaurants may optionally store latitude/longitude and a provider-qualified external PlaceId, such as an OpenStreetMap `osm:<id>` value.
 - Restaurant records can be referenced by events and later slot entities.
 
 ### FR-007 Restaurant Discovery and Filtering
@@ -191,7 +193,7 @@ Priority legend:
 **Acceptance Criteria**
 
 - Users can filter restaurants by cuisine, price tier, and distance.
-- MVP restaurant discovery uses the seeded internal catalog only.
+- MVP restaurant discovery reads from the internal catalog only; admin-only OpenStreetMap/Overpass import may be used to populate that catalog.
 - Restaurant selection is reusable during event creation and may be shown in search/list form; map presentation is optional when coordinates exist.
 - Midpoint or group-aware suggestion logic remains lightweight service behavior over the internal catalog.
 
@@ -498,6 +500,7 @@ Priority legend:
 
 - Users can submit a report with category/reason and optional explanation.
 - Reports can target a user and may include related event/message context.
+- Reports may include one or more optional image evidence attachments stored in the application database.
 - Reports are stored and accessible to moderators.
 
 ### FR-026 Moderation Workflow
@@ -540,13 +543,17 @@ Priority legend:
 
 **Priority:** MVP++
 
-**Description:** The system shall support restaurant admin accounts that manage restaurants and slots.
+**Description:** The system shall support feature-flagged restaurant admin accounts that manage restaurants and slots.
 
 **Acceptance Criteria**
 
 - A restaurant may have multiple admins.
 - A restaurant admin may manage one or more restaurants.
+- Global admins grant and revoke restaurant-admin assignments.
+- Granting an active assignment grants the coarse `RestaurantAdmin` role.
+- Revoking an assignment removes the coarse `RestaurantAdmin` role only when the user has no remaining active restaurant-admin assignments.
 - Restaurant admins can create/update restaurant profiles.
+- Restaurant-admin operations are disabled by default unless explicitly enabled.
 
 ### FR-030 Restaurant Slots (Create/Manage)
 
@@ -559,6 +566,9 @@ Priority legend:
 - A slot contains restaurant, start/end time window, max participants, and cutoff.
 - A slot may define a minimum threshold for discount activation.
 - Restaurant admins can edit/cancel slots.
+- Slot capacity follows the event capacity range of 2 to 8 participants.
+- Slot cancellation may cancel a linked event with a restaurant-slot cancellation reason.
+- Slot operations are disabled by default unless explicitly enabled.
 
 ### FR-031 Slot Selection and Reservation
 
@@ -568,9 +578,13 @@ Priority legend:
 
 **Acceptance Criteria**
 
+- Only the event host may reserve a slot for the event.
+- The event must be active when the reservation is made.
 - An event can select a slot only if event time fits the slot window.
 - Event capacity cannot exceed slot capacity.
 - Selecting the slot reserves it immediately for that event.
+- A slot can have only one active event reservation.
+- A slot-reserved event uses the slot restaurant as the selected restaurant and clears cuisine-target selection.
 
 ### FR-032 Discount Threshold Activation
 
@@ -580,9 +594,13 @@ Priority legend:
 
 **Acceptance Criteria**
 
-- Discount activates when confirmed participants meet/exceed the threshold before cutoff.
+- Discount activates when joined participants meet/exceed the threshold before cutoff.
 - Discount activation is stored as active/inactive state.
+- Before or at cutoff, discount activation is recalculated after reservation, participant, or lifecycle changes.
+- After cutoff, the final active/inactive result is frozen.
 - If the threshold is not met by cutoff, discount remains inactive.
+- Discount simulation is disabled by default unless explicitly enabled.
+- Payment simulation, checkout state, and payment-side effects are out of scope until separately approved.
 
 ### FR-033 Restaurant Admin Controls on Slot-Linked Events
 
@@ -592,7 +610,7 @@ Priority legend:
 
 **Acceptance Criteria**
 
-- Restaurant admins can cancel a slot and linked events are cancelled or forced to reselect a slot.
+- Restaurant admins can cancel a slot and linked events are cancelled with normal event-cancellation notifications.
 - Optional restaurant approval/denial flows remain disabled by default.
 
 ## 3. Non-Functional Requirements
@@ -745,7 +763,7 @@ This appendix defines safe fallback variants for higher-risk features.
 - Optional RSVP/cutoff fields on Event/EventParticipant
 - Notification preference toggles if needed
 
-**MVP++ entities**
+**MVP++ / feature-flagged entities**
 
 - RestaurantAdminAssignment
 - RestaurantSlot

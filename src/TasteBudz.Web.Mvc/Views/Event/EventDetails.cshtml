@@ -48,6 +48,61 @@
         </dl>
     </section>
 
+    @if (Model.SelectedRestaurant is not null)
+    {
+        <section class="card stack">
+            <div>
+                <h2 class="card__title">@Model.SelectedRestaurant.Name</h2>
+                <p class="card__subtitle">@Model.SelectedRestaurant.Location</p>
+            </div>
+
+            <div class="profile-meta">
+                <span class="pill">@Model.SelectedRestaurant.PriceTier</span>
+                @if (!string.IsNullOrWhiteSpace(Model.SelectedRestaurant.CuisineTags))
+                {
+                    <span class="pill">@Model.SelectedRestaurant.CuisineTags</span>
+                }
+            </div>
+
+            <div class="button-row">
+                <a href="@Model.SelectedRestaurant.GoogleMapsUrl"
+                   class="button button--secondary"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Open in Google Maps
+                </a>
+            </div>
+        </section>
+    }
+
+    @if (Model.SlotReservation is not null)
+    {
+        <section class="card stack">
+            <div>
+                <h2 class="card__title">Reserved Slot</h2>
+                <p class="card__subtitle">This event is linked to a restaurant-managed slot.</p>
+            </div>
+            <dl class="detail-list">
+                <dt>Reservation</dt>
+                <dd>@Model.SlotReservation.Status</dd>
+                <dt>Reserved</dt>
+                <dd>@Model.SlotReservation.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</dd>
+                @if (Model.DiscountActivation is not null)
+                {
+                    <dt>Discount</dt>
+                    <dd>
+                        @(Model.DiscountActivation.IsActive ? "Active" : "Inactive")
+                        (@Model.DiscountActivation.JoinedParticipantCount / @Model.DiscountActivation.MinThresholdForDiscount participants)
+                        @if (Model.DiscountActivation.IsFinalized)
+                        {
+                            <span>final</span>
+                        }
+                    </dd>
+                }
+            </dl>
+        </section>
+    }
+
     <div class="panel-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
 
         @* ── Participants panel ── *@
@@ -114,6 +169,33 @@
 
                 @if (isActive)
                 {
+                    @if (Model.SelectedRestaurant is not null && Model.SlotReservation is null && Model.ReservableSlots.Any())
+                    {
+                        <div class="stack" style="margin-bottom:1rem;">
+                            <h3>Reserve a Slot</h3>
+                            @foreach (var slot in Model.ReservableSlots)
+                            {
+                                <form asp-action="ReserveSlot" method="post" class="summary-card">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="eventId" value="@Model.EventId" />
+                                    <input type="hidden" name="slotId" value="@slot.SlotId" />
+                                    <div>
+                                        <strong>@slot.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</strong>
+                                        <p class="muted-note">
+                                            Ends @slot.EndsAtUtc.ToLocalTime().ToString("h:mm tt") |
+                                            Capacity @slot.Capacity
+                                            @if (slot.MinThresholdForDiscount.HasValue)
+                                            {
+                                                <span>| Discount at @slot.MinThresholdForDiscount.Value</span>
+                                            }
+                                        </p>
+                                    </div>
+                                    <button type="submit" class="button button--primary">Reserve</button>
+                                </form>
+                            }
+                        </div>
+                    }
+
                     <details class="cancel-details">
                         <summary class="button button--danger" style="display:inline-block; cursor:pointer;">
                             Cancel Event

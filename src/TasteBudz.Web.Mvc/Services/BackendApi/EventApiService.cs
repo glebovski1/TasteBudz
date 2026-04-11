@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Http.Extensions;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Web.Mvc.Services;
 
@@ -85,6 +86,15 @@ public sealed class EventApiService
         CancellationToken cancellationToken = default) =>
         backendHttpClient.PostAsync(
             $"/api/v1/events/{eventId}/cancellation",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task<EventSlotReservationDto> ReserveSlotAsync(
+        Guid eventId,
+        ReserveEventSlotRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<ReserveEventSlotRequest, EventSlotReservationDto>(
+            $"/api/v1/events/{eventId}/slot-reservations",
             request,
             cancellationToken: cancellationToken);
 

@@ -72,4 +72,105 @@ public sealed class RestaurantApiServiceTests
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();
     }
+
+    [Fact]
+    public async Task ImportFromOverpassAsync_SendsExpectedRoute()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+        var service = context.CreateService(client => new RestaurantApiService(client));
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/restaurants/import",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ImportResultDto(12, "Import complete. 12 new restaurants added.")));
+
+        var result = await service.ImportFromOverpassAsync();
+
+        Assert.Equal(12, result.Inserted);
+        Assert.Equal("Import complete. 12 new restaurants added.", result.Message);
+        Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
+        context.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task RestaurantOperations_SendExpectedRoutes()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+        var service = context.CreateService(client => new RestaurantApiService(client));
+        var restaurantId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantSlotDto>()));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantAdminAssignmentDto>()));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new RestaurantAdminAssignmentDto(restaurantId, userId, "manager", DateTimeOffset.UtcNow)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Delete,
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments/{userId}",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurant-admin/restaurants",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantDto>()));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Patch,
+            $"/api/v1/restaurant-admin/restaurants/{restaurantId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new RestaurantDto(restaurantId, "Updated", "Cincinnati", "OH", "45220", PriceTier.Two, Array.Empty<string>(), null, null, null, null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantSlotDto>()));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(2), 4, DateTimeOffset.UtcNow, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/restaurant-admin/slots/{slotId}/cancellation",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+
+        await service.ListReservableSlotsAsync(restaurantId);
+        await service.ListAdminAssignmentsAsync(restaurantId);
+        await service.GrantAdminAssignmentAsync(restaurantId, new CreateRestaurantAdminAssignmentRequest { Username = "manager" });
+        await service.RevokeAdminAssignmentAsync(restaurantId, userId);
+        await service.ListManagedRestaurantsAsync();
+        await service.UpdateManagedRestaurantAsync(restaurantId, new UpdateManagedRestaurantRequest { Name = "Updated" });
+        await service.ListManagedSlotsAsync(restaurantId);
+        await service.CreateManagedSlotAsync(restaurantId, new CreateRestaurantSlotRequest
+        {
+            StartsAtUtc = DateTimeOffset.UtcNow,
+            EndsAtUtc = DateTimeOffset.UtcNow.AddHours(2),
+            Capacity = 4,
+            CutoffAtUtc = DateTimeOffset.UtcNow,
+        });
+        await service.CancelManagedSlotAsync(slotId, new CancelRestaurantSlotRequest { Reason = "Closed." });
+
+        Assert.Contains(
+            "\"username\":\"manager\"",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments" && request.Method == HttpMethod.Post).Body);
+        Assert.Contains(
+            "\"name\":\"Updated\"",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/restaurants/{restaurantId}" && request.Method == HttpMethod.Patch).Body);
+        Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
+        context.BackendHandler.AssertDrained();
+    }
 }

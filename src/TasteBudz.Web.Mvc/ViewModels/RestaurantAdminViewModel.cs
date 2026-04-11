@@ -1,0 +1,72 @@
+using System.ComponentModel.DataAnnotations;
+using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Restaurants;
+
+namespace TasteBudz.Web.Mvc.ViewModels;
+
+public sealed class RestaurantAdminIndexViewModel
+{
+    public bool OperationsAvailable { get; init; } = true;
+    public IReadOnlyCollection<RestaurantDto> Restaurants { get; init; } = [];
+}
+
+public sealed class RestaurantAdminManageViewModel
+{
+    public RestaurantDto Restaurant { get; init; } = null!;
+    public IReadOnlyCollection<RestaurantSlotDto> Slots { get; init; } = [];
+    public ManagedRestaurantForm RestaurantForm { get; init; } = new();
+    public RestaurantSlotForm SlotForm { get; init; } = new();
+}
+
+public sealed class ManagedRestaurantForm
+{
+    public Guid RestaurantId { get; init; }
+
+    [Required]
+    [MaxLength(160)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(80)]
+    public string City { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(2)]
+    public string State { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(10)]
+    public string ZipCode { get; set; } = string.Empty;
+
+    public PriceTier PriceTier { get; set; }
+}
+
+public sealed class RestaurantSlotForm
+{
+    public Guid RestaurantId { get; init; }
+
+    [Required]
+    public DateTime? StartsAt { get; set; }
+
+    [Required]
+    public DateTime? EndsAt { get; set; }
+
+    [Required]
+    [Range(2, 8)]
+    public int? Capacity { get; set; }
+
+    [Required]
+    public DateTime? CutoffAt { get; set; }
+
+    [Range(2, 8)]
+    public int? MinThresholdForDiscount { get; set; }
+
+    public CreateRestaurantSlotRequest ToRequest() => new()
+    {
+        StartsAtUtc = new DateTimeOffset(StartsAt!.Value, TimeSpan.Zero),
+        EndsAtUtc = new DateTimeOffset(EndsAt!.Value, TimeSpan.Zero),
+        Capacity = Capacity!.Value,
+        CutoffAtUtc = new DateTimeOffset(CutoffAt!.Value, TimeSpan.Zero),
+        MinThresholdForDiscount = MinThresholdForDiscount,
+    };
+}

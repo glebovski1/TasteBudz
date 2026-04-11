@@ -60,11 +60,18 @@ Typical login flow:
 - `GET /api/v1/onboarding/status`
 - `GET /api/v1/profiles/me`
 - `PATCH /api/v1/profiles/me`
+- `POST /api/v1/profiles/me/avatar`
 - `GET /api/v1/me/dashboard`
 - `GET /api/v1/me/events`
 - `GET /api/v1/me/groups`
 - `GET /api/v1/me/event-invites`
 - `POST /api/v1/account/deletion`
+
+Frontend notes:
+
+- `ProfileDto` now includes `avatarMediaAssetId` when the user has an avatar
+- avatar upload uses multipart form-data with a `file` field
+- avatar bytes can be loaded from `GET /api/v1/media/{mediaAssetId}`
 
 ### Preferences, availability, privacy, and blocks
 
@@ -83,6 +90,7 @@ Typical login flow:
 - `GET /api/v1/restaurants`
 - `GET /api/v1/restaurants/{restaurantId}`
 - `GET /api/v1/restaurants/suggestions`
+- `POST /api/v1/restaurants/import` (Admin only; imports OpenStreetMap data into the local catalog)
 
 Useful browse query params:
 
@@ -93,6 +101,46 @@ Useful browse query params:
 - `radiusMiles`
 - `page`
 - `pageSize`
+
+Frontend notes:
+
+- `RestaurantDto.externalPlaceId` is optional; do not require it for restaurant display
+- `externalPlaceId` can be provider-qualified, such as `osm:<id>` for OpenStreetMap imports
+- only Google Place IDs should be sent as Google Maps `query_place_id`; OpenStreetMap IDs should fall back to a normal Google Maps search URL from restaurant name and location
+- when `externalPlaceId` is absent, clients should fall back to a normal Google Maps search URL from restaurant name and location
+
+### Restaurant operations
+
+These flows are feature-flagged and disabled by default.
+
+Admin assignment endpoints:
+
+- `GET /api/v1/admin/restaurants/{restaurantId}/admin-assignments`
+- `POST /api/v1/admin/restaurants/{restaurantId}/admin-assignments`
+- `DELETE /api/v1/admin/restaurants/{restaurantId}/admin-assignments/{userId}`
+
+Restaurant admin endpoints:
+
+- `GET /api/v1/restaurant-admin/restaurants`
+- `PATCH /api/v1/restaurant-admin/restaurants/{restaurantId}`
+- `GET /api/v1/restaurant-admin/restaurants/{restaurantId}/slots`
+- `POST /api/v1/restaurant-admin/restaurants/{restaurantId}/slots`
+- `PATCH /api/v1/restaurant-admin/slots/{slotId}`
+- `POST /api/v1/restaurant-admin/slots/{slotId}/cancellation`
+
+Event host slot endpoints:
+
+- `GET /api/v1/restaurants/{restaurantId}/slots`
+- `POST /api/v1/events/{eventId}/slot-reservations`
+
+Frontend notes:
+
+- disabled restaurant operation or slot endpoints return `404`; render these as unavailable flows
+- enabled endpoints still use normal `401` and `403` handling
+- assignment grant uses `{ "username": "..." }`
+- slot create/update uses `startsAtUtc`, `endsAtUtc`, `capacity`, `cutoffAtUtc`, and optional `minThresholdForDiscount`
+- event details may include nullable `slotReservation` and `discountActivation`; summaries should not depend on them
+- discount state is simulation-only and does not imply checkout or payment behavior
 
 ### Events
 
@@ -160,15 +208,33 @@ Current notification types documented for MVP:
 - `GroupInviteReceived`
 - `BudMatchCreated`
 
+### Media
+
+- `GET /api/v1/media/{mediaAssetId}`
+
+Frontend notes:
+
+- media is image-only in the current backend slice
+- profile-avatar media is readable by authenticated users
+- report-evidence media follows moderation-specific authorization rules
+
 ### Reports, moderation, and audit
 
 - `POST /api/v1/reports`
+- `POST /api/v1/reports/{reportId}/attachments`
+- `GET /api/v1/reports/{reportId}/attachments`
 - `GET /api/v1/moderation/reports`
 - `GET /api/v1/moderation/reports/{reportId}`
 - `PATCH /api/v1/moderation/reports/{reportId}`
 - `POST /api/v1/moderation/restrictions`
 - `PATCH /api/v1/moderation/restrictions/{restrictionId}`
 - `GET /api/v1/audit-logs`
+
+Frontend notes:
+
+- report attachments use multipart form-data with a `file` field
+- only the reporting user can upload attachments
+- reporting users plus moderator/admin roles can list attachments
 
 Note:
 
@@ -206,8 +272,7 @@ These documented routes/features are not implemented yet and should not be used 
 
 - group ownership transfer and dissolution
 - direct 1-on-1 chat
-- restaurant admin operations
-- restaurant slots, discounts, and related operational flows
+- payment simulation and checkout behavior
 
 ## 7. Recommended Frontend Usage
 

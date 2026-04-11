@@ -1,0 +1,51 @@
+@model RestaurantAdminIndexViewModel
+
+@{
+    ViewData["Title"] = "Restaurant Admin";
+}
+
+<section class="profile-shell">
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Restaurant Admin</h1>
+            <p>Manage assigned restaurant profiles and reservation slots.</p>
+        </div>
+    </div>
+
+    @if (!Model.OperationsAvailable)
+    {
+        <section class="panel stack">
+            <h2>Unavailable</h2>
+            <p class="muted-note">Restaurant operations are not enabled.</p>
+        </section>
+    }
+    else if (!Model.Restaurants.Any())
+    {
+        <section class="panel stack">
+            <h2>No Assignments</h2>
+            <p class="muted-note">No restaurants are assigned to this account.</p>
+        </section>
+    }
+    else
+    {
+        <section class="panel stack">
+            <h2>Managed Restaurants</h2>
+            <div class="panel__items">
+                @foreach (var restaurant in Model.Restaurants)
+                {
+                    <article class="summary-card">
+                        <div>
+                            <strong>@restaurant.Name</strong>
+                            <p class="muted-note">@restaurant.City, @restaurant.State @restaurant.ZipCode</p>
+                        </div>
+                        <div class="button-row">
+                            <a asp-action="Manage"
+                               asp-route-restaurantId="@restaurant.RestaurantId"
+                               class="button button--primary">Manage</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+</section>

@@ -2,6 +2,7 @@ using System.Net;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 using TasteBudz.Web.Mvc.Services;
 
@@ -120,6 +121,12 @@ public sealed class EventApiServiceTests
             HttpMethod.Post,
             $"/api/v1/events/{eventId}/cancellation",
             (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/events/{eventId}/slot-reservations",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventSlotReservationDto(Guid.NewGuid(), eventId, restaurantId, restaurantId, EventSlotReservationStatus.Active, DateTimeOffset.UtcNow, null, null)));
 
         await service.CreateAsync(new CreateEventRequest
         {
@@ -150,6 +157,10 @@ public sealed class EventApiServiceTests
         {
             Reason = "Restaurant closed.",
         });
+        await service.ReserveSlotAsync(eventId, new ReserveEventSlotRequest
+        {
+            SlotId = restaurantId,
+        });
 
         Assert.Contains(
             "\"inviteUsernames\":[\"sam\",\"jamie\"]",
@@ -166,6 +177,9 @@ public sealed class EventApiServiceTests
         Assert.Contains(
             "\"reason\":\"Restaurant closed.\"",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/cancellation").Body);
+        Assert.Contains(
+            "\"slotId\":\"" + restaurantId,
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/slot-reservations").Body);
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();
     }

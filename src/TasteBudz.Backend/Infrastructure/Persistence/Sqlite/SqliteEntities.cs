@@ -187,6 +187,49 @@ internal sealed class RestaurantCuisineEntity
     public Guid CuisineId { get; set; }
 }
 
+internal sealed class RestaurantAdminAssignmentEntity
+{
+    public Guid RestaurantId { get; set; }
+    public Guid UserId { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset? RevokedAtUtc { get; set; }
+}
+
+internal sealed class RestaurantSlotEntity
+{
+    public Guid Id { get; set; }
+    public Guid RestaurantId { get; set; }
+    public DateTimeOffset StartsAtUtc { get; set; }
+    public DateTimeOffset EndsAtUtc { get; set; }
+    public int Capacity { get; set; }
+    public DateTimeOffset CutoffAtUtc { get; set; }
+    public int? MinThresholdForDiscount { get; set; }
+    public Domain.RestaurantSlotStatus Status { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset UpdatedAtUtc { get; set; }
+    public DateTimeOffset? CancelledAtUtc { get; set; }
+    public string? CancellationReason { get; set; }
+}
+
+internal sealed class EventSlotReservationEntity
+{
+    public Guid Id { get; set; }
+    public Guid EventId { get; set; }
+    public Guid SlotId { get; set; }
+    public Domain.EventSlotReservationStatus Status { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset? CancelledAtUtc { get; set; }
+    public string? CancellationReason { get; set; }
+}
+
+internal sealed class DiscountActivationEntity
+{
+    public Guid ReservationId { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsFinalized { get; set; }
+    public DateTimeOffset EvaluatedAtUtc { get; set; }
+}
+
 internal sealed class EventEntity
 {
     public Guid Id { get; set; }
@@ -234,6 +277,21 @@ internal sealed class ChatMessageEntity
     public Guid ThreadId { get; set; }
     public Guid SenderUserId { get; set; }
     public string Body { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAtUtc { get; set; }
+}
+
+internal sealed class MediaAssetEntity
+{
+    public Guid Id { get; set; }
+    public Guid OwnerUserId { get; set; }
+    public Guid? ProfileUserId { get; set; }
+    public Guid? GroupId { get; set; }
+    public Guid? EventId { get; set; }
+    public Guid? ReportId { get; set; }
+    public string OriginalFileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long ContentLength { get; set; }
+    public byte[] Content { get; set; } = [];
     public DateTimeOffset CreatedAtUtc { get; set; }
 }
 

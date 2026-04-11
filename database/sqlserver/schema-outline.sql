@@ -23,6 +23,7 @@
 -- BudConnections
 
 -- Supporting tables
+-- MediaAssets
 -- Notifications
 -- ModerationReports
 -- ModerationActions

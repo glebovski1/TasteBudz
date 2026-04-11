@@ -26,6 +26,7 @@ The backend owns:
 - groups and ownership rules
 - discovery, swipes, Budz, and safety filters
 - messaging across event, group, and later direct-chat scopes
+- database-backed media assets and context-based access control
 - notifications
 - moderation, reports, restrictions, and audit logging
 
@@ -80,15 +81,16 @@ Rules:
 5. Groups
 6. Discovery / Budz
 7. Messaging
-8. Notifications
-9. Moderation and Audit
+8. Media
+9. Notifications
+10. Moderation and Audit
 
 ### 4.2 Internal Extension Areas
 
 Later capabilities should grow inside existing modules rather than separate services.
 
 - Restaurants.Catalog: seeded restaurant records, search, filtering, simple suggestions
-- Restaurants.Operations: later restaurant admin accounts, slots, discount rules, and operational actions
+- Restaurants.Operations: feature-flagged restaurant admin accounts, assignments, slots, slot reservations, discount rules, and operational actions
 - Messaging.EventChat: MVP event chat
 - Messaging.GroupChat: MVP group chat
 - Messaging.DirectChat: later 1-on-1 messaging behind flags
@@ -108,7 +110,7 @@ Cross-module access happens through explicit services or internal interfaces, no
 ### 4.4 Dependency Direction
 
 Treat Profiles, Restaurants, Events, Groups, Discovery, and Messaging as business modules.
-Treat Auth, Notifications, and Moderation/Audit as supporting modules.
+Treat Auth, Media, Notifications, and Moderation/Audit as supporting modules.
 
 General rule:
 
@@ -165,7 +167,7 @@ Suggested services:
 
 ### 5.3 Restaurants
 
-Own the restaurant catalog, search/filtering, and simple suggestions now, plus restaurant operations later.
+Own the restaurant catalog, search/filtering, simple suggestions, and feature-flagged restaurant operations.
 
 MVP responsibilities:
 
@@ -174,13 +176,13 @@ MVP responsibilities:
 - support restaurant selection during event creation
 - expose simple suggestion endpoints using host ZIP/radius and optional coarse midpoint logic
 
-Later responsibilities:
+Feature-flagged restaurant operations responsibilities:
 
-- restaurant admin accounts
+- restaurant admin assignments controlled by global admins
 - restaurant-managed profile updates
 - slot creation/cancellation
 - slot-linked reservations for events
-- discount threshold rules
+- discount threshold simulation rules
 - restaurant-owned operational constraints
 
 Suggested services:
@@ -188,7 +190,11 @@ Suggested services:
 - `RestaurantCatalogService`
 - `RestaurantSearchService`
 - `RestaurantRecommendationService`
-- later `RestaurantAdminService`, `RestaurantSlotService`, `DiscountEligibilityService`
+- `RestaurantAdminAssignmentService`
+- `ManagedRestaurantService`
+- `RestaurantSlotService`
+- `EventSlotReservationService`
+- `DiscountEligibilityService`
 
 ### 5.4 Events
 
@@ -252,7 +258,28 @@ Rules to preserve:
 - only the current group owner may associate new events with the group's context
 - group membership does not replace event participation
 
-### 5.6 Discovery / Budz
+### 5.6 Media
+
+Own database-backed image storage plus context-aware access checks for media linked to other modules.
+
+Current responsibilities:
+
+- store image bytes and metadata directly in the relational database
+- support one active profile-avatar asset per user
+- support report-evidence attachments owned by the reporting user
+- enforce context-derived read rules for profile avatars and report evidence
+
+Later responsibilities:
+
+- event and group media
+- external object storage abstraction if database-only storage becomes too limiting
+
+Suggested services:
+
+- `MediaService`
+- `MediaAccessService` if access rules grow more complex later
+
+### 5.7 Discovery / Budz
 
 Own people discovery, swipes, mutual Budz creation, Budz list retrieval, and discovery filtering.
 
@@ -274,7 +301,7 @@ Suggested services:
 
 Canonical MVP rule: one effective directional swipe decision exists per actor/subject pair, and reciprocal effective Like decisions create a Budz connection. Pending Bud-request state is not part of MVP.
 
-### 5.7 Messaging
+### 5.8 Messaging
 
 Own chat threads, messages, and access control across event chat, group chat, and later direct-chat scopes.
 
@@ -322,7 +349,7 @@ MVP hub contract:
 - `SendMessage(request)` persists and broadcasts one text message
 - `MessageReceived` is the broadcast event name for new chat messages
 
-### 5.8 Notifications
+### 5.9 Notifications
 
 Own persisted in-app notifications for important state changes.
 
@@ -340,7 +367,7 @@ Suggested services:
 
 For MVP, notifications remain in-app only. Push/email can be added later without changing the core notification creation flow.
 
-### 5.9 Moderation and Audit
+### 5.10 Moderation and Audit
 
 Own reports, moderation decisions, scoped restrictions, and audit logging.
 
@@ -515,11 +542,13 @@ Lives in scope-specific messaging access services and the SignalR hub plumbing.
 - direct chat access later: `DirectChatAccessService`
 - real-time transport hub: `ChatHub`
 
-### 7.9 Restaurant Slot and Discount Rules (Later)
+### 7.9 Restaurant Slot and Discount Rules (Feature-Flagged)
 
 Lives in Restaurants.Operations services.
 
 Events still own event state. Restaurants own restaurant operational rules.
+
+Restaurant operation services must enforce active assignment checks before restaurant profile or slot mutation. Slot reservation updates the event's selected restaurant to the slot restaurant and clears cuisine target, but event lifecycle/status remains event-owned. Cancelling a reserved slot cancels the linked event through normal event cancellation behavior.
 
 ## 8. Security and Authorization Approach
 
@@ -528,7 +557,7 @@ Core global roles:
 - `User`
 - `Moderator`
 - `Admin`
-- later `RestaurantAdmin`
+- `RestaurantAdmin`
 
 Contextual permissions such as host and group owner are derived from records, not stored as permanent global roles.
 
@@ -550,19 +579,19 @@ Audit expectations:
 - moderation actions
 - restrictions
 - group ownership transfer/dissolution when enabled
-- restaurant-admin operational overrides when later added
+- restaurant-admin operational overrides when enabled
 
 ## 9. Feature Flag Strategy
 
 Recommended flags:
 
-- `Messaging.DirectChatEnabled`
-- `Messaging.GroupChatEnabled`
-- `Notifications.PushEnabled`
-- `Restaurants.OperationsEnabled`
-- `Restaurants.SlotsEnabled`
-- `Restaurants.DiscountsEnabled`
-- `Discovery.ExperimentalSuggestionsEnabled`
+- `FeatureFlags:MessagingDirectChatEnabled`
+- `FeatureFlags:MessagingGroupChatEnabled`
+- `FeatureFlags:NotificationsPushEnabled`
+- `FeatureFlags:RestaurantsOperationsEnabled`
+- `FeatureFlags:RestaurantsSlotsEnabled`
+- `FeatureFlags:RestaurantsDiscountsEnabled`
+- `FeatureFlags:DiscoveryExperimentalSuggestionsEnabled`
 
 Clarification:
 
@@ -612,7 +641,8 @@ Required transaction boundaries include:
 - moderation decision + restriction + audit log
 - auth registration/session rotation/account deletion
 - Bud connection creation from reciprocal swipe decisions
-- later group ownership changes and slot reservations
+- later group ownership changes
+- enabled slot reservations
 
 Required concurrency protections include:
 
@@ -620,7 +650,7 @@ Required concurrency protections include:
 - duplicate join attempts
 - invite acceptance when one seat remains
 - operations at or around `DecisionAt`
-- later slot reservation contention
+- enabled slot reservation contention
 
 Database safeguards should backstop service logic, for example:
 
@@ -643,7 +673,7 @@ Use unit tests for:
 - group ownership rules
 - privacy/blocking behavior
 - feature-gate decisions
-- later restaurant slot/discount rules
+- feature-flagged restaurant slot/discount rules
 
 ### Integration / API Tests
 
@@ -667,7 +697,7 @@ Focus on:
 - duplicate joins
 - invite-accept contention
 - `DecisionAt` edge cases
-- later slot reservation contention
+- enabled slot reservation contention
 
 ### Security and Policy Tests
 
@@ -714,12 +744,12 @@ Add when core flows are stable:
 
 ### MVP++ / Feature-Flagged
 
-Design ready for later activation:
+Keep disabled by default until explicitly launched:
 
 - direct 1-on-1 messaging
-- restaurant-admin accounts and operations
+- restaurant-admin accounts and assignment-managed operations
 - restaurant slots and slot-linked reservations
-- discount thresholds
+- discount threshold simulation
 - operational slot cancellation flows
 - smarter restaurant recommendation strategies
 
@@ -778,12 +808,12 @@ Priority rule: if time is tight, do not cut correctness in event participation a
 32. disabled-feature behavior review
 33. architecture cleanup and documentation refresh
 
-### Phase 7 - Later Extensions
+### Phase 7 - Feature-Flagged and Later Extensions
 
 34. group ownership transfer and dissolution
 35. direct chat behind flag
-36. restaurant-admin operations
-37. slots / reservations / discounts
+36. restaurant-admin operations behind flags
+37. slots / reservations / discount simulation behind flags
 38. smarter restaurant recommendation logic
 
 ## 14. Final Recommendation

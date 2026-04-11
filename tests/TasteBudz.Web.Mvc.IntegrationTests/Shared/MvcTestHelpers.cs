@@ -37,12 +37,13 @@ public static partial class MvcTestHelpers
         string username = "alex",
         string email = "alex@example.com",
         string accessToken = "access-token",
-        string refreshToken = "refresh-token") =>
+        string refreshToken = "refresh-token",
+        IReadOnlyCollection<UserRole>? roles = null) =>
         new(
             accessToken,
             refreshToken,
             DateTimeOffset.UtcNow.AddHours(8),
-            new CurrentUserSummaryDto(Guid.NewGuid(), username, email, new[] { UserRole.User }));
+            new CurrentUserSummaryDto(Guid.NewGuid(), username, email, roles ?? new[] { UserRole.User }));
 
     public static ProfileDto CreateProfile(
         string username = "alex",
@@ -82,16 +83,18 @@ public static partial class MvcTestHelpers
                 new DashboardBudSummaryDto(Guid.NewGuid(), "sam", "Sam Carter"),
             });
 
-    public static async Task LoginThroughUiAsync(
+    public static async Task<SessionDto> LoginThroughUiAsync(
         HttpClient client,
         TasteBudzMvcFactory factory,
-        bool isOnboardingComplete)
+        bool isOnboardingComplete,
+        IReadOnlyCollection<UserRole>? roles = null)
     {
         var token = await GetRequestVerificationTokenAsync(client, "/Account/Login");
+        var session = CreateSession(roles: roles);
         factory.BackendHandler.Enqueue(
             HttpMethod.Post,
             "/api/v1/auth/login",
-            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, CreateSession()));
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, session));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/onboarding/status",
@@ -111,6 +114,7 @@ public static partial class MvcTestHelpers
             }));
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        return session;
     }
 
     public static string ExtractRefreshToken(string requestBody)

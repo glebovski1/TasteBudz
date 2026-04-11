@@ -1,6 +1,7 @@
 // Collects the app's DI registration so Program.cs stays focused on host wiring.
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
@@ -11,6 +12,7 @@ using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Messaging;
+using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
@@ -54,10 +56,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthRepository, SqliteAuthRepository>();
         services.AddScoped<IProfileRepository, SqliteProfileRepository>();
         services.AddScoped<IRestaurantRepository, SqliteRestaurantRepository>();
+        services.AddScoped<IRestaurantOperationsRepository, SqliteRestaurantOperationsRepository>();
         services.AddScoped<IEventRepository, SqliteEventRepository>();
         services.AddScoped<IGroupRepository, SqliteGroupRepository>();
         services.AddScoped<IDiscoveryRepository, SqliteDiscoveryRepository>();
         services.AddScoped<IMessagingRepository, SqliteMessagingRepository>();
+        services.AddScoped<IMediaRepository, SqliteMediaRepository>();
         services.AddScoped<IModerationRepository, SqliteModerationRepository>();
         services.AddScoped<INotificationRepository, SqliteNotificationRepository>();
         services.AddScoped<INotificationService, NotificationService>();
@@ -79,8 +83,20 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DiscoveryService>();
         services.AddScoped<NotificationCenterService>();
         services.AddScoped<MessagingService>();
+        services.AddScoped<MediaService>();
         services.AddScoped<RestaurantSearchService>();
         services.AddScoped<RestaurantRecommendationService>();
+        services.AddScoped<RestaurantAdminAssignmentService>();
+        services.AddScoped<ManagedRestaurantService>();
+        services.AddScoped<RestaurantSlotService>();
+        services.AddScoped<DiscountEligibilityService>();
+        services.AddScoped<EventSlotReservationService>();
+        services.AddScoped<OverpassRestaurantImporter>();
+        services.AddHttpClient("Overpass", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "TasteBudz/1.0 (restaurant import; contact@tastebudz.local)");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddScoped<EventLifecycleService>();
         services.AddScoped<EventBrowseService>();
         services.AddScoped<EventInviteService>();
@@ -94,7 +110,10 @@ public static class ServiceCollectionExtensions
             .AddAuthentication(SessionAuthenticationDefaults.Scheme)
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationDefaults.Scheme, _ => { });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("RestaurantAdmin", policy => policy.RequireRole(nameof(UserRole.RestaurantAdmin)));
+        });
 
         return services;
     }

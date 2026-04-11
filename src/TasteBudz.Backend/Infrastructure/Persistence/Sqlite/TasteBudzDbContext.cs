@@ -28,10 +28,15 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
     internal DbSet<GroupInviteEntity> GroupInvites => Set<GroupInviteEntity>();
     internal DbSet<RestaurantEntity> Restaurants => Set<RestaurantEntity>();
     internal DbSet<RestaurantCuisineEntity> RestaurantCuisines => Set<RestaurantCuisineEntity>();
+    internal DbSet<RestaurantAdminAssignmentEntity> RestaurantAdminAssignments => Set<RestaurantAdminAssignmentEntity>();
+    internal DbSet<RestaurantSlotEntity> RestaurantSlots => Set<RestaurantSlotEntity>();
+    internal DbSet<EventSlotReservationEntity> EventSlotReservations => Set<EventSlotReservationEntity>();
+    internal DbSet<DiscountActivationEntity> DiscountActivations => Set<DiscountActivationEntity>();
     internal DbSet<EventEntity> Events => Set<EventEntity>();
     internal DbSet<EventParticipantEntity> EventParticipants => Set<EventParticipantEntity>();
     internal DbSet<ChatThreadEntity> ChatThreads => Set<ChatThreadEntity>();
     internal DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
+    internal DbSet<MediaAssetEntity> MediaAssets => Set<MediaAssetEntity>();
     internal DbSet<NotificationEntity> Notifications => Set<NotificationEntity>();
     internal DbSet<ModerationReportEntity> ModerationReports => Set<ModerationReportEntity>();
     internal DbSet<ModerationActionEntity> ModerationActions => Set<ModerationActionEntity>();
@@ -202,6 +207,40 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.HasOne<CuisineEntity>().WithMany().HasForeignKey(item => item.CuisineId);
         });
 
+        modelBuilder.Entity<RestaurantAdminAssignmentEntity>(entity =>
+        {
+            entity.ToTable("RestaurantAdminAssignments");
+            entity.HasKey(item => new { item.RestaurantId, item.UserId });
+            entity.HasIndex(item => item.UserId);
+            entity.HasOne<RestaurantEntity>().WithMany().HasForeignKey(item => item.RestaurantId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.UserId);
+        });
+
+        modelBuilder.Entity<RestaurantSlotEntity>(entity =>
+        {
+            entity.ToTable("RestaurantSlots");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.RestaurantId, item.StartsAtUtc });
+            entity.HasOne<RestaurantEntity>().WithMany().HasForeignKey(item => item.RestaurantId);
+        });
+
+        modelBuilder.Entity<EventSlotReservationEntity>(entity =>
+        {
+            entity.ToTable("EventSlotReservations");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId).HasFilter("Status = 0").IsUnique();
+            entity.HasIndex(item => item.SlotId).HasFilter("Status = 0").IsUnique();
+            entity.HasOne<EventEntity>().WithMany().HasForeignKey(item => item.EventId);
+            entity.HasOne<RestaurantSlotEntity>().WithMany().HasForeignKey(item => item.SlotId);
+        });
+
+        modelBuilder.Entity<DiscountActivationEntity>(entity =>
+        {
+            entity.ToTable("DiscountActivations");
+            entity.HasKey(item => item.ReservationId);
+            entity.HasOne<EventSlotReservationEntity>().WithMany().HasForeignKey(item => item.ReservationId);
+        });
+
         modelBuilder.Entity<EventEntity>(entity =>
         {
             entity.ToTable("Events");
@@ -235,6 +274,19 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.HasIndex(item => new { item.ThreadId, item.CreatedAtUtc, item.Id });
             entity.HasOne<ChatThreadEntity>().WithMany().HasForeignKey(item => item.ThreadId);
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.SenderUserId);
+        });
+
+        modelBuilder.Entity<MediaAssetEntity>(entity =>
+        {
+            entity.ToTable("MediaAssets");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.ProfileUserId);
+            entity.HasIndex(item => item.ReportId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.OwnerUserId);
+            entity.HasOne<UserProfileEntity>().WithMany().HasForeignKey(item => item.ProfileUserId);
+            entity.HasOne<GroupEntity>().WithMany().HasForeignKey(item => item.GroupId);
+            entity.HasOne<EventEntity>().WithMany().HasForeignKey(item => item.EventId);
+            entity.HasOne<ModerationReportEntity>().WithMany().HasForeignKey(item => item.ReportId);
         });
 
         modelBuilder.Entity<NotificationEntity>(entity =>

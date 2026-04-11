@@ -29,7 +29,9 @@ public sealed class EventService(
     EventInviteService eventInviteService,
     IKeyedLockProvider keyedLockProvider,
     IClock clock,
-    IPersistenceTransactionRunner? transactionRunner = null)
+    IPersistenceTransactionRunner? transactionRunner = null,
+    IRestaurantOperationsRepository? restaurantOperationsRepository = null,
+    DiscountEligibilityService? discountEligibilityService = null)
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     /// <summary>
@@ -202,6 +204,8 @@ public sealed class EventService(
             UpdatedAtUtc = clock.UtcNow,
         };
 
+        await EnsureUpdatePreservesSlotReservationAsync(candidate, request, cancellationToken);
+
         return await persistenceTransactionRunner.ExecuteAsync(
             async () =>
             {
@@ -270,6 +274,7 @@ public sealed class EventService(
             async () =>
             {
                 await eventRepository.SaveAsync(cancelled, cancellationToken);
+                await CancelActiveSlotReservationAsync(cancelled.Id, reason, now, cancellationToken);
                 await NotifyCancellationAsync(cancelled, cancellationToken);
             },
             cancellationToken);
@@ -311,7 +316,34 @@ public sealed class EventService(
     private async Task<EventDetailDto> MapDetailAsync(Event eventRecord, CancellationToken cancellationToken)
     {
         var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
-        return EventDtoMapper.ToDetail(eventRecord, participants.Count(participant => participant.State == EventParticipantState.Joined));
+        EventSlotReservationDto? reservationDto = null;
+        DiscountActivationDto? discountDto = null;
+
+        if (restaurantOperationsRepository is not null)
+        {
+            var reservation = await restaurantOperationsRepository.GetActiveReservationForEventAsync(eventRecord.Id, cancellationToken);
+
+            if (reservation is not null)
+            {
+                var slot = await restaurantOperationsRepository.GetSlotAsync(reservation.SlotId, cancellationToken);
+
+                if (slot is not null)
+                {
+                    reservationDto = RestaurantOperationsMapper.ToReservationDto(reservation, slot);
+                }
+
+                if (discountEligibilityService is not null)
+                {
+                    discountDto = await discountEligibilityService.EvaluateForReservationAsync(reservation, cancellationToken);
+                }
+            }
+        }
+
+        return EventDtoMapper.ToDetail(
+            eventRecord,
+            participants.Count(participant => participant.State == EventParticipantState.Joined),
+            reservationDto,
+            discountDto);
     }
 
     /// <summary>
@@ -402,6 +434,70 @@ public sealed class EventService(
         {
             throw ApiException.Forbidden("Only the group owner can link an event to that group.");
         }
+    }
+
+    private async Task EnsureUpdatePreservesSlotReservationAsync(
+        Event candidate,
+        UpdateEventRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (restaurantOperationsRepository is null)
+        {
+            return;
+        }
+
+        var reservation = await restaurantOperationsRepository.GetActiveReservationForEventAsync(candidate.Id, cancellationToken);
+
+        if (reservation is null)
+        {
+            return;
+        }
+
+        if (request.SelectedRestaurantId.HasValue || request.CuisineTarget is not null)
+        {
+            throw ApiException.Conflict("Use the slot reservation workflow to change a slot-linked event location.");
+        }
+
+        var slot = await restaurantOperationsRepository.GetSlotAsync(reservation.SlotId, cancellationToken)
+            ?? throw ApiException.NotFound("The reserved restaurant slot could not be found.");
+
+        if (candidate.EventStartAtUtc < slot.StartsAtUtc || candidate.EventStartAtUtc > slot.EndsAtUtc)
+        {
+            throw ApiException.Conflict("The event time must stay inside the reserved slot window.");
+        }
+
+        if (candidate.Capacity > slot.Capacity)
+        {
+            throw ApiException.Conflict("Event capacity cannot exceed reserved slot capacity.");
+        }
+    }
+
+    private async Task CancelActiveSlotReservationAsync(
+        Guid eventId,
+        string reason,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (restaurantOperationsRepository is null)
+        {
+            return;
+        }
+
+        var reservation = await restaurantOperationsRepository.GetActiveReservationForEventAsync(eventId, cancellationToken);
+
+        if (reservation is null)
+        {
+            return;
+        }
+
+        await restaurantOperationsRepository.SaveReservationAsync(
+            reservation with
+            {
+                Status = EventSlotReservationStatus.Cancelled,
+                CancelledAtUtc = now,
+                CancellationReason = reason,
+            },
+            cancellationToken);
     }
 
     /// <summary>

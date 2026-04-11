@@ -55,7 +55,7 @@ Search, swipe decisions, and mutual Budz connections.
 
 ### Restaurants
 
-Internal restaurant catalog used for browsing, filtering, and event selection.
+Internal restaurant catalog used for browsing, filtering, event selection, and feature-flagged restaurant operations.
 
 ### Events
 
@@ -68,6 +68,10 @@ Public/private groups, membership, owner control, invitations, and optional even
 ### Messaging and Notifications
 
 Scoped chat plus persisted in-app notifications.
+
+### Media Assets
+
+Database-backed image assets linked to one bounded context such as a profile avatar or report evidence.
 
 ### Moderation and Safety
 
@@ -158,7 +162,16 @@ Each `UserRestriction` applies to exactly one scope such as `DiscoveryVisibility
 
 Notifications are persisted in-app notices with read state only. Multi-channel delivery tracking is later work.
 
-### 5.13 Blocking prevents new direct interaction, not shared-context history
+### 5.13 Media assets use one bounded context per record
+
+For MVP:
+
+- each `MediaAsset` is owned by exactly one user
+- each `MediaAsset` is linked to exactly one bounded context
+- current launched contexts are profile-avatar and moderation-report evidence
+- image bytes and metadata are stored in the application database
+
+### 5.14 Blocking prevents new direct interaction, not shared-context history
 
 Blocking prevents new Bud interactions, private/direct messaging, and event/group invitations between the pair.
 
@@ -168,7 +181,7 @@ Blocking does not automatically:
 - remove users from already joined shared events/groups
 - split an already shared event/group chat while both users remain authorized in that shared context
 
-### 5.14 Event defaults are explicit
+### 5.15 Event defaults are explicit
 
 For MVP:
 
@@ -177,19 +190,19 @@ For MVP:
 - open-event `DecisionAt` defaults to `EventStartAt - 15 minutes`
 - closed-event `DecisionAt` defaults to `EventStartAt - 24 hours`
 
-### 5.15 Account deletion preserves historical integrity
+### 5.16 Account deletion preserves historical integrity
 
 Account deletion is modeled as a logical/soft-delete workflow rather than physical cascade delete.
 
-### 5.16 Onboarding completeness is derived
+### 5.17 Onboarding completeness is derived
 
 Onboarding completeness is a derived service state rather than a standalone persisted core entity.
 
-### 5.17 Midpoint restaurant suggestion is service behavior
+### 5.18 Midpoint restaurant suggestion is service behavior
 
 Midpoint or group-aware suggestion logic is application/service behavior over user coarse location data and restaurant data. It is not a core domain entity.
 
-### 5.18 Later concepts must not leak into MVP
+### 5.19 Later concepts must not leak into MVP
 
 Entities tagged as later-only may remain documented for future compatibility, but they should not receive normal controllers, endpoints, repositories, or UI flows in MVP unless explicitly promoted.
 
@@ -211,6 +224,10 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 ### Restaurants
 
 - `Restaurant`
+- `RestaurantAdminAssignment`
+- `RestaurantSlot`
+- `EventSlotReservation`
+- `DiscountActivation`
 
 ### Events
 
@@ -225,6 +242,7 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 
 ### Messaging and Notifications
 
+- `MediaAsset`
 - `ChatThread`
 - `ChatMessage`
 - `Notification`
@@ -244,10 +262,6 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 ### Extension-Ready Concepts
 
 - `BudRequest`
-- `RestaurantAdminAssignment`
-- `RestaurantSlot`
-- `EventSlotReservation`
-- `DiscountActivation`
 
 ## 7. Core Value Types and Enums
 
@@ -264,6 +278,8 @@ Formalize these in code as closed enums/value sets where appropriate:
 - `SocialGoal`
 - `PriceTier`
 - `SpiceTolerance`
+- `RestaurantSlotStatus`
+- `EventSlotReservationStatus`
 
 Recommended MVP `RestrictionScope` examples:
 
@@ -282,7 +298,7 @@ Core data:
 
 - username, email, credential/password-hash reference
 - account status
-- coarse global roles (`User`, `Moderator`, `Admin`, later `RestaurantAdmin`)
+- coarse global roles (`User`, `Moderator`, `Admin`, `RestaurantAdmin`)
 - created/updated timestamps
 
 Rules:
@@ -376,6 +392,89 @@ Rules:
 
 - location data must be sufficient for ZIP/distance filtering
 - MVP suggestions are computed from the internal catalog
+- restaurant-admin profile mutation is allowed only through active assignment checks when restaurant operations are enabled
+
+### RestaurantAdminAssignment
+
+Represents a global-admin-granted management relationship between a user and a restaurant.
+
+Core data:
+
+- restaurant reference
+- user reference
+- created timestamp
+- optional revoked timestamp
+
+Rules:
+
+- one active assignment grants management authority for exactly one restaurant/user pair
+- global `Admin` is the only actor allowed to grant or revoke assignments
+- granting an assignment adds the coarse `RestaurantAdmin` role
+- revoking an assignment removes `RestaurantAdmin` only when the user has no remaining active assignments
+- revoked assignments preserve history
+
+### RestaurantSlot
+
+Represents a restaurant-owned availability window that an event host can reserve when restaurant slot features are enabled.
+
+Core data:
+
+- restaurant reference
+- start/end time window
+- capacity
+- cutoff timestamp
+- optional minimum threshold for discount activation
+- status (`Open` / `Cancelled`)
+- cancellation metadata
+
+Rules:
+
+- slot capacity follows event capacity bounds of 2 through 8
+- cutoff must be before or equal to the slot start time
+- minimum discount threshold, when present, must be between 2 and slot capacity
+- only an actively assigned restaurant admin may create, edit, or cancel a slot for that restaurant
+- cancelled slots cannot be reserved
+
+### EventSlotReservation
+
+Represents the active or cancelled link between an event and a restaurant slot.
+
+Core data:
+
+- event reference
+- slot reference
+- status (`Active` / `Cancelled`)
+- created timestamp
+- optional cancellation metadata
+
+Rules:
+
+- only the event host may reserve a slot
+- the event must be active
+- one event may have at most one active slot reservation
+- one slot may have at most one active event reservation
+- event start time must fit within the slot window
+- event capacity must not exceed slot capacity
+- reservation sets the event selected restaurant to the slot restaurant and clears cuisine target
+- slot cancellation cancels the active reservation and linked event through normal event cancellation behavior
+
+### DiscountActivation
+
+Represents simulation-only discount state for a slot reservation.
+
+Core data:
+
+- reservation reference
+- active/inactive state
+- finalized flag
+- evaluated timestamp
+
+Rules:
+
+- joined event participants count as confirmed participants
+- before or at cutoff, activation can be recalculated after reservation, participation, or lifecycle changes
+- after cutoff, the final active/inactive result is frozen
+- no payment, checkout, or settlement state is implied by this record
 
 ### Event
 
@@ -403,6 +502,7 @@ Rules:
 - `CANCELLED` and `COMPLETED` are terminal
 - closed-event invites do not reserve seats
 - event can auto-complete by time according to server policy
+- while an active slot reservation exists, host edits must preserve slot restaurant, clear cuisine target, stay within the slot window, and keep capacity within slot capacity
 
 ### EventParticipant
 
@@ -647,6 +747,12 @@ Rules:
 - `UserAccount` many <-> many `Group` via `GroupMember`
 - `Group` 1 -> many `GroupInvite`
 - `Restaurant` 1 -> many `Event`
+- `Restaurant` 1 -> many `RestaurantAdminAssignment`
+- `UserAccount` 1 -> many `RestaurantAdminAssignment`
+- `Restaurant` 1 -> many `RestaurantSlot`
+- `RestaurantSlot` 1 -> 0..1 active `EventSlotReservation`
+- `Event` 1 -> 0..1 active `EventSlotReservation`
+- `EventSlotReservation` 1 -> 0..1 `DiscountActivation`
 - `Group` 1 -> many `Event` via optional link
 - `Event` 1 -> many `EventParticipant`
 - `Event` 1 -> 1 event-scoped `ChatThread`
@@ -680,8 +786,19 @@ Focus: pair-level discovery behavior and reciprocal-Like transition to mutual Bu
 
 - `Event`
 - `EventParticipant`
+- `EventSlotReservation` for the event-side reservation link when restaurant slots are enabled
 
 Focus: capacity, duplicate-join prevention, invite handling, explicit status transitions, and `DecisionAt` behavior.
+
+### Restaurant Operations Aggregate
+
+- `Restaurant`
+- `RestaurantAdminAssignment`
+- `RestaurantSlot`
+- `EventSlotReservation` for the restaurant-side reservation link when restaurant slots are enabled
+- `DiscountActivation`
+
+Focus: assignment-gated restaurant mutation, slot lifecycle, reservation uniqueness, and discount simulation.
 
 ### Group Aggregate
 
@@ -727,6 +844,10 @@ Focus: append-only record of sensitive actions.
 - Capacity counts only `JOINED` participants.
 - Event invites do not reserve seats.
 - Exactly one of selected restaurant or cuisine target is set on an event.
+- Active slot-reserved events use the slot restaurant as selected restaurant and have no cuisine target.
+- Active slot reservations are unique per event and per slot.
+- Slot reservation requires the event time and capacity to fit the slot.
+- Discount activation is simulation-only and freezes after cutoff.
 - Event chat access is limited to current `JOINED` participants.
 - Group chat access is limited to current active group members.
 - Blocking prevents new direct interaction but does not automatically remove shared-context participation.
@@ -755,12 +876,12 @@ Focus: append-only record of sensitive actions.
 - ownership transfer and dissolution workflows
 - notification preference toggles if needed
 
-### MVP++ / feature-flagged - extension-ready only
+### MVP++ / feature-flagged - disabled by default
 
 - direct 1-on-1 messaging using `ChatThread` with `Direct` scope
 - restaurant-admin assignment
 - restaurant slots and slot reservations
-- discount activation
+- discount activation simulation
 - feed/search projections and caches as read models
 
 ## 13. Persistence Notes
@@ -774,6 +895,6 @@ Important mapping notes:
 - `EventParticipant` acts as both participation record and closed-event invite lifecycle record.
 - `BudConnection` is the only required Budz relationship record in MVP.
 - `ChatThread` uses a generic scope model instead of separate event/group/direct roots.
-- Later restaurant-operation entities may be absent from MVP persistence entirely.
+- Restaurant-operation entities are present in the canonical SQLite schema but their endpoints remain disabled by default unless the restaurant operation flags are enabled.
 - Search indexes, feed caches, and denormalized browse views are read models, not primary domain entities.
 

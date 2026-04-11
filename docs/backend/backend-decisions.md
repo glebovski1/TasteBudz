@@ -105,14 +105,15 @@ MVP includes both event chat and group chat. Direct 1-on-1 chat remains later an
 - Owners: Backend team
 
 ### Context
-External restaurant APIs add cost, rate limits, and unpredictable data quality.
+External restaurant APIs add cost, rate limits, and unpredictable data quality when they sit in the user-facing browse/search path.
 
 ### Decision
-MVP uses a seeded internal restaurant catalog as the source of truth for restaurant selection.
+MVP uses the internal restaurant catalog as the source of truth for restaurant selection. The catalog may be seeded from SQL scripts and may be populated through an admin-only OpenStreetMap/Overpass import, but user-facing restaurant browse/search continues to read from the local catalog instead of calling an external provider live.
 
 ### Consequences
-- Testing is simpler and data is predictable.
-- External search remains optional later work.
+- Testing is simpler because user-facing restaurant behavior is still local catalog behavior.
+- External IDs should be provider-qualified, such as `osm:<id>`, so clients do not confuse OpenStreetMap identifiers with Google Place IDs.
+- External live search remains optional later work.
 
 ## [ADR-004] Notifications Are In-App Only in MVP
 
@@ -452,3 +453,38 @@ Use SQLite as the only approved runtime persistence target for the implemented M
 - Module repository interfaces remain the persistence boundary, and service-layer business rules stay unchanged at the HTTP contract level.
 - The checked-in `.sqlite` database file is a disposable artifact, not a schema authority.
 - Docs and tests must align to SQLite as the current MVP runtime direction unless a later ADR explicitly changes provider strategy.
+
+## [ADR-024] MVP Media Assets Use Database-Backed Image Storage
+
+- Date: 2026-04-10
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+The next approved backend slice needs one universal media-storage path that works immediately for profile avatars and moderation report evidence without adding external object storage infrastructure or provider-specific operational complexity.
+
+### Decision
+Store launched MVP media assets directly in the relational database as image bytes plus metadata. Each media record is owned by one user and linked to exactly one bounded context. The initial launched contexts are profile-avatar media and moderation-report evidence attachments.
+
+### Consequences
+- Local development and automated tests stay self-contained because media storage does not depend on external services.
+- Media access must be enforced from the owning context instead of exposing database records directly.
+- If Azure or production scale later makes database-only media storage too costly, the storage implementation can move behind the same module boundary with a new ADR.
+
+## [ADR-025] Restaurant Operations Launch Behind Explicit Feature Flags
+
+- Date: 2026-04-11
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+Restaurant-admin assignments, slots, reservations, and discount simulation are approved as a later restaurant-operations slice, but they must not change default MVP launch behavior until the team explicitly turns them on.
+
+### Decision
+Implement restaurant operations behind `FeatureFlags:RestaurantsOperationsEnabled`, `FeatureFlags:RestaurantsSlotsEnabled`, and `FeatureFlags:RestaurantsDiscountsEnabled`, all disabled by default. Global `Admin` users are the only actors that can grant or revoke `RestaurantAdminAssignment` records. Assignment grant adds the coarse `RestaurantAdmin` role, and revoke removes that role only after the user has no active restaurant-admin assignments left. Restaurant admins may mutate only restaurants for which they have an active assignment. Slot reservation is host-owned, requires an active event and open slot, enforces event time/capacity fit, and updates the event to use the slot restaurant while clearing cuisine target. Cancelling a reserved slot cancels the linked event through normal event-cancellation behavior. Discount handling is simulation-only: joined participants count toward the threshold, recalculation continues through cutoff, and the final active/inactive result freezes after cutoff.
+
+### Consequences
+- Default MVP behavior remains unchanged because disabled restaurant-operations endpoints return `404`.
+- Enabled endpoints return normal `401`/`403` authorization results when the caller lacks permission.
+- Restaurant operations add schema and service code without treating the checked-in `.sqlite` file as schema authority.
+- Payment simulation, checkout state, and payment-side effects remain out of scope until requirements, ADR, API contracts, and tests are separately approved.

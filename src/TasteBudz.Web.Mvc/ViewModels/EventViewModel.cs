@@ -98,6 +98,7 @@ public sealed class RestaurantPickerItem
     public string CuisineTags { get; init; } = string.Empty;
     public double? Latitude { get; init; }
     public double? Longitude { get; init; }
+    public string GoogleMapsUrl { get; init; } = string.Empty;
 
     public static RestaurantPickerItem FromDto(RestaurantDto dto) => new()
     {
@@ -108,6 +109,7 @@ public sealed class RestaurantPickerItem
         CuisineTags = string.Join(", ", dto.CuisineTags),
         Latitude = dto.Latitude,
         Longitude = dto.Longitude,
+        GoogleMapsUrl = RestaurantMapsLinkBuilder.BuildGoogleMapsUrl(dto),
     };
 }
 
@@ -126,12 +128,18 @@ public sealed class EventDetailViewModel
     public bool IsHost { get; init; }
     public bool IsParticipant { get; init; }
     public Guid? GroupId { get; init; }
+    public SelectedRestaurantItem? SelectedRestaurant { get; init; }
+    public EventSlotReservationDto? SlotReservation { get; init; }
+    public DiscountActivationDto? DiscountActivation { get; init; }
+    public IReadOnlyList<RestaurantSlotDto> ReservableSlots { get; init; } = [];
     public IReadOnlyList<EventParticipantItem> Participants { get; init; } = [];
 
     public static EventDetailViewModel FromDto(
         EventDetailDto dto,
         IReadOnlyCollection<EventParticipantDto> participants,
-        Guid currentUserId) => new()
+        Guid currentUserId,
+        RestaurantDto? selectedRestaurant = null,
+        IReadOnlyCollection<RestaurantSlotDto>? reservableSlots = null) => new()
         {
             EventId = dto.EventId,
             Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Event" : dto.Title,
@@ -143,6 +151,12 @@ public sealed class EventDetailViewModel
             CuisineTarget = dto.CuisineTarget,
             IsHost = dto.HostUserId == currentUserId,
             GroupId = dto.GroupId,
+            SelectedRestaurant = selectedRestaurant is null ? null : SelectedRestaurantItem.FromDto(selectedRestaurant),
+            SlotReservation = dto.SlotReservation,
+            DiscountActivation = dto.DiscountActivation,
+            ReservableSlots = (reservableSlots ?? Array.Empty<RestaurantSlotDto>())
+                .OrderBy(slot => slot.StartsAtUtc)
+                .ToList(),
             Participants = participants
                 .Where(p => p.State == EventParticipantState.Joined)
                 .Select(p => EventParticipantItem.FromDto(p, dto.HostUserId))
@@ -151,6 +165,59 @@ public sealed class EventDetailViewModel
                 p.UserId == currentUserId &&
                 p.State == EventParticipantState.Joined),
         };
+}
+
+public sealed class SelectedRestaurantItem
+{
+    public Guid RestaurantId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string Location { get; init; } = string.Empty;
+    public string PriceTier { get; init; } = string.Empty;
+    public string CuisineTags { get; init; } = string.Empty;
+    public string GoogleMapsUrl { get; init; } = string.Empty;
+
+    public static SelectedRestaurantItem FromDto(RestaurantDto dto) => new()
+    {
+        RestaurantId = dto.RestaurantId,
+        Name = dto.Name,
+        Location = $"{dto.City}, {dto.State} {dto.ZipCode}",
+        PriceTier = new string('$', (int)dto.PriceTier + 1),
+        CuisineTags = string.Join(", ", dto.CuisineTags),
+        GoogleMapsUrl = RestaurantMapsLinkBuilder.BuildGoogleMapsUrl(dto),
+    };
+}
+
+internal static class RestaurantMapsLinkBuilder
+{
+    private const string GooglePlaceIdPrefix = "google:";
+    private const string OpenStreetMapPlaceIdPrefix = "osm:";
+
+    public static string BuildGoogleMapsUrl(RestaurantDto restaurant)
+    {
+        var query = $"{restaurant.Name}, {restaurant.City}, {restaurant.State} {restaurant.ZipCode}".Trim();
+        var encodedQuery = Uri.EscapeDataString(query);
+        var url = $"https://www.google.com/maps/search/?api=1&query={encodedQuery}";
+
+        var externalPlaceId = restaurant.ExternalPlaceId?.Trim();
+        if (string.IsNullOrWhiteSpace(externalPlaceId) ||
+            externalPlaceId.StartsWith(OpenStreetMapPlaceIdPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        if (externalPlaceId.StartsWith(GooglePlaceIdPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            externalPlaceId = externalPlaceId[GooglePlaceIdPrefix.Length..].Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(externalPlaceId) ||
+            externalPlaceId.Contains(':', StringComparison.Ordinal))
+        {
+            return url;
+        }
+
+        return $"{url}&query_place_id={Uri.EscapeDataString(externalPlaceId)}";
+    }
 }
 
 public sealed class EventParticipantItem

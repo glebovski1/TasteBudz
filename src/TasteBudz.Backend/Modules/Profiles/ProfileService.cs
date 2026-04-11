@@ -4,6 +4,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Media;
 
 namespace TasteBudz.Backend.Modules.Profiles;
 
@@ -13,6 +14,7 @@ namespace TasteBudz.Backend.Modules.Profiles;
 public sealed class ProfileService(
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
+    IMediaRepository mediaRepository,
     IClock clock)
 {
     private static readonly Regex ZipCodePattern = new("^[0-9]{5}$", RegexOptions.Compiled);
@@ -23,8 +25,9 @@ public sealed class ProfileService(
             ?? throw ApiException.NotFound("The current account could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
+        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
 
-        return ToDto(account, profile);
+        return ToDto(account, profile, avatar?.Id);
     }
 
     /// <summary>
@@ -37,8 +40,9 @@ public sealed class ProfileService(
             ?? throw ApiException.NotFound("The requested user could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The requested user could not be found.");
+        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
 
-        return ToDto(account, profile) with { Email = string.Empty };
+        return ToDto(account, profile, avatar?.Id) with { Email = string.Empty };
     }
 
     public async Task<ProfileDto> UpdateMyProfileAsync(Guid userId, UpdateMyProfileRequest request, CancellationToken cancellationToken = default)
@@ -86,11 +90,12 @@ public sealed class ProfileService(
         await authRepository.UpdateAccountAsync(updatedAccount, cancellationToken);
         await profileRepository.SaveProfileAsync(updatedProfile, cancellationToken);
 
-        return ToDto(updatedAccount, updatedProfile);
+        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
+        return ToDto(updatedAccount, updatedProfile, avatar?.Id);
     }
 
-    private static ProfileDto ToDto(UserAccount account, UserProfile profile) =>
-        new(account.Id, account.Username, account.Email, profile.DisplayName, profile.Bio, profile.HomeAreaZipCode, profile.SocialGoal);
+    private static ProfileDto ToDto(UserAccount account, UserProfile profile, Guid? avatarMediaAssetId) =>
+        new(account.Id, account.Username, account.Email, profile.DisplayName, profile.Bio, profile.HomeAreaZipCode, profile.SocialGoal, avatarMediaAssetId);
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 

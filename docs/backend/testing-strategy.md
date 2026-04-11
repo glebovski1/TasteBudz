@@ -152,9 +152,20 @@ The following areas are the highest priority for backend testing.
 - only joined event participants can access event chat
 - leaving or removal revokes access immediately
 
+### P1 - Feature-flagged restaurant operations
+
+- disabled restaurant operation and slot endpoints return `404`
+- assignment grant/revoke updates `RestaurantAdmin` role behavior correctly
+- restaurant admins can mutate only assigned restaurants
+- slot validation enforces time, capacity, cutoff, and threshold rules
+- event-host slot reservation enforces event/slot uniqueness, host ownership, active event status, and time/capacity fit
+- discount simulation recalculates before cutoff and freezes after cutoff
+- reserved-slot cancellation cancels the linked event through normal cancellation behavior
+
 ### P1 - Moderation and audit
 
 - reports can be created and resolved
+- report-evidence attachments respect reporter vs moderator/admin access boundaries
 - restrictions prevent forbidden actions while active
 - restriction scope values are validated against the documented API contract
 - moderation and support actions create audit records where required
@@ -252,6 +263,12 @@ These scenarios should anchor early backend testing work.
 | BT-10 | Moderator applies a scoped restriction that blocks a forbidden action | High | Restriction enforcement is active and auditable |
 | BT-11 | Non-owner cannot link an event to group context | High | Group-linked events stay owner-managed |
 | BT-12 | Discovery search excludes a user with an active `DiscoveryVisibility` restriction | High | Discovery filtering respects moderation scope |
+| BT-13 | Profile avatar upload replaces the previous avatar and serves stored bytes | High | Media storage and profile contracts stay aligned |
+| BT-14 | Report evidence attachment is hidden from unrelated users but visible to moderators | High | Media authorization respects moderation context |
+| BT-15 | Admin grants and revokes a restaurant admin assignment | High | Role and assignment authority stay aligned |
+| BT-16 | Event host reserves an open restaurant slot | High | Event restaurant selection, cuisine clearing, and reservation uniqueness are correct |
+| BT-17 | Restaurant admin cancels a reserved slot | High | Reservation and linked event cancellation behavior is correct |
+| BT-18 | Discount threshold crosses before and after cutoff | Medium | Simulation state recalculates before cutoff and freezes after cutoff |
 
 ## 14. Module-Specific Test Emphasis
 
@@ -260,6 +277,7 @@ These scenarios should anchor early backend testing work.
 | Auth and Access | login, logout, auth boundaries, protected endpoint access |
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
+| Restaurant Operations | feature-flag behavior, assignments, slot lifecycle, reservation invariants, discount simulation |
 | Events | create, update, cancel, join, leave, invites, lifecycle, concurrency |
 | Groups | create, join, leave, private invites, owner-only actions, group-owner-only later admin flows |
 | Discovery and Budz | search, privacy/block/restriction filters, swipe replacement, reciprocal-like connection creation |

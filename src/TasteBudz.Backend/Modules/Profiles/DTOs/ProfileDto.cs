@@ -9,4 +9,5 @@ public sealed record ProfileDto(
     string DisplayName,
     string? Bio,
     string HomeAreaZipCode,
-    SocialGoal? SocialGoal);
+    SocialGoal? SocialGoal,
+    Guid? AvatarMediaAssetId = null);

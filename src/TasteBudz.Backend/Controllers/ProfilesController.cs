@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.Controllers;
@@ -12,7 +13,10 @@ namespace TasteBudz.Backend.Controllers;
 /// <summary>
 /// Manages profile retrieval and updates.
 /// </summary>
-public sealed class ProfilesController(ProfileService profileService, ICurrentUserAccessor currentUserAccessor) : ControllerBase
+public sealed class ProfilesController(
+    ProfileService profileService,
+    MediaService mediaService,
+    ICurrentUserAccessor currentUserAccessor) : ControllerBase
 {
     [HttpGet("me")]
     public Task<ProfileDto> GetMyProfile(CancellationToken cancellationToken) =>
@@ -29,4 +33,9 @@ public sealed class ProfilesController(ProfileService profileService, ICurrentUs
     [HttpPatch("me")]
     public Task<ProfileDto> UpdateMyProfile([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken) =>
         profileService.UpdateMyProfileAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, request, cancellationToken);
+
+    [HttpPost("me/avatar")]
+    [Consumes("multipart/form-data")]
+    public Task<MediaAssetDto> UploadMyAvatar([FromForm] UploadImageRequest request, CancellationToken cancellationToken) =>
+        mediaService.UploadProfileAvatarAsync(currentUserAccessor.GetRequiredCurrentUser(), request, cancellationToken);
 }

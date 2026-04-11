@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
@@ -94,9 +95,13 @@ public sealed class EventController : Controller
         {
             var detail = await eventApiService.GetAsync(eventId, cancellationToken);
             var participants = await eventApiService.ListParticipantsAsync(eventId, cancellationToken);
+            var selectedRestaurant = await TryGetSelectedRestaurantAsync(detail.SelectedRestaurantId, cancellationToken);
             var currentUserId = GetCurrentUserId();
+            var reservableSlots = detail.HostUserId == currentUserId
+                ? await TryGetReservableSlotsAsync(detail, selectedRestaurant, cancellationToken)
+                : [];
 
-            return View(EventDetailViewModel.FromDto(detail, participants, currentUserId));
+            return View(EventDetailViewModel.FromDto(detail, participants, currentUserId, selectedRestaurant, reservableSlots));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -219,7 +224,10 @@ public sealed class EventController : Controller
     {
         try
         {
-            var restaurants = await restaurantApiService.BrowseAsync(cancellationToken: cancellationToken);
+            var restaurants = await restaurantApiService.BrowseAsync(
+                new BrowseRestaurantsQuery { PageSize = 2000 },
+                cancellationToken);
+
             return model with
             {
                 Restaurants = restaurants.Items
@@ -230,6 +238,77 @@ public sealed class EventController : Controller
         catch
         {
             return model with { Restaurants = [] };
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReserveSlot(Guid eventId, Guid slotId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await eventApiService.ReserveSlotAsync(
+                eventId,
+                new ReserveEventSlotRequest { SlotId = slotId },
+                cancellationToken);
+            TempData["StatusMessage"] = "Restaurant slot reserved.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not reserve slot: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    private async Task<RestaurantDto?> TryGetSelectedRestaurantAsync(
+        Guid? selectedRestaurantId,
+        CancellationToken cancellationToken)
+    {
+        if (!selectedRestaurantId.HasValue)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await restaurantApiService.GetAsync(selectedRestaurantId.Value, cancellationToken);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<IReadOnlyCollection<RestaurantSlotDto>> TryGetReservableSlotsAsync(
+        EventDetailDto detail,
+        RestaurantDto? selectedRestaurant,
+        CancellationToken cancellationToken)
+    {
+        if (selectedRestaurant is null || detail.SlotReservation is not null)
+        {
+            return [];
+        }
+
+        try
+        {
+            return await restaurantApiService.ListReservableSlotsAsync(selectedRestaurant.RestaurantId, cancellationToken);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            return [];
         }
     }
 
