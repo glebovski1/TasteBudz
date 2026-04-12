@@ -1,0 +1,13 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+IF OBJECT_ID(N'dbo.SchemaVersions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SchemaVersions (
+        Version NVARCHAR(64) NOT NULL CONSTRAINT PK_SchemaVersions PRIMARY KEY,
+        Description NVARCHAR(256) NOT NULL,
+        AppliedAtUtc DATETIMEOFFSET NOT NULL CONSTRAINT DF_SchemaVersions_AppliedAtUtc DEFAULT SYSUTCDATETIME()
+    );
+END;
+GO

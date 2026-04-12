@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using TasteBudz.Web.Mvc.Options;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
@@ -16,18 +14,18 @@ public sealed class MessagingController : Controller
     private readonly MessagingApiService messagingApiService;
     private readonly ProfileApiService profileApiService;
     private readonly UserSessionService userSessionService;
-    private readonly BackendApiOptions backendApiOptions;
+    private readonly IBackendApiBaseAddressProvider backendApiBaseAddressProvider;
 
     public MessagingController(
         MessagingApiService messagingApiService,
         ProfileApiService profileApiService,
         UserSessionService userSessionService,
-        IOptions<BackendApiOptions> backendApiOptions)
+        IBackendApiBaseAddressProvider backendApiBaseAddressProvider)
     {
         this.messagingApiService = messagingApiService;
         this.profileApiService = profileApiService;
         this.userSessionService = userSessionService;
-        this.backendApiOptions = backendApiOptions.Value;
+        this.backendApiBaseAddressProvider = backendApiBaseAddressProvider;
     }
 
     // GET /Messaging/Chat
@@ -118,7 +116,7 @@ public sealed class MessagingController : Controller
     }
 
     private string BuildHubUrl() =>
-        new Uri(new Uri(backendApiOptions.BaseUrl, UriKind.Absolute), MessagingApiService.HubPath).ToString();
+        new Uri(backendApiBaseAddressProvider.GetBaseAddress(), MessagingApiService.HubPath).ToString();
 
     private string GetAccessToken() => userSessionService.GetSession()?.AccessToken ?? string.Empty;
 }

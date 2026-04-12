@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 
 /// <summary>
-/// EF Core model for the SQLite-backed MVP runtime, mapped to the canonical SQL schema.
+/// EF Core model for the relational MVP runtime, mapped to the canonical SQL schema.
 /// </summary>
 public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> options) : DbContext(options)
 {

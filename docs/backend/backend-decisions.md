@@ -508,3 +508,27 @@ Implement simulation-only checkout behind `FeatureFlags:PaymentsCheckoutEnabled`
 - Direct chat and checkout add schema, service, API, and test coverage while continuing to use the SQLite schema scripts as the persistence authority.
 - Blocking, Budz state, moderation restrictions, event participation, selected-restaurant state, and feature flags remain server-owned policy checks.
 - Real payment provider integration, saved payment methods, tax, tips, settlement, refunds, and webhooks remain out of scope until a future ADR approves them.
+
+## [ADR-027] Azure Production Uses SQL Server While Local Development Uses SQLite
+
+- Date: 2026-04-12
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+The MVP backend was previously standardized on SQLite only for runtime persistence in ADR-023. Azure App Service deployment now needs one release batch containing the MVC app, backend API controllers, SignalR hub, backend services, EF Core persistence wiring, and manually applied database scripts. Azure SQL is the production database target, but local development and automated tests still benefit from SQLite's self-contained workflow.
+
+### Decision
+Use one deployable ASP.NET Core web host for the modular monolith, with `TasteBudz.Web.Mvc` as the deployable host and `TasteBudz.Backend` as a referenced backend module. Runtime persistence is selected by `Persistence:Provider`:
+
+- `Sqlite` for local development and integration tests
+- `SqlServer` for Azure SQL / SQL Server production
+
+Keep `TasteBudzDbContext` and module repository boundaries as the runtime persistence boundary. SQLite may still auto-initialize only in `Development` and `IntegrationTesting`; SQL Server/Azure SQL schema changes are applied manually from source-controlled scripts under `src/TasteBudz.Database/sqlserver`. The application validates required SQL Server tables and columns at startup but does not create or migrate production schema.
+
+### Consequences
+- ADR-023 remains the historical SQLite-only MVP decision, but this ADR supersedes it for production Azure deployment.
+- Local development and integration tests stay simple and deterministic with SQLite.
+- Azure production can use Azure SQL by configuration without changing application code.
+- Database deployment is a manual release step, not application startup behavior.
+- Repository and service boundaries remain unchanged; persistence entities still must not be exposed as API contracts.

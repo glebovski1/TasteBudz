@@ -163,5 +163,3 @@ public sealed class RestaurantApiService
         return $"/api/v1/restaurants/suggestions{builder.ToQueryString()}";
     }
 }
-
-public sealed record ImportResultDto(int Inserted, string Message);

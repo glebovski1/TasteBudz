@@ -17,9 +17,10 @@ def main() -> None:
     args = parse_args()
     root = Path(__file__).resolve().parent
     db_path = root / "TasteBudz.sqlite"
-    schema_path = root / "dbTasteBudz.sqlite.sql"
-    seed_path = root / "dbTasteBudz.sqlite.seed.sql"
-    test_data_path = root / "dbTasteBudz.sqlite.testdata.sql"
+    sqlite_root = root / "sqlite"
+    schema_path = sqlite_root / "dbTasteBudz.sqlite.sql"
+    seed_path = sqlite_root / "dbTasteBudz.sqlite.seed.sql"
+    test_data_path = sqlite_root / "dbTasteBudz.sqlite.testdata.sql"
 
     if db_path.exists():
         db_path.unlink()

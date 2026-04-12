@@ -8,6 +8,9 @@ namespace TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
 public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountController>
 {
+    private readonly string databasePath = CreateDatabasePath();
+    private int cleanupPerformed;
+
     public StubBackendApiHandler BackendHandler { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -18,6 +21,10 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountControlle
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["BackendApi:BaseUrl"] = "https://backend.test",
+                ["ConnectionStrings:TasteBudz"] = $"Data Source={databasePath};Foreign Keys=True;Pooling=False",
+                ["Persistence:Provider"] = "Sqlite",
+                ["Persistence:InitializeSqliteOnStartup"] = "true",
+                ["Persistence:SeedTestDataOnStartup"] = "false",
             });
         });
 
@@ -27,5 +34,53 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountControlle
             services.AddHttpClient("BackendApi")
                 .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<StubBackendApiHandler>());
         });
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        CleanupDatabaseFiles();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        CleanupDatabaseFiles();
+    }
+
+    private static string CreateDatabasePath()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "TasteBudz.MvcIntegrationTests");
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, $"{Guid.NewGuid():N}.sqlite");
+    }
+
+    private void CleanupDatabaseFiles()
+    {
+        if (Interlocked.Exchange(ref cleanupPerformed, 1) != 0)
+        {
+            return;
+        }
+
+        TryDeleteFile(databasePath);
+        TryDeleteFile($"{databasePath}-shm");
+        TryDeleteFile($"{databasePath}-wal");
+
+        var directory = Path.GetDirectoryName(databasePath);
+
+        if (!string.IsNullOrWhiteSpace(directory) &&
+            Directory.Exists(directory) &&
+            !Directory.EnumerateFileSystemEntries(directory).Any())
+        {
+            Directory.Delete(directory);
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 }

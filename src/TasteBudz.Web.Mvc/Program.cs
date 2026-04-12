@@ -1,21 +1,42 @@
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
+using TasteBudz.Backend.Controllers;
+using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Infrastructure.Configuration;
+using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Modules.Messaging;
 using TasteBudz.Web.Mvc.Options;
 using TasteBudz.Web.Mvc.Services;
+
+const string HostAuthenticationScheme = "TasteBudzHost";
 
 var builder = WebApplication.CreateBuilder(args);
 var mvcSessionIdleTimeout = TimeSpan.FromHours(8);
 
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+builder.Services.AddCors();
+
 builder.Services
     .AddOptions<BackendApiOptions>()
     .Bind(builder.Configuration.GetSection(BackendApiOptions.SectionName))
-    .ValidateDataAnnotations()
     .Validate(
-        options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
-        "BackendApi:BaseUrl must be an absolute URI.")
+        options => string.IsNullOrWhiteSpace(options.BaseUrl) ||
+            Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
+        "BackendApi:BaseUrl must be blank or an absolute URI.")
     .ValidateOnStart();
 
-builder.Services.AddControllersWithViews();
+builder.Services
+    .AddControllersWithViews()
+    .AddApplicationPart(typeof(AuthController).Assembly)
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-CSRF-TOKEN";
@@ -30,8 +51,23 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = mvcSessionIdleTimeout;
 });
 
+// Register the modular backend services and shared infrastructure used by the single host.
+builder.Services.AddTasteBudzFoundation(builder.Configuration);
+
 builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = HostAuthenticationScheme;
+        options.DefaultChallengeScheme = HostAuthenticationScheme;
+        options.DefaultForbidScheme = HostAuthenticationScheme;
+    })
+    .AddPolicyScheme(HostAuthenticationScheme, HostAuthenticationScheme, options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            IsBackendEndpoint(context.Request.Path)
+                ? SessionAuthenticationDefaults.Scheme
+                : CookieAuthenticationDefaults.AuthenticationScheme;
+    })
     .AddCookie(options =>
     {
         options.Cookie.HttpOnly = true;
@@ -44,12 +80,11 @@ builder.Services
         options.EventsType = typeof(BackendSessionCookieEvents);
     });
 
-builder.Services.AddAuthorization();
-
 // Register the MVC app's backend-facing service layer inline.
 // Controllers ask for these concrete services in their constructors, and ASP.NET Core DI supplies them per request.
 builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<BackendSessionCookieEvents>();
+builder.Services.AddScoped<IBackendApiBaseAddressProvider, BackendApiBaseAddressProvider>();
 builder.Services.AddScoped<BackendHttpClient>();
 builder.Services.AddScoped<AuthApiService>();
 builder.Services.AddScoped<ProfileApiService>();
@@ -62,11 +97,15 @@ builder.Services.AddScoped<NotificationApiService>();
 builder.Services.AddScoped<ModerationApiService>();
 
 // Register one named HttpClient for all backend calls.
-// BackendHttpClient asks IHttpClientFactory for this named client whenever it needs to call the API.
+// The base address can come from BackendApi:BaseUrl or fall back to the current single-host request URL.
 builder.Services.AddHttpClient("BackendApi", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<BackendApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+
+    if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var configuredBaseUrl))
+    {
+        client.BaseAddress = configuredBaseUrl;
+    }
 })
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {
@@ -75,26 +114,56 @@ builder.Services.AddHttpClient("BackendApi", (serviceProvider, client) =>
     });
 
 var app = builder.Build();
+var allowedCorsOrigins = app.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()?
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? [];
 
-if (!app.Environment.IsDevelopment())
+await app.EnsureTasteBudzPersistenceReadyAsync();
+
+app.UseExceptionHandler();
+
+if (app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/error");
+    app.MapOpenApi();
+}
+else
+{
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.MapStaticAssets();
 app.UseRouting();
+app.UseCors(policy =>
+{
+    if (allowedCorsOrigins.Length > 0)
+    {
+        policy
+            .WithOrigins(allowedCorsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    }
+});
 app.UseAntiforgery();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
 app.Run();
+
+static bool IsBackendEndpoint(PathString path) =>
+    path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase) ||
+    path.StartsWithSegments("/hubs/chat", StringComparison.OrdinalIgnoreCase);
 
 public partial class Program;

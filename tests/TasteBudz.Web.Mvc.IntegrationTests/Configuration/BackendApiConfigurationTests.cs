@@ -10,7 +10,7 @@ namespace TasteBudz.Web.Mvc.IntegrationTests.Configuration;
 public sealed class BackendApiConfigurationTests
 {
     [Fact]
-    public void DevelopmentSettings_UseBackendHttpsBaseUrl()
+    public void DevelopmentSettings_UseSingleHostBackendFallbackAndSqlite()
     {
         var mvcProjectDirectory = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
@@ -27,21 +27,48 @@ public sealed class BackendApiConfigurationTests
             .AddJsonFile("appsettings.Development.json")
             .Build();
 
-        Assert.Equal("https://localhost:7118", configuration["BackendApi:BaseUrl"]);
+        Assert.Equal(string.Empty, configuration["BackendApi:BaseUrl"]);
+        Assert.Equal("Sqlite", configuration["Persistence:Provider"]);
+        Assert.True(configuration.GetValue<bool>("Persistence:InitializeSqliteOnStartup"));
     }
 
     [Fact]
     public void BackendApiNamedClient_DisablesAutomaticRedirects()
     {
+        var databasePath = Path.Combine(Path.GetTempPath(), "TasteBudz.MvcConfigurationTests", $"{Guid.NewGuid():N}.sqlite");
+        Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
+
         using var factory = new WebApplicationFactory<AccountController>()
-            .WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("IntegrationTesting");
+                builder.ConfigureAppConfiguration((_, configurationBuilder) =>
+                {
+                    configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["ConnectionStrings:TasteBudz"] = $"Data Source={databasePath};Foreign Keys=True;Pooling=False",
+                        ["Persistence:Provider"] = "Sqlite",
+                        ["Persistence:InitializeSqliteOnStartup"] = "true",
+                        ["Persistence:SeedTestDataOnStartup"] = "false",
+                    });
+                });
+            });
 
-        var handlerFactory = factory.Services.GetRequiredService<IHttpMessageHandlerFactory>();
-        using var handler = handlerFactory.CreateHandler("BackendApi");
-        var primaryHandler = FindPrimaryHandler(handler);
+        try
+        {
+            var handlerFactory = factory.Services.GetRequiredService<IHttpMessageHandlerFactory>();
+            using var handler = handlerFactory.CreateHandler("BackendApi");
+            var primaryHandler = FindPrimaryHandler(handler);
 
-        Assert.NotNull(primaryHandler);
-        Assert.False(primaryHandler.AllowAutoRedirect);
+            Assert.NotNull(primaryHandler);
+            Assert.False(primaryHandler.AllowAutoRedirect);
+        }
+        finally
+        {
+            TryDeleteFile(databasePath);
+            TryDeleteFile($"{databasePath}-shm");
+            TryDeleteFile($"{databasePath}-wal");
+        }
     }
 
     private static HttpClientHandler? FindPrimaryHandler(HttpMessageHandler handler)
@@ -63,5 +90,13 @@ public sealed class BackendApiConfigurationTests
         }
 
         return null;
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 }

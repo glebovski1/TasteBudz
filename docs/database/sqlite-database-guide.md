@@ -1,6 +1,7 @@
 # SQLite Database Guide
 
 This is a simple, current-state explanation of how SQLite works in this repo today.
+SQLite is now the local development and automated test provider. Azure SQL / SQL Server is the production target for Azure deployment.
 
 For authoritative backend policy and architecture, see:
 
@@ -9,18 +10,22 @@ For authoritative backend policy and architecture, see:
 
 Important rule:
 
-- the SQL files under `src/TasteBudz.Database/` are still the source of truth for schema and seed data
+- the SQL files under `src/TasteBudz.Database/sqlite/` are still the SQLite source of truth for local/test schema and seed data
+- the SQL files under `src/TasteBudz.Database/sqlserver/` are the manual Azure SQL production deployment scripts
 - the tracked `src/TasteBudz.Database/TasteBudz.sqlite` file is a convenient shared snapshot, not the schema authority
 
 ## How the Database Connection Works
 
 ### 1. Default runtime behavior
 
-`src/TasteBudz.Backend/appsettings.json` uses:
+`src/TasteBudz.Web.Mvc/appsettings.json` uses:
 
 ```json
 "ConnectionStrings": {
   "TasteBudz": "Data Source=TasteBudz.sqlite;Foreign Keys=True;Pooling=False"
+},
+"Persistence": {
+  "Provider": "Sqlite"
 }
 ```
 
@@ -34,7 +39,7 @@ This keeps publish/deploy output portable.
 
 ### 2. Development behavior
 
-`src/TasteBudz.Backend/appsettings.Development.json` overrides the connection string to:
+`src/TasteBudz.Web.Mvc/appsettings.Development.json` overrides the connection string to:
 
 ```json
 "ConnectionStrings": {
@@ -44,7 +49,7 @@ This keeps publish/deploy output portable.
 
 In Development:
 
-- the backend points to `src/TasteBudz.Database/TasteBudz.sqlite`
+- the single web host points to `src/TasteBudz.Database/TasteBudz.sqlite`
 - `InitializeSqliteOnStartup` is `true`
 - `SeedTestDataOnStartup` is `true`
 
@@ -54,8 +59,8 @@ That means local development uses the repo-level SQLite file instead of creating
 
 On application startup:
 
-1. `Program.cs` reads `ConnectionStrings:TasteBudz`
-2. `SqliteConnectionStringHelper.Normalize(...)` resolves relative paths against the backend content root
+1. `src/TasteBudz.Web.Mvc/Program.cs` reads `Persistence:Provider` and `ConnectionStrings:TasteBudz`
+2. `SqliteConnectionStringHelper.Normalize(...)` resolves relative paths against the web host content root
 3. `SqliteDatabaseBootstrapper.EnsureInitializedAsync(...)` decides whether schema initialization is allowed
 4. if the environment is `Development` or `IntegrationTesting` and initialization is enabled:
    - it applies `dbTasteBudz.sqlite.sql`
@@ -66,7 +71,8 @@ On application startup:
 Practical result:
 
 - Development and integration tests can bootstrap from source-controlled SQL
-- non-development environments must point to an already prepared database
+- non-development SQLite environments must point to an already prepared database
+- production Azure SQL environments use the `sqlserver/` scripts manually and do not run SQLite bootstrap
 - the dev test-data seed is not re-applied over an existing user store
 
 ### 4. Integration test behavior
@@ -95,14 +101,17 @@ This means:
 
 ### 6. Files involved
 
-- `src/TasteBudz.Backend/appsettings.json`
-- `src/TasteBudz.Backend/appsettings.Development.json`
-- `src/TasteBudz.Backend/Program.cs`
+- `src/TasteBudz.Web.Mvc/appsettings.json`
+- `src/TasteBudz.Web.Mvc/appsettings.Development.json`
+- `src/TasteBudz.Web.Mvc/Program.cs`
 - `src/TasteBudz.Backend/Infrastructure/Persistence/Sqlite/SqliteConnectionStringHelper.cs`
 - `src/TasteBudz.Backend/Infrastructure/Persistence/Sqlite/SqliteDatabaseBootstrapper.cs`
-- `src/TasteBudz.Database/dbTasteBudz.sqlite.sql`
-- `src/TasteBudz.Database/dbTasteBudz.sqlite.seed.sql`
-- `src/TasteBudz.Database/dbTasteBudz.sqlite.testdata.sql`
+- `src/TasteBudz.Database/sqlite/dbTasteBudz.sqlite.sql`
+- `src/TasteBudz.Database/sqlite/dbTasteBudz.sqlite.seed.sql`
+- `src/TasteBudz.Database/sqlite/dbTasteBudz.sqlite.testdata.sql`
+- `src/TasteBudz.Database/sqlserver/000_schema_versions.sql`
+- `src/TasteBudz.Database/sqlserver/010_schema.sql`
+- `src/TasteBudz.Database/sqlserver/020_seed_reference_data.sql`
 - `src/TasteBudz.Database/init_sqlite.py`
 - `src/TasteBudz.Database/TasteBudz.sqlite`
 
@@ -116,7 +125,7 @@ The current tracked snapshot was rebuilt from:
 
 At the moment, the shared snapshot contains:
 
-- 35 tables
+- 40 tables
 - 13 cuisines
 - 7 ZIP coordinate rows
 - 8 restaurants

@@ -18,13 +18,23 @@ public sealed class BackendHttpClient
 {
     private readonly IHttpClientFactory httpClientFactory;
     private readonly UserSessionService userSessionService;
+    private readonly IBackendApiBaseAddressProvider? baseAddressProvider;
 
     public BackendHttpClient(
         IHttpClientFactory httpClientFactory,
         UserSessionService userSessionService)
+        : this(httpClientFactory, userSessionService, null)
+    {
+    }
+
+    public BackendHttpClient(
+        IHttpClientFactory httpClientFactory,
+        UserSessionService userSessionService,
+        IBackendApiBaseAddressProvider? baseAddressProvider)
     {
         this.httpClientFactory = httpClientFactory;
         this.userSessionService = userSessionService;
+        this.baseAddressProvider = baseAddressProvider;
     }
 
     public Task<TResponse> GetAsync<TResponse>(
@@ -165,6 +175,8 @@ public sealed class BackendHttpClient
         // Create the named HttpClient that Program.cs registered.
         // This keeps base URL and other shared HTTP configuration in one place.
         var client = httpClientFactory.CreateClient("BackendApi");
+        client.BaseAddress ??= baseAddressProvider?.GetBaseAddress()
+            ?? throw new InvalidOperationException("The BackendApi HttpClient must have a BaseAddress or an IBackendApiBaseAddressProvider.");
         using var request = requestFactory();
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 

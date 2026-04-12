@@ -9,7 +9,6 @@ Set-Location $repoRoot
 
 function Stop-TasteBudzProcesses {
     $patterns = @(
-        'TasteBudz.Backend',
         'TasteBudz.Web.Mvc'
     )
 
@@ -49,29 +48,17 @@ if (-not $SkipBuild)
     }
 }
 
-Write-Host "Starting backend..."
-$backend = Start-Process -FilePath "dotnet" -ArgumentList @(
-    "run",
-    "--project", "src\TasteBudz.Backend\TasteBudz.Backend.csproj",
-    "--launch-profile", "https",
-    "--no-build"
-) -WorkingDirectory $repoRoot -PassThru
-
-Start-Sleep -Seconds 3
-
-Write-Host "Starting MVC frontend..."
-$frontend = Start-Process -FilePath "dotnet" -ArgumentList @(
+Write-Host "Starting TasteBudz web host..."
+$web = Start-Process -FilePath "dotnet" -ArgumentList @(
     "run",
     "--project", "src\TasteBudz.Web.Mvc\TasteBudz.Web.Mvc.csproj",
-    "--launch-profile", "https",
+    "--launch-profile", "TasteBudz SQLite Dev (Single Host)",
     "--no-build"
 ) -WorkingDirectory $repoRoot -PassThru
 
 Write-Host ""
-Write-Host "Backend PID:  $($backend.Id)"
-Write-Host "Frontend PID: $($frontend.Id)"
-Write-Host "Backend:  https://localhost:7118"
-Write-Host "Frontend: https://localhost:7115"
+Write-Host "Web host PID: $($web.Id)"
+Write-Host "MVC + API + SignalR: https://localhost:7115"
 Write-Host ""
 Write-Host "Stop them with:"
-Write-Host "  Stop-Process -Id $($backend.Id),$($frontend.Id)"
+Write-Host "  Stop-Process -Id $($web.Id)"

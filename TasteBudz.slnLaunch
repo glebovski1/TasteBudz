@@ -1,14 +1,21 @@
 [
   {
-    "Name": "Frontend + Backend",
+    "Name": "TasteBudz SQLite Dev (Single Host)",
     "Projects": [
       {
-        "Path": "src\\TasteBudz.Backend\\TasteBudz.Backend.csproj",
-        "Action": "Start"
-      },
+        "Path": "src\\TasteBudz.Web.Mvc\\TasteBudz.Web.Mvc.csproj",
+        "Action": "Start",
+        "DebugTarget": "TasteBudz SQLite Dev (Single Host)"
+      }
+    ]
+  },
+  {
+    "Name": "TasteBudz Azure Production",
+    "Projects": [
       {
         "Path": "src\\TasteBudz.Web.Mvc\\TasteBudz.Web.Mvc.csproj",
-        "Action": "Start"
+        "Action": "Start",
+        "DebugTarget": "TasteBudz Azure Production"
       }
     ]
   }

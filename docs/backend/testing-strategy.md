@@ -21,15 +21,17 @@ This document exists to:
 Current team reality:
 
 - backend implementation is owned separately from frontend implementation
-- SQLite runtime persistence is now implemented for the current backend modules
-- backend documentation must stay aligned with the implemented SQLite path
+- SQLite runtime persistence is implemented for local development and integration tests
+- Azure SQL / SQL Server is the production persistence target for Azure deployment
+- backend documentation must stay aligned with the provider switch
 
 Implications:
 
 - backend work must not wait for frontend completion before testing begins
 - backend business rules and HTTP contracts should be proven independently of frontend UI work
 - repository and persistence boundaries should continue to isolate service logic from storage details
-- persistence-sensitive workflows must be validated against the real SQLite relational path, not against in-memory shortcuts alone
+- persistence-sensitive workflows must be validated against the real SQLite relational path for automated tests, not against in-memory shortcuts alone
+- provider-sensitive infrastructure changes should include focused validation that SQL Server configuration is selectable and that production startup does not auto-apply schema
 
 This is a backend testing strategy, not a frontend QA plan and not a database performance tuning plan.
 
@@ -242,8 +244,9 @@ Recommended additions as the backend matures:
 | Integration host | `WebApplicationFactory<Program>` | Best fit for realistic ASP.NET Core API testing |
 | Assertions | FluentAssertions | Improves readability of behavior-focused tests |
 | Test doubles | simple fakes first, mocking only when needed | Keeps tests explicit and less brittle |
-| Database reset | recreate temporary SQLite databases from canonical SQL scripts | Keeps persistence tests repeatable and aligned to the approved runtime schema |
-| Real DB test environment | temporary SQLite files per test or per fixture | Matches the implemented MVP runtime path and supports relational/concurrency proof |
+| Database reset | recreate temporary SQLite databases from canonical SQL scripts | Keeps persistence tests repeatable and aligned to the local/test runtime schema |
+| Real DB test environment | temporary SQLite files per test or per fixture | Matches the implemented local/test runtime path and supports relational/concurrency proof |
+| Provider-sensitive checks | configuration/startup tests and optional SQL Server smoke tests when infrastructure is available | Confirms Azure SQL can be selected without changing code and without startup migrations |
 
 Avoid treating EF Core in-memory behavior as equivalent to SQLite relational behavior for transactional correctness.
 
@@ -251,10 +254,11 @@ Avoid treating EF Core in-memory behavior as equivalent to SQLite relational beh
 
 - Use explicit builders or factories for users, events, groups, messages, and restrictions.
 - Introduce a clock abstraction so `DecisionAt`, completion, and time-based restrictions can be tested deterministically.
-- Seed restaurant and ZIP-coordinate data deterministically from the canonical SQLite seed script.
+- Seed restaurant and ZIP-coordinate data deterministically from the canonical SQLite seed script for local/test runs.
 - Create helpers for authenticated test users with clear roles such as User, Host, GroupOwner, Moderator, and Admin.
 - Keep scenario data compact and readable.
 - Reset persistence state between integration tests by recreating the temporary SQLite database from canonical SQL assets.
+- Treat SQL Server/Azure SQL scripts as manually applied release assets; automated tests should not require a developer-local SQL Server unless a provider-specific test fixture explicitly opts in.
 
 ## 13. Core Scenario Catalogue
 

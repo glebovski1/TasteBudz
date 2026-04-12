@@ -59,5 +59,3 @@ public sealed class RestaurantsController(
         }
     }
 }
-
-public sealed record ImportRestaurantsResultDto(int Inserted, string Message);

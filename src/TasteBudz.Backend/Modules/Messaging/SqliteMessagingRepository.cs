@@ -1,6 +1,6 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Infrastructure.Persistence;
 using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 
 namespace TasteBudz.Backend.Modules.Messaging;
@@ -8,7 +8,9 @@ namespace TasteBudz.Backend.Modules.Messaging;
 /// <summary>
 /// SQLite-backed repository for chat threads and immutable messages.
 /// </summary>
-public sealed class SqliteMessagingRepository(TasteBudzDbContext dbContext) : IMessagingRepository
+public sealed class SqliteMessagingRepository(
+    TasteBudzDbContext dbContext,
+    IPersistenceExceptionClassifier exceptionClassifier) : IMessagingRepository
 {
     public async Task<ChatThread?> GetThreadByScopeAsync(ChatScopeType scopeType, Guid scopeId, CancellationToken cancellationToken = default)
     {
@@ -37,7 +39,7 @@ public sealed class SqliteMessagingRepository(TasteBudzDbContext dbContext) : IM
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
-            catch (DbUpdateException exception) when (exception.InnerException is SqliteException { SqliteErrorCode: 19 })
+            catch (DbUpdateException exception) when (exceptionClassifier.IsUniqueConstraintViolation(exception))
             {
                 dbContext.Entry(entity).State = EntityState.Detached;
             }

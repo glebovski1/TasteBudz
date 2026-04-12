@@ -5,6 +5,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
+using TasteBudz.Backend.Infrastructure.Persistence;
 using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
@@ -38,10 +39,20 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<TasteBudzDbContext>((serviceProvider, options) =>
         {
             var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
-            var connectionString = SqliteConnectionStringHelper.Normalize(
-                configuration.GetConnectionString("TasteBudz") ?? throw new InvalidOperationException("ConnectionStrings:TasteBudz must be configured."),
-                environment.ContentRootPath);
-            options.UseSqlite(connectionString);
+            var persistenceOptions = configuration
+                .GetSection(PersistenceOptions.SectionName)
+                .Get<PersistenceOptions>() ?? new PersistenceOptions();
+            var provider = PersistenceProviderNames.Normalize(persistenceOptions.Provider);
+            var connectionString = configuration.GetConnectionString("TasteBudz")
+                ?? throw new InvalidOperationException("ConnectionStrings:TasteBudz must be configured.");
+
+            if (string.Equals(provider, PersistenceProviderNames.SqlServer, StringComparison.Ordinal))
+            {
+                options.UseSqlServer(connectionString, sqlServerOptions => sqlServerOptions.EnableRetryOnFailure());
+                return;
+            }
+
+            options.UseSqlite(SqliteConnectionStringHelper.Normalize(connectionString, environment.ContentRootPath));
         });
 
         services.AddSingleton<IClock, TasteBudz.Backend.Infrastructure.Time.SystemClock>();
@@ -52,6 +63,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITokenGenerator, SecureTokenGenerator>();
         services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
         services.AddSingleton<IFeatureFlagService, FeatureFlagService>();
+        services.AddSingleton<IPersistenceExceptionClassifier, RelationalPersistenceExceptionClassifier>();
         services.AddScoped<IPersistenceTransactionRunner, SqliteTransactionRunner>();
 
         services.AddScoped<IAuthRepository, SqliteAuthRepository>();
@@ -110,7 +122,7 @@ public static class ServiceCollectionExtensions
 
         // The app uses a custom bearer handler backed by the session repository instead of JWT validation.
         services
-            .AddAuthentication(SessionAuthenticationDefaults.Scheme)
+            .AddAuthentication()
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationDefaults.Scheme, _ => { });
 
         services.AddAuthorization(options =>

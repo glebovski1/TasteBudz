@@ -116,16 +116,3 @@ public sealed class UserCardController : Controller
         catch (BackendApiException ex) { return BadRequest(new { error = ex.Message }); }
     }
 }
-
-public sealed class UserIdRequest
-{
-    public Guid UserId { get; init; }
-}
-
-public sealed class ReportRequest
-{
-    public Guid UserId { get; init; }
-    public string? Category { get; init; }
-    public string Reason { get; init; } = string.Empty;
-    public string? Explanation { get; init; }
-}

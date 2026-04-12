@@ -5,7 +5,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseAppHost>false</UseAppHost>
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="artifacts\\**\\*.cs" />
+    <Content Remove="artifacts\\**" />
+    <None Remove="artifacts\\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TasteBudz.Backend\TasteBudz.Backend.csproj" />

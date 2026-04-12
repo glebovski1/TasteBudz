@@ -4,17 +4,17 @@ This document defines the target backend architecture for TasteBudz. The design 
 
 Core constraints:
 
-- ASP.NET Core Web API backend
-- single deployable modular monolith
-- SQLite runtime persistence for the implemented MVP backend
+- ASP.NET Core modular monolith hosted by one deployable ASP.NET Core web app
+- MVC frontend, backend API controllers, SignalR hub, backend services, and EF Core persistence wiring in one release artifact
+- Azure SQL / SQL Server production persistence with SQLite retained for local development and automated tests
 - thin controllers, service-owned business rules
 - repository boundary around persistence
 - no microservices, event sourcing, or speculative enterprise patterns
-- canonical schema kept in source-controlled SQLite SQL scripts with EF Core runtime mappings
+- production schema managed manually through source-controlled SQL Server/Azure SQL scripts; local SQLite schema remains source-controlled for development/test bootstrap
 
 ## 1. Overview
 
-TasteBudz should remain a single deployable modular monolith with a frontend-agnostic HTTP API and server-owned business rules.
+TasteBudz should remain a single deployable modular monolith with a frontend-agnostic HTTP API, MVC frontend, SignalR chat hub, and server-owned business rules in one ASP.NET Core host.
 
 The backend owns:
 
@@ -66,7 +66,7 @@ Rules:
 - Service-owned business logic
 - Light domain model with explicit invariants
 - Clear module boundaries
-- Single deployable backend
+- Single deployable web host for MVC, backend API, and SignalR
 - Persistence-neutral module boundaries behind repositories
 - Feature-flagged growth for later capabilities
 
@@ -632,14 +632,16 @@ Flags should be checked at module entry points rather than scattered throughout 
 
 ## 10. Persistence Approach
 
-The approved runtime persistence path for the implemented MVP backend is SQLite.
+The approved production persistence target for Azure deployment is Azure SQL / SQL Server. SQLite remains the approved local development and automated integration-test provider.
 
 Current architecture requirements:
 
-- canonical schema and seed data live in source-controlled SQLite SQL scripts under `src/TasteBudz.Database`
-- EF Core plus `TasteBudzDbContext` are used as runtime repository plumbing against that canonical schema
-- the backend may auto-initialize or recreate SQLite databases from those scripts only in Development and IntegrationTesting
-- non-development environments should fail fast if the configured SQLite database is missing required tables
+- `Persistence:Provider=Sqlite` uses the SQLite scripts under `src/TasteBudz.Database/sqlite`
+- `Persistence:Provider=SqlServer` uses SQL Server/Azure SQL through EF Core and an externally prepared database
+- EF Core plus `TasteBudzDbContext` are used as runtime repository plumbing for both providers
+- the backend may auto-initialize or recreate SQLite databases from scripts only in Development and IntegrationTesting
+- production SQL Server/Azure SQL schema is manually managed through source-controlled scripts under `src/TasteBudz.Database/sqlserver`
+- production startup must validate required SQL Server tables and columns but must not create or migrate schema automatically
 - module repository interfaces remain the stable persistence boundary
 
 Stable requirements regardless of persistence style:
