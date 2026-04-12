@@ -1,7 +1,7 @@
 @model DashboardViewModel
 
 @{
-    ViewData["Title"] = "View Profile";
+    ViewData["Title"] = "Dashboard";
 
     string StatusClass(TasteBudz.Backend.Domain.EventStatus status) =>
         $"status-badge status-badge--{status.ToString().ToLowerInvariant()}";
@@ -122,7 +122,7 @@
                     <p>
                         @if (string.IsNullOrWhiteSpace(Model.Bio))
                         {
-                            <span>This profile is live, but the bio is still empty.</span>
+                            <span class="empty-state">No bio added yet.</span>
                         }
                         else
                         {

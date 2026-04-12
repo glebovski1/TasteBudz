@@ -18,15 +18,13 @@ public sealed class OverpassRestaurantImporter(
 {
     private const string OverpassUrl = "https://overpass-api.de/api/interpreter";
 
-    // Bounding box covering Greater Cincinnati and Northern Kentucky:
-    // South: 38.95 (south of Covington/Newport)
-    // North: 39.35 (north of I-275 loop)
-    // West:  -84.75 (west of Harrison/Colerain)
-    // East:  -84.25 (east of Milford/Anderson)
-    private const double BBoxSouth = 38.95;
-    private const double BBoxNorth = 39.35;
-    private const double BBoxWest = -84.75;
-    private const double BBoxEast = -84.25;
+    // Expanded bounding box covering the full Greater Cincinnati metro area
+    // including Northern Kentucky, Mason, Harrison, Batavia, and Lawrenceburg IN.
+    // Format for Overpass: (south, west, north, east)
+    private const double BBoxSouth = 38.90;  // South of Florence / Erlanger KY
+    private const double BBoxNorth = 39.40;  // North of Mason / Lebanon OH
+    private const double BBoxWest = -84.90; // West past Harrison / Lawrenceburg IN
+    private const double BBoxEast = -84.15; // East past Batavia / Milford OH
 
     // Maps OSM cuisine tag values to your existing Cuisine names in the database.
     private static readonly Dictionary<string, string> CuisineTagMap = new(StringComparer.OrdinalIgnoreCase)
@@ -73,7 +71,7 @@ public sealed class OverpassRestaurantImporter(
             .Select(r => r.ExternalPlaceId!)
             .ToHashSetAsync(cancellationToken);
 
-        // Add any new cuisine names from the map that aren't in the database yet
+        // Ensure any new cuisine names from the map exist in the database
         foreach (var cuisineName in CuisineTagMap.Values.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (!cuisines.ContainsKey(cuisineName))
@@ -89,18 +87,18 @@ public sealed class OverpassRestaurantImporter(
         var client = httpClientFactory.CreateClient("Overpass");
 
         logger.LogInformation(
-            "Querying Overpass for restaurants in Greater Cincinnati bounding box ({S},{W}) to ({N},{E})...",
+            "Querying Overpass for restaurants in Greater Cincinnati ({S},{W}) to ({N},{E})...",
             BBoxSouth, BBoxWest, BBoxNorth, BBoxEast);
 
         var nodes = await QueryOverpassAsync(client, cancellationToken);
 
-        logger.LogInformation("Found {Count} OSM restaurant nodes.", nodes.Count);
+        logger.LogInformation("Found {Count} OSM restaurant elements (nodes + ways).", nodes.Count);
 
         var inserted = 0;
 
         foreach (var node in nodes)
         {
-            var osmId = $"osm:{node.Id}";
+            var osmId = $"osm:{node.Type}:{node.Id}";
             if (existingOsmIds.Contains(osmId))
                 continue;
 
@@ -108,12 +106,16 @@ public sealed class OverpassRestaurantImporter(
             if (string.IsNullOrWhiteSpace(name))
                 continue;
 
+            // Skip entries without coordinates (ways without center data)
+            if (!node.Lat.HasValue || !node.Lon.HasValue)
+                continue;
+
             var restaurantId = Guid.NewGuid();
             var cuisineTagRaw = node.Tags.GetValueOrDefault("cuisine") ?? "";
             var matchedCuisines = ResolveCuisines(cuisineTagRaw, cuisines);
-            var city = node.Tags.GetValueOrDefault("addr:city") ?? DeriveCity(node.Lat, node.Lon);
-            var state = node.Tags.GetValueOrDefault("addr:state") ?? DeriveState(node.Lat, node.Lon);
-            var zipCode = node.Tags.GetValueOrDefault("addr:postcode") ?? DeriveZip(node.Lat, node.Lon);
+            var city = node.Tags.GetValueOrDefault("addr:city") ?? DeriveCity(node.Lat.Value, node.Lon.Value);
+            var state = node.Tags.GetValueOrDefault("addr:state") ?? DeriveState(node.Lat.Value, node.Lon.Value);
+            var zipCode = node.Tags.GetValueOrDefault("addr:postcode") ?? DeriveZip(node.Lat.Value, node.Lon.Value);
 
             dbContext.Restaurants.Add(new RestaurantEntity
             {
@@ -122,8 +124,8 @@ public sealed class OverpassRestaurantImporter(
                 City = city,
                 State = state,
                 ZipCode = zipCode,
-                Latitude = node.Lat,
-                Longitude = node.Lon,
+                Latitude = node.Lat.Value,
+                Longitude = node.Lon.Value,
                 PriceTier = PriceTier.Two,
                 ExternalPlaceId = osmId,
             });
@@ -140,8 +142,8 @@ public sealed class OverpassRestaurantImporter(
             existingOsmIds.Add(osmId);
             inserted++;
 
-            // Save in batches of 100 to avoid holding too many changes in memory
-            if (inserted % 100 == 0)
+            // Save in batches of 200 to avoid holding too many changes in memory
+            if (inserted % 200 == 0)
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
                 logger.LogInformation("  Saved {Count} restaurants so far...", inserted);
@@ -155,16 +157,20 @@ public sealed class OverpassRestaurantImporter(
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task<List<OsmNode>> QueryOverpassAsync(
+    private async Task<List<OsmElement>> QueryOverpassAsync(
         HttpClient client,
         CancellationToken cancellationToken)
     {
-        // Single bounding box query — much faster and more complete than per-ZIP queries.
-        // Format: (south, west, north, east)
+        // Query BOTH nodes (point markers) and ways (building polygons).
+        // "out center" returns the centroid lat/lon for way elements.
+        // This typically doubles the number of results vs node-only queries.
         var query = $"""
-            [out:json][timeout:60];
-            node["amenity"="restaurant"]({BBoxSouth},{BBoxWest},{BBoxNorth},{BBoxEast});
-            out;
+            [out:json][timeout:90];
+            (
+              node["amenity"="restaurant"]({BBoxSouth},{BBoxWest},{BBoxNorth},{BBoxEast});
+              way["amenity"="restaurant"]({BBoxSouth},{BBoxWest},{BBoxNorth},{BBoxEast});
+            );
+            out center;
             """;
 
         try
@@ -188,10 +194,28 @@ public sealed class OverpassRestaurantImporter(
                             tags[tag.Name] = tag.Value.GetString() ?? "";
                     }
 
-                    return new OsmNode(
+                    var type = el.GetProperty("type").GetString() ?? "node";
+
+                    // Nodes have lat/lon directly; ways have a "center" object
+                    double? lat = null;
+                    double? lon = null;
+
+                    if (el.TryGetProperty("lat", out var latEl))
+                        lat = latEl.GetDouble();
+                    else if (el.TryGetProperty("center", out var center))
+                    {
+                        lat = center.GetProperty("lat").GetDouble();
+                        lon = center.GetProperty("lon").GetDouble();
+                    }
+
+                    if (el.TryGetProperty("lon", out var lonEl))
+                        lon = lonEl.GetDouble();
+
+                    return new OsmElement(
                         el.GetProperty("id").GetInt64(),
-                        el.GetProperty("lat").GetDouble(),
-                        el.GetProperty("lon").GetDouble(),
+                        type,
+                        lat,
+                        lon,
                         tags);
                 })
                 .ToList();
@@ -221,13 +245,13 @@ public sealed class OverpassRestaurantImporter(
         return matched;
     }
 
-    /// <summary>Derives city from coordinates — Kentucky south of the river, Ohio north.</summary>
+    /// <summary>Derives city from coordinates.</summary>
     private static string DeriveCity(double lat, double lon) => lat < 39.09 ? "Covington" : "Cincinnati";
 
-    /// <summary>Derives state from coordinates.</summary>
+    /// <summary>Derives state from coordinates — Kentucky south of ~39.09, Ohio north.</summary>
     private static string DeriveState(double lat, double lon) => lat < 39.09 ? "KY" : "OH";
 
-    /// <summary>Returns the nearest seeded ZIP code based on rough coordinate ranges.</summary>
+    /// <summary>Returns the nearest seeded ZIP code based on coordinate ranges.</summary>
     private static string DeriveZip(double lat, double lon) => (lat, lon) switch
     {
         _ when lat < 39.09 => "41011", // Northern KY / Covington
@@ -235,12 +259,13 @@ public sealed class OverpassRestaurantImporter(
         _ when lat < 39.12 => "45202", // Downtown Cincinnati
         _ when lat < 39.13 => "45219", // UC area
         _ when lon > -84.45 => "45208", // Hyde Park / Columbia Tusculum
-        _ => "45206", // Default — Evanston / Hyde Park area
+        _ => "45206", // Default — Evanston area
     };
 
-    private sealed record OsmNode(
+    private sealed record OsmElement(
         long Id,
-        double Lat,
-        double Lon,
+        string Type,
+        double? Lat,
+        double? Lon,
         Dictionary<string, string> Tags);
 }

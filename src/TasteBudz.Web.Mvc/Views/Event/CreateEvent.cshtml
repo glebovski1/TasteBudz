@@ -46,20 +46,22 @@
 
         <div class="editor-grid">
 
-            <section class="card stack">
+            <section class="card stack" style="grid-column: 1 / -1;">
                 <div>
                     <h2 class="card__title">Event Details</h2>
                     <p class="card__subtitle">Give your event a name and choose a cuisine theme.</p>
                 </div>
-                <div class="field">
-                    <label asp-for="Title"></label>
-                    <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday…" />
-                    <span asp-validation-for="Title" class="field-validation-error"></span>
-                </div>
-                <div class="field">
-                    <label asp-for="CuisineTarget"></label>
-                    <input asp-for="CuisineTarget" placeholder="e.g. Japanese, Mexican, Italian… (optional)" />
-                    <span asp-validation-for="CuisineTarget" class="field-validation-error"></span>
+                <div class="editor-grid" style="gap: 1rem;">
+                    <div class="field">
+                        <label asp-for="Title"></label>
+                        <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday…" />
+                        <span asp-validation-for="Title" class="field-validation-error"></span>
+                    </div>
+                    <div class="field">
+                        <label asp-for="CuisineTarget"></label>
+                        <input asp-for="CuisineTarget" placeholder="e.g. Japanese, Mexican, Italian… (optional)" />
+                        <span asp-validation-for="CuisineTarget" class="field-validation-error"></span>
+                    </div>
                 </div>
             </section>
 
@@ -114,7 +116,7 @@
                 else
                 {
                     @* ── Filter bar ── *@
-                    <div class="restaurant-filters" style="display:grid; grid-template-columns: 1fr 1fr auto auto; gap:0.6rem; align-items:end;">
+                    <div class="restaurant-filters">
 
                         <div class="field" style="margin:0;">
                             <label for="filterName">Search by name</label>
@@ -127,7 +129,7 @@
                                 <option value="">All cuisines</option>
                                 @foreach (var c in allCuisines)
                                 {
-                                    <option value="@c">@c</option>
+                                    <option value="@c" selected="@(c.Equals(Model.CuisineTarget, StringComparison.OrdinalIgnoreCase))">@c</option>
                                 }
                             </select>
                         </div>
@@ -332,6 +334,9 @@
         if (filterPrice)   filterPrice.value   = "";
         applyFilters();
         });
+
+        // Apply the pre-selected cuisine filter on page load
+        applyFilters();
 
         // ── Helpers ──────────────────────────────────────────────────────────
 

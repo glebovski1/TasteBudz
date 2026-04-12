@@ -16,15 +16,18 @@ public sealed class EventController : Controller
 {
     private readonly EventApiService eventApiService;
     private readonly RestaurantApiService restaurantApiService;
+    private readonly ProfileApiService profileApiService;
     private readonly UserSessionService userSessionService;
 
     public EventController(
         EventApiService eventApiService,
         RestaurantApiService restaurantApiService,
+        ProfileApiService profileApiService,
         UserSessionService userSessionService)
     {
         this.eventApiService = eventApiService;
         this.restaurantApiService = restaurantApiService;
+        this.profileApiService = profileApiService;
         this.userSessionService = userSessionService;
     }
 
@@ -218,21 +221,43 @@ public sealed class EventController : Controller
         EventCreateViewModel model,
         CancellationToken cancellationToken)
     {
+        // Fetch user preferences so we can pre-fill cuisine and filter the map.
+        string? preferredCuisine = null;
         try
         {
+            var prefs = await profileApiService.GetMyPreferencesAsync(cancellationToken);
+            preferredCuisine = prefs.CuisineTags.FirstOrDefault();
+        }
+        catch { /* preferences are optional — continue without them */ }
+
+        // Pre-fill CuisineTarget only when the user hasn't already typed something.
+        var cuisineTarget = model.CuisineTarget;
+        if (string.IsNullOrWhiteSpace(cuisineTarget) && preferredCuisine is not null)
+            cuisineTarget = preferredCuisine;
+
+        try
+        {
+            // Filter restaurants by the user's first preferred cuisine when available.
+            // This keeps the map payload small; the user can clear the filter to see all.
             var restaurants = await restaurantApiService.BrowseAsync(
-            new BrowseRestaurantsQuery { PageSize = 2000 },
-            cancellationToken: cancellationToken);
+                new BrowseRestaurantsQuery
+                {
+                    Cuisine = preferredCuisine,
+                    PageSize = 200,
+                },
+                cancellationToken: cancellationToken);
+
             return model with
             {
+                CuisineTarget = cuisineTarget,
                 Restaurants = restaurants.Items
                     .Select(RestaurantPickerItem.FromDto)
-                    .ToList()
+                    .ToList(),
             };
         }
         catch
         {
-            return model with { Restaurants = [] };
+            return model with { CuisineTarget = cuisineTarget, Restaurants = [] };
         }
     }
 

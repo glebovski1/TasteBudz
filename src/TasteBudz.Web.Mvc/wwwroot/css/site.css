@@ -1041,7 +1041,7 @@ main {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background-color: #007BFF;
+    background: linear-gradient(135deg, var(--accent), #ff9a5f);
     color: white;
     border: none;
     border-radius: 50%;
@@ -1055,7 +1055,8 @@ main {
 }
 
     .floating-btn:hover {
-        background-color: #0056b3;
+        opacity: 0.9;
+        transform: translateY(-2px);
     }
 
 /* ── Chat shell ─────────────────────────────────────────────────────────── */
@@ -2158,3 +2159,286 @@ main {
         transform: translateY(-1px);
         opacity: 0.92;
     }
+
+/* ========================================
+   MOBILE FIXES
+   Append these rules to the end of site.css
+======================================== */
+
+/* ── Hamburger menu (hidden on desktop) ─────────────────────────────────── */
+
+.nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    flex-direction: column;
+    gap: 5px;
+    align-self: center;
+}
+
+.nav-toggle__bar {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Animate to X when open */
+.nav-toggle[aria-expanded="true"] .nav-toggle__bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle__bar:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle__bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ── Responsive header ───────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+
+    /* Show the hamburger button */
+    .nav-toggle {
+        display: flex;
+    }
+
+    /* Header row: brand on left, hamburger on right */
+    .header__inner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 1rem;
+    }
+
+    /* Nav is hidden by default on mobile, shown when toggled */
+    .tb-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        background: linear-gradient(135deg, #ff7043, #ffab40);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        padding: 0.5rem 0;
+        z-index: 999;
+    }
+
+        .tb-nav.is-open {
+            display: flex;
+        }
+
+        .tb-nav a,
+        .tb-nav-logout {
+            padding: 0.85rem 1.25rem;
+            border-radius: 0;
+            font-size: 1rem;
+            width: 100%;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .tb-nav form {
+            display: block !important;
+            width: 100%;
+        }
+
+    /* Offset main content for the taller sticky header at mobile sizes */
+    main {
+        margin-top: 56px;
+    }
+}
+
+/* ── Restaurant filter bar ───────────────────────────────────────────────── */
+
+/* The inline style in CreateEvent.cshtml uses a 4-column grid.
+   This class overrides it on small screens. */
+.restaurant-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap: 0.6rem;
+    align-items: end;
+}
+
+@media (max-width: 600px) {
+    .restaurant-filters {
+        grid-template-columns: 1fr;
+    }
+
+        .restaurant-filters .field {
+            margin: 0;
+        }
+}
+
+/* ── Member row mobile wrap ──────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .member-row {
+        flex-wrap: wrap;
+        gap: 0.6rem;
+    }
+
+        .member-row form,
+        .member-row > .button {
+            margin-left: 0 !important;
+            width: 100%;
+        }
+
+    .member-row__info--clickable {
+        flex: 1 1 calc(100% - 3rem);
+    }
+}
+
+/* ── Panel grid min-width safety ─────────────────────────────────────────── */
+
+/* Prevent panel-grid from overflowing on very narrow screens */
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: 1rem;
+}
+
+/* ── General overflow safety ─────────────────────────────────────────────── */
+
+/* Prevent any single element from forcing a horizontal scrollbar */
+.profile-shell,
+.admin-shell,
+.chat-shell {
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+img, video, iframe, table {
+    max-width: 100%;
+}
+
+/* ── Restaurant map height on mobile ─────────────────────────────────────── */
+
+@media (max-width: 600px) {
+    .restaurant-map {
+        height: 280px;
+    }
+}
+/* Full-width banner variant (single-column) */
+.profile-banner--full {
+    grid-template-columns: 1fr;
+}
+
+
+/* ========================================
+   HOME PAGE — PHOTO ELEMENTS
+======================================== */
+
+/* Hero photo frame replaces the floating mock cards */
+.hero-photo-frame {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(115, 62, 33, 0.18);
+}
+
+.hero-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+}
+
+/* Match badge overlaid on the photo */
+.hero-photo-badge {
+    position: absolute;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--accent-dark);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.hero-photo-badge__icon {
+    font-size: 1rem;
+}
+
+/* Full-bleed photo strip between mission and features */
+.home-photo-break {
+    position: relative;
+    width: 100vw;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    height: 340px;
+    overflow: hidden;
+}
+
+.home-photo-break__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 60%;
+    display: block;
+}
+
+/* Dark gradient overlay so the quote is legible */
+.home-photo-break__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient( to right, rgba(30, 15, 5, 0.62) 0%, rgba(30, 15, 5, 0.38) 55%, rgba(30, 15, 5, 0.08) 100% );
+    display: flex;
+    align-items: center;
+    padding: 0 calc(50vw - 590px + 1.5rem);
+}
+
+.home-photo-break__quote {
+    max-width: 26rem;
+    margin: 0;
+    font-size: clamp(1.35rem, 2.8vw, 1.9rem);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #fff;
+}
+
+@media (max-width: 900px) {
+    .hero-photo-frame {
+        max-width: 100%;
+    }
+
+    .home-photo-break {
+        height: 260px;
+    }
+
+    .home-photo-break__overlay {
+        padding: 0 1.5rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .home-photo-break {
+        height: 200px;
+    }
+
+    .home-photo-break__quote {
+        font-size: 1.15rem;
+    }
+}
