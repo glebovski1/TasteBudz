@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Http.Extensions;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Payments;
 using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Web.Mvc.Services;
@@ -96,6 +97,27 @@ public sealed class EventApiService
         backendHttpClient.PostAsync<ReserveEventSlotRequest, EventSlotReservationDto>(
             $"/api/v1/events/{eventId}/slot-reservations",
             request,
+            cancellationToken: cancellationToken);
+
+    public Task<CheckoutSessionDto> CreateCheckoutSessionAsync(
+        Guid eventId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CheckoutSessionDto>(
+            $"/api/v1/events/{eventId}/checkout-sessions",
+            cancellationToken: cancellationToken);
+
+    public Task<CheckoutSessionDto> CompleteCheckoutSessionAsync(
+        Guid checkoutSessionId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CheckoutSessionDto>(
+            $"/api/v1/checkout-sessions/{checkoutSessionId}/completion",
+            cancellationToken: cancellationToken);
+
+    public Task<CheckoutSessionDto> CancelCheckoutSessionAsync(
+        Guid checkoutSessionId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CheckoutSessionDto>(
+            $"/api/v1/checkout-sessions/{checkoutSessionId}/cancellation",
             cancellationToken: cancellationToken);
 
     private static string BuildBrowsePath(BrowseEventsQuery query)

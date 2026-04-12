@@ -24,7 +24,7 @@ Implement the following MVP items first. Each item references the owning require
 > MVP decisions locked for the capstone:
 > - Restaurants use the internal catalog for MVP user-facing discovery; admin-only catalog import may populate it from OpenStreetMap/Overpass without making user browse/search depend on a live external API.
 > - Notifications are in-app only in MVP; no scheduled reminder jobs are required.
-> - People discovery in MVP includes search + swipe + mutual Budz; direct 1-on-1 messaging remains out of MVP UI.
+> - People discovery in MVP includes search + swipe + mutual Budz; direct 1-on-1 messaging is feature-flagged and remains outside the default MVP UI.
 > - Basic query-based browse/search for open events and public groups is in scope; richer feed/caching is later.
 > - Event chat and group chat are both in scope for MVP and share the same basic messaging core.
 
@@ -384,7 +384,7 @@ Priority legend:
 - Leaving or removal revokes event-chat access immediately.
 - MVP event chat is text-only.
 - MVP transport uses SignalR/WebSockets for real-time delivery plus paged history retrieval.
-- Direct 1-on-1 messaging remains outside MVP UI.
+- Direct 1-on-1 messaging is governed by FR-021 and remains outside the default MVP UI unless enabled.
 
 ### FR-017A Group Chat
 
@@ -443,14 +443,15 @@ Priority legend:
 
 **Priority:** MVP++
 
-**Description:** The backend may implement direct messaging structures/endpoints while keeping the feature disabled until enabled.
+**Description:** The backend implements direct messaging structures/endpoints while keeping the feature disabled until enabled.
 
 **Acceptance Criteria**
 
 - Direct chats exist as separate threads/messages.
-- Direct messaging is allowed only when policy allows it, such as between Budz.
+- Direct messaging is allowed only between current connected Budz.
 - Feature flags can disable creation/sending in production.
-- Blocking, moderation, and reporting policies apply.
+- Blocking, moderation, `ChatSend` restrictions, and reporting policies apply.
+- Direct chats use the same text-only SignalR plus paged history model as event and group chat.
 
 ### FR-022 Event and Group Browse/Search
 
@@ -600,7 +601,7 @@ Priority legend:
 - After cutoff, the final active/inactive result is frozen.
 - If the threshold is not met by cutoff, discount remains inactive.
 - Discount simulation is disabled by default unless explicitly enabled.
-- Payment simulation, checkout state, and payment-side effects are out of scope until separately approved.
+- Discount activation does not itself settle payments; checkout simulation is governed by FR-034.
 
 ### FR-033 Restaurant Admin Controls on Slot-Linked Events
 
@@ -612,6 +613,23 @@ Priority legend:
 
 - Restaurant admins can cancel a slot and linked events are cancelled with normal event-cancellation notifications.
 - Optional restaurant approval/denial flows remain disabled by default.
+
+### FR-034 Payment Simulation and Checkout (Feature-Flagged)
+
+**Priority:** MVP++
+
+**Description:** Joined event participants may run a simulation-only checkout flow for an event with a selected restaurant while the feature remains disabled by default.
+
+**Acceptance Criteria**
+
+- Checkout creation is feature-flagged and disabled by default.
+- Only a current `JOINED` event participant can create a checkout session for that event.
+- Checkout requires a selected restaurant and does not call an external payment provider.
+- Checkout totals are simulated from the selected restaurant price tier.
+- An active discount activation may reduce the simulated total.
+- Checkout sessions can move from `Pending` to `Completed` or `Cancelled`.
+- Completed sessions cannot be cancelled, and cancelled sessions cannot be completed.
+- No real money movement, settlement, refunds, tax calculation, tips, saved payment methods, or provider webhooks are implied.
 
 ## 3. Non-Functional Requirements
 
@@ -667,7 +685,7 @@ Priority legend:
 ### A1. Locked Design Decisions (MVP)
 
 1. Groups and events both exist; events may optionally link to a group.
-2. People discovery includes search + swipe + mutual Budz in MVP, while direct 1-on-1 messaging remains out of MVP UI.
+2. People discovery includes search + swipe + mutual Budz in MVP, while direct 1-on-1 messaging is feature-flagged and remains out of default MVP UI.
 3. Event chat and group chat are both part of MVP.
 4. Event status lifecycle is server-controlled and includes cancellation plus automatic time-based completion.
 5. Restaurants are stored internally with optional external PlaceId.
@@ -682,6 +700,7 @@ Priority legend:
 3. Restaurants may have multiple admins and slot operations later.
 4. Slots are reserved immediately upon selection.
 5. Discount thresholds activate based on confirmed participants.
+6. Payment simulation and checkout remain feature-flagged and simulation-only.
 
 ## Appendix C: Risk-Based Downscopes
 
@@ -770,6 +789,7 @@ This appendix defines safe fallback variants for higher-risk features.
 - EventSlotReservation
 - DiscountActivation
 - Direct-chat scope over ChatThread/ChatMessage
+- CheckoutSession
 - Search/feed projections as read models
 
 ## Change Log
@@ -780,3 +800,4 @@ This appendix defines safe fallback variants for higher-risk features.
 - Corrected event sizing to a typical 4-6 participants with a hard maximum capacity of 8 and no hard maximum group-member cap in MVP.
 - Added explicit host event-edit and automatic event-completion rules so the requirements match the backend architecture and decision log.
 - Refreshed the data model checklist so it matches the standalone backend domain model.
+- Promoted direct chat and simulation-only checkout to feature-flagged MVP++ backend behavior.

@@ -16,6 +16,8 @@ public sealed class MessagingApiServiceTests
         var service = context.CreateService(client => new MessagingApiService(client));
         var eventId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
+        var directChatId = Guid.NewGuid();
+        var subjectUserId = Guid.NewGuid();
 
         context.BackendHandler.Enqueue(
             HttpMethod.Get,
@@ -39,6 +41,29 @@ public sealed class MessagingApiServiceTests
                         new ChatMessageDto(Guid.NewGuid(), Guid.NewGuid(), "sam", "Sam Carter", "Hello group chat", DateTimeOffset.UtcNow),
                     },
                     null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/direct-chats",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new DirectChatDto(directChatId, subjectUserId, "sam", "Sam Carter", DateTimeOffset.UtcNow)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/direct-chats/{directChatId}/messages?pageSize=10",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CursorPageResponse<ChatMessageDto>(
+                    new[]
+                    {
+                        new ChatMessageDto(Guid.NewGuid(), subjectUserId, "sam", "Sam Carter", "Hello direct chat", DateTimeOffset.UtcNow),
+                    },
+                    null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/direct-chats/{directChatId}/messages",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ChatMessageDto(Guid.NewGuid(), subjectUserId, "alex", "Alex Carter", "Direct reply", DateTimeOffset.UtcNow)));
 
         var eventMessages = await service.ListEventMessagesAsync(eventId, new ChatHistoryQuery
         {
@@ -49,6 +74,18 @@ public sealed class MessagingApiServiceTests
         {
             PageSize = 15,
         });
+        var directChat = await service.CreateDirectChatAsync(new CreateDirectChatRequest
+        {
+            SubjectUserId = subjectUserId,
+        });
+        var directMessages = await service.ListDirectMessagesAsync(directChatId, new ChatHistoryQuery
+        {
+            PageSize = 10,
+        });
+        var directMessage = await service.SendDirectMessageAsync(directChatId, new SendDirectChatMessageRequest
+        {
+            Body = "Direct reply",
+        });
 
         Assert.Equal("/hubs/chat", MessagingApiService.HubPath);
         Assert.Equal("JoinScope", MessagingApiService.JoinScopeMethodName);
@@ -57,6 +94,15 @@ public sealed class MessagingApiServiceTests
         Assert.Single(eventMessages.Items);
         Assert.Equal("cursor-2", eventMessages.NextCursor);
         Assert.Single(groupMessages.Items);
+        Assert.Equal(directChatId, directChat.DirectChatId);
+        Assert.Single(directMessages.Items);
+        Assert.Equal("Direct reply", directMessage.Body);
+        Assert.Contains(
+            "\"subjectUserId\":\"" + subjectUserId,
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/direct-chats").Body);
+        Assert.Contains(
+            "\"body\":\"Direct reply\"",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/direct-chats/{directChatId}/messages").Body);
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();
     }

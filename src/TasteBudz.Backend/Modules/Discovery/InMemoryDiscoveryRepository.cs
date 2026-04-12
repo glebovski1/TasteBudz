@@ -44,6 +44,15 @@ public sealed class InMemoryDiscoveryRepository(InMemoryTasteBudzStore store) : 
         }
     }
 
+    public Task<BudConnection?> GetBudConnectionByIdAsync(Guid budConnectionId, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var connection = store.BudConnections.Values.FirstOrDefault(item => item.Id == budConnectionId);
+            return Task.FromResult(connection);
+        }
+    }
+
     public Task SaveBudConnectionAsync(BudConnection connection, CancellationToken cancellationToken = default)
     {
         lock (store.SyncRoot)

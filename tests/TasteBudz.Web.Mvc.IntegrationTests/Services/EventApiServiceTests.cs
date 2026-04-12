@@ -2,6 +2,7 @@ using System.Net;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Payments;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 using TasteBudz.Web.Mvc.Services;
@@ -79,6 +80,7 @@ public sealed class EventApiServiceTests
         var eventId = Guid.NewGuid();
         var restaurantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
+        var checkoutSessionId = Guid.NewGuid();
 
         context.BackendHandler.Enqueue(
             HttpMethod.Post,
@@ -127,6 +129,24 @@ public sealed class EventApiServiceTests
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
                 new EventSlotReservationDto(Guid.NewGuid(), eventId, restaurantId, restaurantId, EventSlotReservationStatus.Active, DateTimeOffset.UtcNow, null, null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/events/{eventId}/checkout-sessions",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CheckoutSessionDto(checkoutSessionId, eventId, userId, CheckoutSessionStatus.Pending, "USD", 2500, 0, 2500, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/checkout-sessions/{checkoutSessionId}/completion",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CheckoutSessionDto(checkoutSessionId, eventId, userId, CheckoutSessionStatus.Completed, "USD", 2500, 0, 2500, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/checkout-sessions/{checkoutSessionId}/cancellation",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CheckoutSessionDto(checkoutSessionId, eventId, userId, CheckoutSessionStatus.Cancelled, "USD", 2500, 0, 2500, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow)));
 
         await service.CreateAsync(new CreateEventRequest
         {
@@ -161,6 +181,9 @@ public sealed class EventApiServiceTests
         {
             SlotId = restaurantId,
         });
+        var checkout = await service.CreateCheckoutSessionAsync(eventId);
+        var completedCheckout = await service.CompleteCheckoutSessionAsync(checkoutSessionId);
+        var cancelledCheckout = await service.CancelCheckoutSessionAsync(checkoutSessionId);
 
         Assert.Contains(
             "\"inviteUsernames\":[\"sam\",\"jamie\"]",
@@ -180,6 +203,9 @@ public sealed class EventApiServiceTests
         Assert.Contains(
             "\"slotId\":\"" + restaurantId,
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/slot-reservations").Body);
+        Assert.Equal(CheckoutSessionStatus.Pending, checkout.Status);
+        Assert.Equal(CheckoutSessionStatus.Completed, completedCheckout.Status);
+        Assert.Equal(CheckoutSessionStatus.Cancelled, cancelledCheckout.Status);
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();
     }

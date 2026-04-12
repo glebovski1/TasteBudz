@@ -16,7 +16,8 @@ TasteBudz allows users to:
 - form mutual Budz connections through reciprocal Like decisions in MVP
 - create and join events
 - create and participate in groups
-- chat in event and group scopes
+- chat in event, group, and feature-flagged direct scopes
+- run simulation-only checkout when enabled
 - receive in-app notifications
 - report users or content
 - support moderation, scoped restrictions, and audit logging
@@ -68,6 +69,10 @@ Public/private groups, membership, owner control, invitations, and optional even
 ### Messaging and Notifications
 
 Scoped chat plus persisted in-app notifications.
+
+### Payments
+
+Simulation-only checkout sessions for event participants when enabled.
 
 ### Media Assets
 
@@ -142,6 +147,7 @@ For MVP:
 
 - event chat is available only to current `JOINED` event participants
 - group chat is available only to current active group members
+- direct chat is available only to current connected Budz when enabled and unblocked
 - leaving/removal revokes access immediately
 - chat access is derived from current state, not cached independently
 
@@ -204,7 +210,7 @@ Midpoint or group-aware suggestion logic is application/service behavior over us
 
 ### 5.19 Later concepts must not leak into MVP
 
-Entities tagged as later-only may remain documented for future compatibility, but they should not receive normal controllers, endpoints, repositories, or UI flows in MVP unless explicitly promoted.
+Entities tagged as later-only may remain documented for future compatibility, but they should not receive normal controllers, endpoints, repositories, or UI flows in MVP unless explicitly promoted. Promoted feature-flagged concepts must stay disabled by default until launch approval.
 
 ## 6. Core Entities
 
@@ -228,6 +234,10 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 - `RestaurantSlot`
 - `EventSlotReservation`
 - `DiscountActivation`
+
+### Payments
+
+- `CheckoutSession`
 
 ### Events
 
@@ -280,6 +290,7 @@ Formalize these in code as closed enums/value sets where appropriate:
 - `SpiceTolerance`
 - `RestaurantSlotStatus`
 - `EventSlotReservationStatus`
+- `CheckoutSessionStatus`
 
 Recommended MVP `RestrictionScope` examples:
 
@@ -474,7 +485,35 @@ Rules:
 - joined event participants count as confirmed participants
 - before or at cutoff, activation can be recalculated after reservation, participation, or lifecycle changes
 - after cutoff, the final active/inactive result is frozen
-- no payment, checkout, or settlement state is implied by this record
+- no payment, checkout, or settlement state is owned by this record; checkout simulation is represented separately by `CheckoutSession`
+
+### CheckoutSession
+
+Represents one simulation-only checkout attempt for a joined event participant.
+
+Core data:
+
+- event reference
+- user reference
+- `CheckoutSessionStatus` (`Pending` / `Completed` / `Cancelled`)
+- currency
+- subtotal cents
+- discount cents
+- total cents
+- created and updated timestamps
+- optional completed timestamp
+- optional cancelled timestamp
+
+Rules:
+
+- checkout is disabled by default behind a feature flag
+- creation requires a current `JOINED` event participant
+- creation requires the event to have a selected restaurant
+- subtotal is simulated from the selected restaurant's price tier
+- active discount simulation may reduce the total
+- the checkout owner is the only normal user who can complete or cancel the session
+- completed and cancelled are terminal states
+- no external provider, real money movement, settlement, refunds, tax calculation, tips, saved payment methods, or webhooks are implied
 
 ### Event
 
@@ -582,8 +621,10 @@ Rules:
 
 - one event-scoped thread exists per event in MVP
 - one group-scoped thread exists per group in MVP
+- one direct-scoped thread can exist per connected Budz pair when direct chat is enabled
 - event chat access derives from current participant state
 - group chat access derives from current group membership
+- direct chat access derives from Budz connection state plus current block state
 
 ### ChatMessage
 
@@ -753,6 +794,8 @@ Rules:
 - `RestaurantSlot` 1 -> 0..1 active `EventSlotReservation`
 - `Event` 1 -> 0..1 active `EventSlotReservation`
 - `EventSlotReservation` 1 -> 0..1 `DiscountActivation`
+- `Event` 1 -> many `CheckoutSession`
+- `UserAccount` 1 -> many `CheckoutSession`
 - `Group` 1 -> many `Event` via optional link
 - `Event` 1 -> many `EventParticipant`
 - `Event` 1 -> 1 event-scoped `ChatThread`
@@ -800,6 +843,12 @@ Focus: capacity, duplicate-join prevention, invite handling, explicit status tra
 
 Focus: assignment-gated restaurant mutation, slot lifecycle, reservation uniqueness, and discount simulation.
 
+### Payments Aggregate
+
+- `CheckoutSession`
+
+Focus: participant-owned simulation checkout state and terminal status transitions.
+
 ### Group Aggregate
 
 - `Group`
@@ -813,7 +862,7 @@ Focus: ownership, membership, private invite handling, and later ownership trans
 - `ChatThread`
 - `ChatMessage`
 
-Focus: scope-based access rules across event and group chat in MVP.
+Focus: scope-based access rules across event, group, and enabled direct chat.
 
 ### Moderation Module
 
@@ -848,8 +897,10 @@ Focus: append-only record of sensitive actions.
 - Active slot reservations are unique per event and per slot.
 - Slot reservation requires the event time and capacity to fit the slot.
 - Discount activation is simulation-only and freezes after cutoff.
+- Checkout simulation is participant-owned, requires a selected restaurant, and has terminal completed/cancelled states.
 - Event chat access is limited to current `JOINED` participants.
 - Group chat access is limited to current active group members.
+- Direct chat access is limited to connected Budz when enabled and unblocked.
 - Blocking prevents new direct interaction but does not automatically remove shared-context participation.
 - Each `UserRestriction` applies to exactly one scope.
 - `UserAccount.Status` is not used for temporary scoped moderation.
@@ -882,6 +933,7 @@ Focus: append-only record of sensitive actions.
 - restaurant-admin assignment
 - restaurant slots and slot reservations
 - discount activation simulation
+- checkout session simulation
 - feed/search projections and caches as read models
 
 ## 13. Persistence Notes

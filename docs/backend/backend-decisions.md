@@ -487,4 +487,24 @@ Implement restaurant operations behind `FeatureFlags:RestaurantsOperationsEnable
 - Default MVP behavior remains unchanged because disabled restaurant-operations endpoints return `404`.
 - Enabled endpoints return normal `401`/`403` authorization results when the caller lacks permission.
 - Restaurant operations add schema and service code without treating the checked-in `.sqlite` file as schema authority.
-- Payment simulation, checkout state, and payment-side effects remain out of scope until requirements, ADR, API contracts, and tests are separately approved.
+- Payment simulation, checkout state, and payment-side effects remain out of scope for restaurant operations itself; simulation-only checkout is separately governed by ADR-026.
+
+## [ADR-026] Direct Chat and Checkout Launch Behind Explicit Feature Flags
+
+- Date: 2026-04-12
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+Direct 1-on-1 chat and payment simulation/checkout were previously treated as later-scope features. They are now approved as feature-flagged backend slices, but neither should change the default MVP runtime behavior until intentionally enabled.
+
+### Decision
+Implement direct 1-on-1 chat behind `FeatureFlags:MessagingDirectChatEnabled`, disabled by default. Direct chat is allowed only between current connected Budz, uses the existing `ChatThread`/`ChatMessage` messaging core with `ChatScopeType.Direct`, respects blocking and active `ChatSend` restrictions, and uses the same SignalR plus paged-history model as event and group chat.
+
+Implement simulation-only checkout behind `FeatureFlags:PaymentsCheckoutEnabled`, disabled by default. Checkout sessions belong to the requesting event participant, require the user to be a current `JOINED` participant on an event with a selected restaurant, derive simulated subtotal from restaurant price tier, apply an active discount simulation when available, and support `Pending`, `Completed`, and `Cancelled` states. Checkout must not call an external payment provider or imply real money movement.
+
+### Consequences
+- Default MVP behavior remains unchanged because disabled direct-chat and checkout endpoints return `404`.
+- Direct chat and checkout add schema, service, API, and test coverage while continuing to use the SQLite schema scripts as the persistence authority.
+- Blocking, Budz state, moderation restrictions, event participation, selected-restaurant state, and feature flags remain server-owned policy checks.
+- Real payment provider integration, saved payment methods, tax, tips, settlement, refunds, and webhooks remain out of scope until a future ADR approves them.

@@ -15,7 +15,13 @@ public sealed class ChatViewModel
     public string AccessToken { get; init; } = string.Empty;
 
     /// <summary>Human-readable title shown at the top of the chat panel.</summary>
-    public string Title => ScopeType == ChatScopeType.Event ? "Event Chat" : "Group Chat";
+    public string Title => ScopeType switch
+    {
+        ChatScopeType.Event => "Event Chat",
+        ChatScopeType.Group => "Group Chat",
+        ChatScopeType.Direct => "Direct Chat",
+        _ => "Chat",
+    };
 
     public static ChatViewModel ForEvent(Guid eventId, IEnumerable<ChatMessageDto> history, string hubUrl, string accessToken) =>
         new()
@@ -32,6 +38,16 @@ public sealed class ChatViewModel
         {
             ScopeType = ChatScopeType.Group,
             ScopeId = groupId,
+            History = history.ToList(),
+            HubUrl = hubUrl,
+            AccessToken = accessToken,
+        };
+
+    public static ChatViewModel ForDirect(Guid directChatId, IEnumerable<ChatMessageDto> history, string hubUrl, string accessToken) =>
+        new()
+        {
+            ScopeType = ChatScopeType.Direct,
+            ScopeId = directChatId,
             History = history.ToList(),
             HubUrl = hubUrl,
             AccessToken = accessToken,

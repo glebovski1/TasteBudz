@@ -32,6 +32,7 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
     internal DbSet<RestaurantSlotEntity> RestaurantSlots => Set<RestaurantSlotEntity>();
     internal DbSet<EventSlotReservationEntity> EventSlotReservations => Set<EventSlotReservationEntity>();
     internal DbSet<DiscountActivationEntity> DiscountActivations => Set<DiscountActivationEntity>();
+    internal DbSet<CheckoutSessionEntity> CheckoutSessions => Set<CheckoutSessionEntity>();
     internal DbSet<EventEntity> Events => Set<EventEntity>();
     internal DbSet<EventParticipantEntity> EventParticipants => Set<EventParticipantEntity>();
     internal DbSet<ChatThreadEntity> ChatThreads => Set<ChatThreadEntity>();
@@ -239,6 +240,15 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.ToTable("DiscountActivations");
             entity.HasKey(item => item.ReservationId);
             entity.HasOne<EventSlotReservationEntity>().WithMany().HasForeignKey(item => item.ReservationId);
+        });
+
+        modelBuilder.Entity<CheckoutSessionEntity>(entity =>
+        {
+            entity.ToTable("CheckoutSessions");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.UserId, item.CreatedAtUtc });
+            entity.HasOne<EventEntity>().WithMany().HasForeignKey(item => item.EventId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.UserId);
         });
 
         modelBuilder.Entity<EventEntity>(entity =>

@@ -22,5 +22,7 @@ public sealed class FeatureFlagService(IOptions<FeatureFlagOptions> options) : I
 
     public bool IsRestaurantsDiscountsEnabled() => featureFlags.RestaurantsDiscountsEnabled;
 
+    public bool IsPaymentsCheckoutEnabled() => featureFlags.PaymentsCheckoutEnabled;
+
     public bool IsDiscoveryExperimentalSuggestionsEnabled() => featureFlags.DiscoveryExperimentalSuggestionsEnabled;
 }

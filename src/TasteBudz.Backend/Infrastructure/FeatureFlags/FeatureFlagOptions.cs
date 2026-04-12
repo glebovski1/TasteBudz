@@ -18,5 +18,7 @@ public sealed class FeatureFlagOptions
 
     public bool RestaurantsDiscountsEnabled { get; init; }
 
+    public bool PaymentsCheckoutEnabled { get; init; }
+
     public bool DiscoveryExperimentalSuggestionsEnabled { get; init; }
 }

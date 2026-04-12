@@ -6,6 +6,7 @@ using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Messaging;
@@ -85,6 +86,90 @@ public sealed class MessagingServiceTests
         Assert.Equal(403, exception.StatusCode);
     }
 
+    [Fact]
+    public async Task SendAsync_DirectChatBetweenBudzPersistsMessage()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var alex = await RegisterAsync(services.AuthService, "alex", "alex@example.com");
+        var sam = await RegisterAsync(services.AuthService, "sam", "sam@example.com");
+
+        await services.DiscoveryService.RecordSwipeAsync(ToCurrentUser(alex), new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = sam.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        var match = await services.DiscoveryService.RecordSwipeAsync(ToCurrentUser(sam), new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = alex.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        var directChat = await services.MessagingService.CreateDirectChatAsync(ToCurrentUser(alex), new CreateDirectChatRequest
+        {
+            SubjectUserId = sam.CurrentUser.UserId,
+        });
+
+        var sent = await services.MessagingService.SendDirectMessageAsync(ToCurrentUser(alex), directChat.DirectChatId, new SendDirectChatMessageRequest
+        {
+            Body = "Want to grab ramen?",
+        });
+        var history = await services.MessagingService.ListDirectMessagesAsync(sam.CurrentUser.UserId, directChat.DirectChatId, new ChatHistoryQuery());
+
+        Assert.Equal(match.BudConnectionId, directChat.DirectChatId);
+        Assert.Equal("Want to grab ramen?", sent.Body);
+        Assert.Single(history.Items);
+    }
+
+    [Fact]
+    public async Task CreateDirectChatAsync_WhenUsersAreNotBudz_ReturnsNotFound()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var alex = await RegisterAsync(services.AuthService, "alex", "alex@example.com");
+        var sam = await RegisterAsync(services.AuthService, "sam", "sam@example.com");
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.MessagingService.CreateDirectChatAsync(ToCurrentUser(alex), new CreateDirectChatRequest
+            {
+                SubjectUserId = sam.CurrentUser.UserId,
+            }));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task SendDirectMessageAsync_WhenEitherUserBlocked_ReturnsNotFound()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var alex = await RegisterAsync(services.AuthService, "alex", "alex@example.com");
+        var sam = await RegisterAsync(services.AuthService, "sam", "sam@example.com");
+
+        await services.DiscoveryService.RecordSwipeAsync(ToCurrentUser(alex), new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = sam.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        await services.DiscoveryService.RecordSwipeAsync(ToCurrentUser(sam), new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = alex.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        var directChat = await services.MessagingService.CreateDirectChatAsync(ToCurrentUser(alex), new CreateDirectChatRequest
+        {
+            SubjectUserId = sam.CurrentUser.UserId,
+        });
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(alex.CurrentUser.UserId, sam.CurrentUser.UserId, clock.UtcNow));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.MessagingService.SendDirectMessageAsync(ToCurrentUser(alex), directChat.DirectChatId, new SendDirectChatMessageRequest
+            {
+                Body = "This should be hidden",
+            }));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
     private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
         await authService.RegisterAsync(new RegisterUserRequest
         {
@@ -106,6 +191,7 @@ public sealed class MessagingServiceTests
         var restaurantRepository = new InMemoryRestaurantRepository(store);
         var eventRepository = new InMemoryEventRepository(store);
         var groupRepository = new InMemoryGroupRepository(store);
+        var discoveryRepository = new InMemoryDiscoveryRepository(store);
         var messagingRepository = new InMemoryMessagingRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var moderationRepository = new InMemoryModerationRepository(store);
@@ -117,22 +203,25 @@ public sealed class MessagingServiceTests
         var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, inviteService, new InMemoryKeyedLockProvider(), clock);
         var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, new InMemoryKeyedLockProvider(), clock);
         var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, notificationService, lifecycleService, clock);
-        var messagingService = new MessagingService(messagingRepository, eventRepository, groupRepository, authRepository, profileRepository, new AlwaysOnFeatureFlagService(), restrictionService, clock);
+        var discoveryService = new DiscoveryService(authRepository, profileRepository, discoveryRepository, restrictionService, notificationService, clock, keyedLockProvider: new InMemoryKeyedLockProvider());
+        var messagingService = new MessagingService(messagingRepository, eventRepository, groupRepository, discoveryRepository, authRepository, profileRepository, new AlwaysOnFeatureFlagService(), restrictionService, clock);
 
-        return new TestServices(authService, restrictionService, eventService, participationService, groupService, messagingService);
+        return new TestServices(authService, profileRepository, restrictionService, eventService, participationService, groupService, discoveryService, messagingService);
     }
 
     private sealed record TestServices(
         AuthService AuthService,
+        IProfileRepository ProfileRepository,
         RestrictionService RestrictionService,
         EventService EventService,
         EventParticipationService ParticipationService,
         GroupService GroupService,
+        DiscoveryService DiscoveryService,
         MessagingService MessagingService);
 
     private sealed class AlwaysOnFeatureFlagService : IFeatureFlagService
     {
-        public bool IsMessagingDirectChatEnabled() => false;
+        public bool IsMessagingDirectChatEnabled() => true;
 
         public bool IsMessagingGroupChatEnabled() => true;
 
@@ -143,6 +232,8 @@ public sealed class MessagingServiceTests
         public bool IsRestaurantsSlotsEnabled() => false;
 
         public bool IsRestaurantsDiscountsEnabled() => false;
+
+        public bool IsPaymentsCheckoutEnabled() => false;
 
         public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
     }

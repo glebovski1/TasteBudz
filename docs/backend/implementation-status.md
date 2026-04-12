@@ -5,7 +5,7 @@ This document tracks the current backend implementation state.
 It is a progress tracker, not a source of product or architecture truth.
 Use the primary backend documents for requirements, architecture, domain rules, API contracts, and testing policy.
 
-Last verified: 2026-04-11
+Last verified: 2026-04-12
 
 ## 1. Overall State
 
@@ -14,6 +14,7 @@ Current overall state:
 - foundation is implemented
 - the currently implemented MVP backend slices are `Backend-complete`
 - feature-flagged restaurant operations are implemented but disabled by default
+- feature-flagged direct chat and checkout simulation are implemented but disabled by default
 - remaining later backend slices remain intentionally out of scope
 
 Using the definitions in `docs/backend/implementation-approach.md`:
@@ -32,7 +33,8 @@ Current practical assessment:
 - Discovery / Budz: `Backend-complete`
 - Media: `Backend-complete`
 - Notifications: `Backend-complete`
-- Messaging: `Backend-complete`
+- Messaging: `Backend-complete`, with direct chat implemented as a disabled-by-default feature-flagged slice
+- Payments / Checkout: feature-flagged implemented slice, disabled by default, simulation-only
 - Moderation and Audit: `Backend-complete`
 - Real SQLite persistence: implemented for the current MVP slice surface
 
@@ -70,12 +72,13 @@ Current runtime persistence note:
 | Discovery / Budz | Implemented slice | Search, swipe candidates, Like/Pass decisions, reciprocal Budz creation, privacy/block/restriction filtering |
 | Media | Implemented slice | Database-backed image storage, profile-avatar upload/replacement, report-evidence attachments, context-based media access |
 | Notifications | Implemented slice | In-app notification center list/read API over existing workflow notifications |
-| Messaging | Implemented slice | Shared SignalR chat hub plus paged event/group message history with scope-derived auth |
+| Messaging | Implemented slice | Shared SignalR chat hub plus paged event/group message history with scope-derived auth; feature-flagged direct chat for Budz-only 1-on-1 messages |
+| Payments / Checkout | Feature-flagged implemented slice | Simulation-only checkout sessions for joined event participants; disabled by default |
 | Moderation and Audit | Implemented slice | Report submission, moderation queue/detail/resolve, scoped restrictions, admin audit-log query |
 
 ## 4. Implemented Endpoint Surface
 
-Implemented controller surface as of 2026-03-09:
+Implemented controller surface as of 2026-04-12:
 
 - `/api/v1/auth/*`
 - `/api/v1/onboarding/status`
@@ -99,6 +102,7 @@ Implemented controller surface as of 2026-03-09:
 - `/api/v1/events`
 - `/api/v1/events/{eventId}`
 - `/api/v1/events/{eventId}/slot-reservations` (feature-flagged)
+- `/api/v1/events/{eventId}/checkout-sessions` (feature-flagged)
 - `/api/v1/events/{eventId}/participants`
 - `/api/v1/events/{eventId}/participants/me`
 - `/api/v1/events/{eventId}/participants/{userId}/removal`
@@ -114,6 +118,10 @@ Implemented controller surface as of 2026-03-09:
 - `/api/v1/groups/{groupId}/invites`
 - `/api/v1/groups/invites/{inviteId}`
 - `/api/v1/groups/{groupId}/messages`
+- `/api/v1/direct-chats` (feature-flagged)
+- `/api/v1/direct-chats/{directChatId}/messages` (feature-flagged)
+- `/api/v1/checkout-sessions/{checkoutSessionId}/completion` (feature-flagged)
+- `/api/v1/checkout-sessions/{checkoutSessionId}/cancellation` (feature-flagged)
 - `/api/v1/discovery/people`
 - `/api/v1/discovery/swipe-candidates`
 - `/api/v1/discovery/swipes`
@@ -138,17 +146,16 @@ Implemented controller surface as of 2026-03-09:
 Not yet implemented from later/feature-flagged API shape:
 
 - group ownership transfer and dissolution endpoints
-- direct chat endpoints
-- payment simulation and checkout endpoints
+- feed endpoint and richer feed/search projection behavior
 
 ## 5. Test Status
 
-Current automated test status as of 2026-04-11:
+Current automated test status as of 2026-04-12:
 
-- 59 backend unit tests
-- 54 backend integration tests
-- 35 MVC integration tests
-- 148 passing solution tests total
+- 71 backend unit tests
+- 59 backend integration tests
+- 36 MVC integration tests
+- 166 passing solution tests total
 
 Current covered areas:
 
@@ -172,7 +179,8 @@ Current covered areas:
 - group create/join/invite/detail workflows
 - discovery search/swipe/Budz workflows
 - notification-center read/update behavior
-- event chat and group chat authorization plus hub delivery
+- event chat, group chat, and feature-flagged direct chat authorization plus hub delivery
+- direct chat service, block enforcement, and MVC route behavior
 - report, restriction, role-enforcement, and audit-log workflows
 - report-evidence attachment upload/list/download authorization
 - restaurant-admin assignment grant/revoke role behavior
@@ -180,13 +188,16 @@ Current covered areas:
 - restaurant slot validation and cancellation behavior
 - event-host slot reservation invariants and same-slot conflict behavior
 - discount activation and cutoff freeze behavior
+- checkout simulation creation, joined-participant and selected-restaurant requirements, owner-only completion, discount application, completion/cancellation, terminal-state conflicts, disabled-flag behavior, and MVC service route coverage
 - ProblemDetails behavior for selected failure cases
 - persistence-backed API and workflow coverage for the implemented module set via temporary SQLite databases rebuilt from canonical SQL assets
 
 Important testing gaps still open:
 
-- later/disabled features such as direct chat, group ownership transfer/dissolution, payment simulation, and checkout behavior remain intentionally untested at runtime
-- restaurant operations need a final launch-readiness review before default flags are enabled
+- group ownership transfer/dissolution and richer feed/search projection behavior remain intentionally unimplemented and untested at runtime
+- restaurant operations, direct chat, and checkout simulation need final launch-readiness review before default flags are enabled
+- checkout remains simulation-only; real provider/payment behavior is intentionally unimplemented
+- no dedicated browser-level e2e project exists; current frontend proof is MVC host and service integration
 
 ## 6. Gaps To Backend-Complete
 
@@ -195,10 +206,11 @@ For the currently implemented MVP backend slices, the main `Backend-complete` ga
 Remaining gaps apply to later or intentionally deferred scope:
 
 1. Keep later/feature-flagged modules disabled until explicitly promoted:
-   - direct chat
    - group ownership transfer/dissolution
    - restaurant operations and discounts until explicitly enabled for launch
-   - payment simulation and checkout behavior
+   - direct chat until explicitly enabled for launch
+   - checkout simulation until explicitly enabled for launch
+   - feed/search projections beyond the basic query endpoints
 2. If a future persistence-provider change is approved, document it explicitly and re-prove relational and concurrency behavior for that provider.
 
 ## 7. Suggested Next Focus

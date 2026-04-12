@@ -17,6 +17,7 @@ Implications:
 - runtime persistence is SQLite-backed for the implemented modules
 - data is durable within the configured SQLite database file
 - Development and IntegrationTesting may recreate local databases from canonical SQL scripts, so test/dev data should still be treated as disposable
+- direct chat and checkout simulation are implemented but feature-flagged and disabled by default
 
 ## 2. API Basics
 
@@ -42,6 +43,7 @@ Important contract rules:
 - clients must not set server-owned lifecycle values such as event status
 - event host is automatically created as a joined participant
 - event and group chat access is derived from current participation or membership state
+- direct chat and checkout simulation should be treated as unavailable when their disabled endpoints return `404`
 
 ## 3. Auth Flow
 
@@ -140,7 +142,7 @@ Frontend notes:
 - assignment grant uses `{ "username": "..." }`
 - slot create/update uses `startsAtUtc`, `endsAtUtc`, `capacity`, `cutoffAtUtc`, and optional `minThresholdForDiscount`
 - event details may include nullable `slotReservation` and `discountActivation`; summaries should not depend on them
-- discount state is simulation-only and does not imply checkout or payment behavior
+- discount state is simulation-only and can affect checkout simulation only when checkout is separately enabled
 
 ### Events
 
@@ -161,6 +163,36 @@ Frontend notes:
 - open-event join and closed-event accept can fail with `409` if no seat is available
 - participant changes after `DecisionAt` can fail with `409`
 - exactly one of `selectedRestaurantId` or `cuisineTarget` should be set when creating an event
+
+### Direct chat
+
+These flows are feature-flagged and disabled by default.
+
+- `POST /api/v1/direct-chats`
+- `GET /api/v1/direct-chats/{directChatId}/messages`
+- `POST /api/v1/direct-chats/{directChatId}/messages`
+
+Frontend notes:
+
+- disabled direct-chat endpoints return `404`
+- direct chat is allowed only between current connected Budz
+- block state and active chat-send restrictions are enforced by the backend
+- direct chat uses the same text-only SignalR plus REST history pattern as event and group chat
+
+### Checkout simulation
+
+These flows are feature-flagged and disabled by default.
+
+- `POST /api/v1/events/{eventId}/checkout-sessions`
+- `POST /api/v1/checkout-sessions/{checkoutSessionId}/completion`
+- `POST /api/v1/checkout-sessions/{checkoutSessionId}/cancellation`
+
+Frontend notes:
+
+- disabled checkout endpoints return `404`
+- checkout creation requires a current joined event participant and selected restaurant
+- totals are simulation-only and use cents fields plus `currency`
+- checkout has no real payment provider, saved payment method, tax, tip, refund, settlement, or webhook behavior
 
 ### Groups
 
@@ -242,7 +274,7 @@ Note:
 
 ## 5. Realtime Chat
 
-The backend supports event chat and group chat in MVP.
+The backend supports event chat and group chat in MVP, and direct chat when the direct-chat feature flag is enabled.
 
 Use:
 
@@ -250,6 +282,7 @@ Use:
 - REST history:
   - `GET /api/v1/events/{eventId}/messages`
   - `GET /api/v1/groups/{groupId}/messages`
+  - `GET /api/v1/direct-chats/{directChatId}/messages` when direct chat is enabled
 
 Recommended frontend flow:
 
@@ -264,6 +297,7 @@ Chat constraints:
 - text-only
 - event chat is only for current joined participants
 - group chat is only for current active group members
+- direct chat is only for connected Budz when enabled and unblocked
 - leaving or removal revokes access immediately
 
 ## 6. Not Ready Yet
@@ -271,8 +305,7 @@ Chat constraints:
 These documented routes/features are not implemented yet and should not be used by the frontend:
 
 - group ownership transfer and dissolution
-- direct 1-on-1 chat
-- payment simulation and checkout behavior
+- real payment provider behavior beyond the simulation-only checkout slice
 
 ## 7. Recommended Frontend Usage
 

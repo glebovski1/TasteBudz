@@ -235,6 +235,8 @@ public sealed class RestaurantOperationsServiceTests
 
         public bool IsRestaurantsDiscountsEnabled() => discountsEnabled;
 
+        public bool IsPaymentsCheckoutEnabled() => false;
+
         public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
     }
 }

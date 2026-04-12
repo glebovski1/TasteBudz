@@ -18,5 +18,7 @@ public interface IFeatureFlagService
 
     bool IsRestaurantsDiscountsEnabled();
 
+    bool IsPaymentsCheckoutEnabled();
+
     bool IsDiscoveryExperimentalSuggestionsEnabled();
 }

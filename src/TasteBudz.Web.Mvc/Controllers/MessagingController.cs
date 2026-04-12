@@ -91,6 +91,26 @@ public sealed class MessagingController : Controller
         }
     }
 
+    // GET /Messaging/DirectChat/{directChatId}
+    [HttpGet]
+    public async Task<IActionResult> DirectChat(Guid directChatId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var history = await messagingApiService.ListDirectMessagesAsync(directChatId, cancellationToken: cancellationToken);
+            return View("Chat", ChatViewModel.ForDirect(directChatId, history.Items, BuildHubUrl(), GetAccessToken()));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch
+        {
+            TempData["StatusMessage"] = "Could not load chat history.";
+            return View("Chat", ChatViewModel.ForDirect(directChatId, [], BuildHubUrl(), GetAccessToken()));
+        }
+    }
+
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)
     {
         await userSessionService.SignOutAsync(cancellationToken);

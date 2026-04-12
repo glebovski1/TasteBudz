@@ -16,6 +16,8 @@ public interface IDiscoveryRepository
 
     Task<BudConnection?> GetBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default);
 
+    Task<BudConnection?> GetBudConnectionByIdAsync(Guid budConnectionId, CancellationToken cancellationToken = default);
+
     Task SaveBudConnectionAsync(BudConnection connection, CancellationToken cancellationToken = default);
 
     Task RemoveBudConnectionAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken = default);

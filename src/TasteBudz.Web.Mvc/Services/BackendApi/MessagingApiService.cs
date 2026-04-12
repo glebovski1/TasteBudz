@@ -38,11 +38,39 @@ public sealed class MessagingApiService
             BuildGroupMessagesPath(groupId, query ?? new ChatHistoryQuery()),
             cancellationToken);
 
+    public Task<DirectChatDto> CreateDirectChatAsync(
+        CreateDirectChatRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CreateDirectChatRequest, DirectChatDto>(
+            "/api/v1/direct-chats",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task<CursorPageResponse<ChatMessageDto>> ListDirectMessagesAsync(
+        Guid directChatId,
+        ChatHistoryQuery? query = null,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<CursorPageResponse<ChatMessageDto>>(
+            BuildDirectMessagesPath(directChatId, query ?? new ChatHistoryQuery()),
+            cancellationToken);
+
+    public Task<ChatMessageDto> SendDirectMessageAsync(
+        Guid directChatId,
+        SendDirectChatMessageRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<SendDirectChatMessageRequest, ChatMessageDto>(
+            $"/api/v1/direct-chats/{directChatId}/messages",
+            request,
+            cancellationToken: cancellationToken);
+
     private static string BuildEventMessagesPath(Guid eventId, ChatHistoryQuery query) =>
         $"/api/v1/events/{eventId}/messages{BuildHistoryQueryString(query)}";
 
     private static string BuildGroupMessagesPath(Guid groupId, ChatHistoryQuery query) =>
         $"/api/v1/groups/{groupId}/messages{BuildHistoryQueryString(query)}";
+
+    private static string BuildDirectMessagesPath(Guid directChatId, ChatHistoryQuery query) =>
+        $"/api/v1/direct-chats/{directChatId}/messages{BuildHistoryQueryString(query)}";
 
     private static string BuildHistoryQueryString(ChatHistoryQuery query)
     {

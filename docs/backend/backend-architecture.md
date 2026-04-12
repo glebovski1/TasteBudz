@@ -25,7 +25,7 @@ The backend owns:
 - events, participation, and lifecycle enforcement
 - groups and ownership rules
 - discovery, swipes, Budz, and safety filters
-- messaging across event, group, and later direct-chat scopes
+- messaging across event, group, and feature-flagged direct-chat scopes
 - database-backed media assets and context-based access control
 - notifications
 - moderation, reports, restrictions, and audit logging
@@ -84,16 +84,18 @@ Rules:
 8. Media
 9. Notifications
 10. Moderation and Audit
+11. Payments
 
 ### 4.2 Internal Extension Areas
 
-Later capabilities should grow inside existing modules rather than separate services.
+Feature-gated capabilities should grow inside existing modules where the boundary fits, and otherwise use a small module boundary rather than a separate deployable service.
 
 - Restaurants.Catalog: seeded restaurant records, search, filtering, simple suggestions
 - Restaurants.Operations: feature-flagged restaurant admin accounts, assignments, slots, slot reservations, discount rules, and operational actions
 - Messaging.EventChat: MVP event chat
 - Messaging.GroupChat: MVP group chat
-- Messaging.DirectChat: later 1-on-1 messaging behind flags
+- Messaging.DirectChat: 1-on-1 messaging behind flags
+- Payments.Checkout: simulation-only checkout sessions behind flags
 
 ### 4.3 Boundary Rule
 
@@ -303,22 +305,22 @@ Canonical MVP rule: one effective directional swipe decision exists per actor/su
 
 ### 5.8 Messaging
 
-Own chat threads, messages, and access control across event chat, group chat, and later direct-chat scopes.
+Own chat threads, messages, and access control across event chat, group chat, and feature-flagged direct-chat scopes.
 
 Key responsibilities:
 
 - event-linked chat threads
 - group-linked chat threads for current members
-- later direct 1-on-1 threads for approved users/Budz
+- direct 1-on-1 threads for connected Budz when enabled
 - text-only message persistence
 - message pagination and history retrieval
-- SignalR-based real-time delivery for event and group chat
+- SignalR-based real-time delivery for event, group, and enabled direct chat
 - scope-specific access enforcement
 
 Rollout priority:
 
 - event chat and group chat are both part of MVP and should share one messaging core
-- direct chat remains feature-flagged until Budz, blocking, and moderation flows are stable enough to support it safely
+- direct chat is implemented behind `FeatureFlags:MessagingDirectChatEnabled` and remains disabled by default until launch approval
 
 MVP shared-chat rule:
 
@@ -337,15 +339,13 @@ Suggested model:
 Suggested services:
 
 - `MessagingService`
-- `EventChatAccessService`
-- `GroupChatAccessService`
-- `DirectChatAccessService`
+- scope-specific access checks inside `MessagingService`
 - `ChatHub` for SignalR connection/auth plumbing
 
 MVP hub contract:
 
 - one shared `ChatHub`
-- `JoinScope(scopeType, scopeId)` authorizes and subscribes the caller to an event/group channel
+- `JoinScope(scopeType, scopeId)` authorizes and subscribes the caller to an event/group/direct channel
 - `SendMessage(request)` persists and broadcasts one text message
 - `MessageReceived` is the broadcast event name for new chat messages
 
@@ -367,7 +367,25 @@ Suggested services:
 
 For MVP, notifications remain in-app only. Push/email can be added later without changing the core notification creation flow.
 
-### 5.10 Moderation and Audit
+### 5.10 Payments
+
+Own simulation-only checkout sessions for event participants.
+
+Key responsibilities:
+
+- create checkout sessions for joined participants on events with a selected restaurant
+- calculate simulated subtotals from selected restaurant price tier
+- apply an active discount simulation when available
+- enforce checkout ownership on completion and cancellation
+- keep the feature disabled by default behind `FeatureFlags:PaymentsCheckoutEnabled`
+
+Suggested services:
+
+- `CheckoutSessionService`
+
+The Payments module must not call an external provider or imply real money movement until a future ADR explicitly approves that scope.
+
+### 5.11 Moderation and Audit
 
 Own reports, moderation decisions, scoped restrictions, and audit logging.
 
@@ -535,11 +553,11 @@ For this project, direct service calls are better than a full event bus.
 
 ### 7.8 Chat Access Rules
 
-Lives in scope-specific messaging access services and the SignalR hub plumbing.
+Lives in `MessagingService` and the SignalR hub plumbing.
 
-- event chat access: `EventChatAccessService`
-- group chat access: `GroupChatAccessService`
-- direct chat access later: `DirectChatAccessService`
+- event chat access derives from current joined event participation
+- group chat access derives from current active group membership
+- direct chat access derives from current connected Budz, current block state, and `FeatureFlags:MessagingDirectChatEnabled`
 - real-time transport hub: `ChatHub`
 
 ### 7.9 Restaurant Slot and Discount Rules (Feature-Flagged)
@@ -549,6 +567,12 @@ Lives in Restaurants.Operations services.
 Events still own event state. Restaurants own restaurant operational rules.
 
 Restaurant operation services must enforce active assignment checks before restaurant profile or slot mutation. Slot reservation updates the event's selected restaurant to the slot restaurant and clears cuisine target, but event lifecycle/status remains event-owned. Cancelling a reserved slot cancels the linked event through normal event cancellation behavior.
+
+### 7.10 Checkout Simulation Rules (Feature-Flagged)
+
+Lives in the Payments module.
+
+Checkout sessions are participant-owned simulation records. Creation requires an enabled checkout flag, a current `JOINED` event participant, and a selected restaurant. Subtotal comes from the restaurant price tier, an active discount simulation may reduce the total, and completion/cancellation are owner-only terminal transitions. No external provider, saved payment method, tax, tip, refund, settlement, or webhook behavior is part of this slice.
 
 ## 8. Security and Authorization Approach
 
@@ -591,6 +615,7 @@ Recommended flags:
 - `FeatureFlags:RestaurantsOperationsEnabled`
 - `FeatureFlags:RestaurantsSlotsEnabled`
 - `FeatureFlags:RestaurantsDiscountsEnabled`
+- `FeatureFlags:PaymentsCheckoutEnabled`
 - `FeatureFlags:DiscoveryExperimentalSuggestionsEnabled`
 
 Clarification:
@@ -674,6 +699,7 @@ Use unit tests for:
 - privacy/blocking behavior
 - feature-gate decisions
 - feature-flagged restaurant slot/discount rules
+- feature-flagged direct chat and checkout rules
 
 ### Integration / API Tests
 
@@ -685,6 +711,7 @@ Use integration tests for:
 - group create/join/leave flows
 - discovery and blocking behavior
 - event chat and group chat endpoints/hub auth
+- direct chat and checkout endpoint behavior when flags are enabled
 - moderation endpoints and policy enforcement
 
 ### Concurrency Tests
@@ -750,6 +777,7 @@ Keep disabled by default until explicitly launched:
 - restaurant-admin accounts and assignment-managed operations
 - restaurant slots and slot-linked reservations
 - discount threshold simulation
+- payment simulation and checkout sessions
 - operational slot cancellation flows
 - smarter restaurant recommendation strategies
 
@@ -814,7 +842,8 @@ Priority rule: if time is tight, do not cut correctness in event participation a
 35. direct chat behind flag
 36. restaurant-admin operations behind flags
 37. slots / reservations / discount simulation behind flags
-38. smarter restaurant recommendation logic
+38. payment simulation / checkout behind flag
+39. smarter restaurant recommendation logic
 
 ## 14. Final Recommendation
 
@@ -832,4 +861,4 @@ This gives the team the right balance:
 - simple enough for student implementation
 - strong enough to keep business rules correct
 - flexible enough to survive frontend and persistence changes
-- clean enough to grow into direct chat and restaurant operations later without major redesign
+- clean enough to keep feature-gated direct chat, restaurant operations, and checkout isolated without major redesign

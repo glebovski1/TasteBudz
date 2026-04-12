@@ -54,6 +54,14 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
         return entity is null ? null : MapConnection(entity);
     }
 
+    public async Task<BudConnection?> GetBudConnectionByIdAsync(Guid budConnectionId, CancellationToken cancellationToken = default)
+    {
+        var entity = await dbContext.BudConnections
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == budConnectionId, cancellationToken);
+        return entity is null ? null : MapConnection(entity);
+    }
+
     public async Task SaveBudConnectionAsync(BudConnection connection, CancellationToken cancellationToken = default)
     {
         var (lower, higher) = NormalizePair(connection.UserOneId, connection.UserTwoId);

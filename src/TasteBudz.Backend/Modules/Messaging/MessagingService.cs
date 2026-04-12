@@ -6,6 +6,7 @@ using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Moderation;
@@ -20,6 +21,7 @@ public sealed class MessagingService(
     IMessagingRepository messagingRepository,
     IEventRepository eventRepository,
     IGroupRepository groupRepository,
+    IDiscoveryRepository discoveryRepository,
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
     IFeatureFlagService featureFlagService,
@@ -41,6 +43,34 @@ public sealed class MessagingService(
     public Task<CursorPageResponse<ChatMessageDto>> ListGroupMessagesAsync(Guid currentUserId, Guid groupId, ChatHistoryQuery query, CancellationToken cancellationToken = default) =>
         ListMessagesAsync(currentUserId, ChatScopeType.Group, groupId, query, cancellationToken);
 
+    public Task<CursorPageResponse<ChatMessageDto>> ListDirectMessagesAsync(Guid currentUserId, Guid directChatId, ChatHistoryQuery query, CancellationToken cancellationToken = default) =>
+        ListMessagesAsync(currentUserId, ChatScopeType.Direct, directChatId, query, cancellationToken);
+
+    public async Task<DirectChatDto> CreateDirectChatAsync(CurrentUser currentUser, CreateDirectChatRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureScopeIsLaunched(ChatScopeType.Direct);
+
+        var subjectUserId = request.SubjectUserId ?? throw ApiException.BadRequest("subjectUserId is required.");
+
+        if (subjectUserId == currentUser.UserId)
+        {
+            throw ApiException.BadRequest("You cannot start a direct chat with yourself.");
+        }
+
+        var connection = await discoveryRepository.GetBudConnectionAsync(currentUser.UserId, subjectUserId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested direct chat could not be found.");
+
+        if (connection.State != BudConnectionState.Connected)
+        {
+            throw ApiException.NotFound("The requested direct chat could not be found.");
+        }
+
+        await EnsureDirectChatIsVisibleAsync(currentUser.UserId, connection, cancellationToken);
+        await GetOrCreateThreadAsync(ChatScopeType.Direct, connection.Id, cancellationToken);
+
+        return await MapDirectChatAsync(currentUser.UserId, connection, cancellationToken);
+    }
+
     public async Task<ChatMessageDto> SendAsync(CurrentUser currentUser, SendChatMessageRequest request, CancellationToken cancellationToken = default)
     {
         var scopeType = request.ScopeType ?? throw ApiException.BadRequest("scopeType is required.");
@@ -57,6 +87,17 @@ public sealed class MessagingService(
 
         return await MapMessageAsync(message, cancellationToken);
     }
+
+    public Task<ChatMessageDto> SendDirectMessageAsync(CurrentUser currentUser, Guid directChatId, SendDirectChatMessageRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync(
+            currentUser,
+            new SendChatMessageRequest
+            {
+                ScopeType = ChatScopeType.Direct,
+                ScopeId = directChatId,
+                Body = request.Body,
+            },
+            cancellationToken);
 
     private async Task<CursorPageResponse<ChatMessageDto>> ListMessagesAsync(
         Guid currentUserId,
@@ -155,6 +196,19 @@ public sealed class MessagingService(
 
                 break;
 
+            case ChatScopeType.Direct:
+                var connection = await discoveryRepository.GetBudConnectionByIdAsync(scopeId, cancellationToken)
+                    ?? throw ApiException.NotFound("The requested chat scope could not be found.");
+
+                if (connection.State != BudConnectionState.Connected ||
+                    (connection.UserOneId != currentUserId && connection.UserTwoId != currentUserId))
+                {
+                    throw ApiException.NotFound("The requested chat scope could not be found.");
+                }
+
+                await EnsureDirectChatIsVisibleAsync(currentUserId, connection, cancellationToken);
+                break;
+
             default:
                 throw ApiException.NotFound("The requested chat scope could not be found.");
         }
@@ -167,7 +221,7 @@ public sealed class MessagingService(
 
     private void EnsureScopeIsLaunched(ChatScopeType scopeType)
     {
-        if (scopeType == ChatScopeType.Direct)
+        if (scopeType == ChatScopeType.Direct && !featureFlagService.IsMessagingDirectChatEnabled())
         {
             throw ApiException.NotFound("The requested chat scope could not be found.");
         }
@@ -191,5 +245,31 @@ public sealed class MessagingService(
             profile?.DisplayName ?? account.Username,
             message.Body,
             message.CreatedAtUtc);
+    }
+
+    private async Task EnsureDirectChatIsVisibleAsync(Guid currentUserId, BudConnection connection, CancellationToken cancellationToken)
+    {
+        var otherUserId = connection.UserOneId == currentUserId ? connection.UserTwoId : connection.UserOneId;
+
+        if (await profileRepository.GetBlockAsync(currentUserId, otherUserId, cancellationToken) is not null ||
+            await profileRepository.GetBlockAsync(otherUserId, currentUserId, cancellationToken) is not null)
+        {
+            throw ApiException.NotFound("The requested chat scope could not be found.");
+        }
+    }
+
+    private async Task<DirectChatDto> MapDirectChatAsync(Guid currentUserId, BudConnection connection, CancellationToken cancellationToken)
+    {
+        var otherUserId = connection.UserOneId == currentUserId ? connection.UserTwoId : connection.UserOneId;
+        var account = await authRepository.GetByIdAsync(otherUserId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested direct chat could not be found.");
+        var profile = await profileRepository.GetProfileAsync(otherUserId, cancellationToken);
+
+        return new DirectChatDto(
+            connection.Id,
+            otherUserId,
+            account.Username,
+            profile?.DisplayName ?? account.Username,
+            connection.CreatedAtUtc);
     }
 }

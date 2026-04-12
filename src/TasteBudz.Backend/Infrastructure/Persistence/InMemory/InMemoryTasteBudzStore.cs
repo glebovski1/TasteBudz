@@ -39,6 +39,8 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<Guid, DiscountActivation> DiscountActivations { get; } = new();
 
+    public Dictionary<Guid, CheckoutSession> CheckoutSessions { get; } = new();
+
     public Dictionary<string, (double Latitude, double Longitude)> ZipCoordinates { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<Guid, Event> Events { get; } = new();
@@ -110,6 +112,7 @@ public sealed class InMemoryTasteBudzStore
             RestaurantSlots.Clear();
             EventSlotReservations.Clear();
             DiscountActivations.Clear();
+            CheckoutSessions.Clear();
             ZipCoordinates.Clear();
 
             SeedRestaurants();

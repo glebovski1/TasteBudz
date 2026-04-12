@@ -343,6 +343,36 @@ CREATE TABLE IF NOT EXISTS DiscountActivations (
     FOREIGN KEY (ReservationId) REFERENCES EventSlotReservations (Id)
 );
 
+CREATE TABLE IF NOT EXISTS CheckoutSessions (
+    Id TEXT NOT NULL PRIMARY KEY,
+    EventId TEXT NOT NULL,
+    UserId TEXT NOT NULL,
+    Status INTEGER NOT NULL,
+    Currency TEXT NOT NULL,
+    SubtotalCents INTEGER NOT NULL,
+    DiscountCents INTEGER NOT NULL,
+    TotalCents INTEGER NOT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    UpdatedAtUtc TEXT NOT NULL,
+    CompletedAtUtc TEXT NULL,
+    CancelledAtUtc TEXT NULL,
+    FOREIGN KEY (EventId) REFERENCES Events (Id),
+    FOREIGN KEY (UserId) REFERENCES UserAccounts (Id),
+    CHECK (trim(Currency) <> ''),
+    CHECK (SubtotalCents >= 0),
+    CHECK (DiscountCents >= 0),
+    CHECK (TotalCents = SubtotalCents - DiscountCents),
+    CHECK (DiscountCents <= SubtotalCents),
+    CHECK (UpdatedAtUtc >= CreatedAtUtc),
+    CHECK (CompletedAtUtc IS NULL OR CompletedAtUtc >= CreatedAtUtc),
+    CHECK (CancelledAtUtc IS NULL OR CancelledAtUtc >= CreatedAtUtc),
+    CHECK (
+        (Status = 1 AND CompletedAtUtc IS NOT NULL AND CancelledAtUtc IS NULL) OR
+        (Status = 2 AND CancelledAtUtc IS NOT NULL AND CompletedAtUtc IS NULL) OR
+        (Status = 0 AND CompletedAtUtc IS NULL AND CancelledAtUtc IS NULL)
+    )
+);
+
 CREATE TABLE IF NOT EXISTS EventParticipants (
     EventId TEXT NOT NULL,
     UserId TEXT NOT NULL,
@@ -561,6 +591,7 @@ CREATE INDEX IF NOT EXISTS IX_GroupInvites_InvitedUserId ON GroupInvites (Invite
 CREATE INDEX IF NOT EXISTS IX_Restaurants_ZipCode ON Restaurants (ZipCode);
 CREATE INDEX IF NOT EXISTS IX_Events_GroupId ON Events (GroupId);
 CREATE INDEX IF NOT EXISTS IX_EventParticipants_UserId ON EventParticipants (UserId);
+CREATE INDEX IF NOT EXISTS IX_CheckoutSessions_EventId_UserId_CreatedAtUtc ON CheckoutSessions (EventId, UserId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_ChatMessages_ThreadId_CreatedAtUtc_Id ON ChatMessages (ThreadId, CreatedAtUtc, Id);
 CREATE INDEX IF NOT EXISTS IX_Notifications_RecipientUserId_CreatedAtUtc ON Notifications (RecipientUserId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_ModerationReports_Status_CreatedAtUtc ON ModerationReports (Status, CreatedAtUtc);

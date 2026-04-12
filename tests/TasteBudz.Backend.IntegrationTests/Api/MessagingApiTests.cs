@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Messaging;
@@ -296,12 +297,76 @@ public sealed class MessagingApiTests(TasteBudzApiFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task DirectChat_WhenFeatureEnabled_SupportsCreateHubSendAndHistory()
+    {
+        using var enabledFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["FeatureFlags:MessagingDirectChatEnabled"] = "true",
+        });
+        enabledFactory.ResetState();
+        using var alexClient = enabledFactory.CreateClient();
+        using var samClient = enabledFactory.CreateClient();
+
+        var alexSession = await ApiTestHelpers.RegisterAsync(alexClient, username: "alex", email: "alex@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        ApiTestHelpers.SetBearer(alexClient, alexSession.AccessToken);
+        ApiTestHelpers.SetBearer(samClient, samSession.AccessToken);
+
+        await alexClient.PostAsJsonAsync(
+            "/api/v1/discovery/swipes",
+            new RecordSwipeDecisionRequest { SubjectUserId = samSession.CurrentUser.UserId, Decision = SwipeDecisionType.Like },
+            ApiTestHelpers.JsonOptions);
+        await samClient.PostAsJsonAsync(
+            "/api/v1/discovery/swipes",
+            new RecordSwipeDecisionRequest { SubjectUserId = alexSession.CurrentUser.UserId, Decision = SwipeDecisionType.Like },
+            ApiTestHelpers.JsonOptions);
+
+        var createDirectChatResponse = await alexClient.PostAsJsonAsync(
+            "/api/v1/direct-chats",
+            new CreateDirectChatRequest { SubjectUserId = samSession.CurrentUser.UserId },
+            ApiTestHelpers.JsonOptions);
+        var directChat = await createDirectChatResponse.Content.ReadFromJsonAsync<DirectChatDto>(ApiTestHelpers.JsonOptions);
+
+        await using var alexConnection = CreateConnection(enabledFactory, alexSession.AccessToken);
+        await using var samConnection = CreateConnection(enabledFactory, samSession.AccessToken);
+        var received = new TaskCompletionSource<ChatMessageDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        samConnection.On<ChatMessageDto>("MessageReceived", message => received.TrySetResult(message));
+
+        await alexConnection.StartAsync();
+        await samConnection.StartAsync();
+        await alexConnection.InvokeAsync("JoinScope", ChatScopeType.Direct, directChat!.DirectChatId);
+        await samConnection.InvokeAsync("JoinScope", ChatScopeType.Direct, directChat.DirectChatId);
+
+        var sent = await alexConnection.InvokeAsync<ChatMessageDto>("SendMessage", new SendChatMessageRequest
+        {
+            ScopeType = ChatScopeType.Direct,
+            ScopeId = directChat.DirectChatId,
+            Body = "Ramen this week?",
+        });
+        var receivedMessage = await received.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var historyResponse = await samClient.GetAsync($"/api/v1/direct-chats/{directChat.DirectChatId}/messages");
+        var history = await historyResponse.Content.ReadFromJsonAsync<CursorPageResponse<ChatMessageDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, createDirectChatResponse.StatusCode);
+        Assert.Equal(samSession.CurrentUser.UserId, directChat.OtherUserId);
+        Assert.Equal("Ramen this week?", sent.Body);
+        Assert.Equal(sent.MessageId, receivedMessage.MessageId);
+        Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+        Assert.Contains(history!.Items, item => item.MessageId == sent.MessageId);
+    }
+
+    [Fact]
     public async Task DirectChatScope_RemainsHiddenInHubRequests()
     {
         factory.ResetState();
         using var client = factory.CreateClient();
 
         var session = await ApiTestHelpers.RegisterAsync(client, username: "direct", email: "direct@example.com");
+        ApiTestHelpers.SetBearer(client, session.AccessToken);
+        var directChatResponse = await client.PostAsJsonAsync(
+            "/api/v1/direct-chats",
+            new CreateDirectChatRequest { SubjectUserId = Guid.NewGuid() },
+            ApiTestHelpers.JsonOptions);
 
         await using var connection = CreateConnection(factory, session.AccessToken);
         await connection.StartAsync();
@@ -316,6 +381,7 @@ public sealed class MessagingApiTests(TasteBudzApiFactory factory) : IClassFixtu
                 Body = "Not launched",
             }));
 
+        Assert.Equal(HttpStatusCode.NotFound, directChatResponse.StatusCode);
         Assert.Contains("could not be found", joinException.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("could not be found", sendException.Message, StringComparison.OrdinalIgnoreCase);
     }

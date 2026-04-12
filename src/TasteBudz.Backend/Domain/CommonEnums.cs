@@ -235,3 +235,13 @@ public enum EventSlotReservationStatus
     Active,
     Cancelled,
 }
+
+/// <summary>
+/// Simulation-only checkout lifecycle for event payments.
+/// </summary>
+public enum CheckoutSessionStatus
+{
+    Pending,
+    Completed,
+    Cancelled,
+}

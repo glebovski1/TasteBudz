@@ -370,8 +370,8 @@ MVP messaging rules:
 SignalR hub expectations:
 
 - authenticate before connection
-- `JoinScope(scopeType, scopeId)` joins callers only to authorized event/group channels
-- `SendMessage({ scopeType, scopeId, body })` sends text messages into authorized event/group threads
+- `JoinScope(scopeType, scopeId)` joins callers only to authorized event/group channels, or authorized direct-chat channels when direct chat is enabled
+- `SendMessage({ scopeType, scopeId, body })` sends text messages into authorized event/group/direct threads
 - `MessageReceived` is the server event name for broadcast delivery
 - use REST history endpoints for initial backfill and reconnection
 
@@ -491,13 +491,49 @@ Representative request shapes:
 }
 ```
 
-### 4.2 Direct Chat (Later)
+### 4.2 Direct Chat (Feature-Flagged)
+
+These endpoints are implemented behind `FeatureFlags:MessagingDirectChatEnabled` and remain disabled by default. A direct chat can be created only between current connected Budz. Blocking or loss of the Budz connection hides the direct chat from the caller.
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
 | Create Direct Chat | POST | `/api/v1/direct-chats` | Create direct thread when enabled | Yes |
-| List Direct Chat Messages | GET | `/api/v1/direct-chats/{threadId}/messages` | Return direct-message history | Yes |
-| Post Direct Chat Message | POST | `/api/v1/direct-chats/{threadId}/messages` | Send direct message | Yes |
+| List Direct Chat Messages | GET | `/api/v1/direct-chats/{directChatId}/messages` | Return direct-message history | Yes |
+| Post Direct Chat Message | POST | `/api/v1/direct-chats/{directChatId}/messages` | Send direct message | Yes |
+
+Representative request shapes:
+
+```json
+{
+  "subjectUserId": "uuid"
+}
+```
+
+```json
+{
+  "body": "Hello!"
+}
+```
+
+Representative direct-chat response shape:
+
+```json
+{
+  "directChatId": "uuid",
+  "otherUserId": "uuid",
+  "otherUsername": "sam",
+  "otherDisplayName": "Sam Carter",
+  "createdAtUtc": "timestamp"
+}
+```
+
+Contract rules:
+
+- Disabled direct-chat endpoints return `404 Not Found`.
+- Enabled direct chat still returns `401 Unauthorized` for unauthenticated callers.
+- Direct chat is Budz-only; non-Budz, blocked pairs, and unrelated callers receive `404 Not Found`.
+- Direct chat uses `ChatScopeType.Direct`, where the `scopeId` is the returned `directChatId`.
+- Active `ChatSend` restrictions block sending.
 
 ### 4.3 Feed (Later)
 
@@ -579,7 +615,47 @@ Contract rules:
 - Reservation sets the event selected restaurant to the slot restaurant and clears cuisine target.
 - `EventDetailDto` may include nullable `slotReservation` and nullable `discountActivation`; event summaries do not include these fields.
 - Discount simulation uses joined participants as confirmed participants and freezes the final active/inactive result after cutoff.
-- Payment simulation, checkout state, and payment side effects are out of scope.
+- Discount state is simulation-only and may affect checkout simulation when checkout is separately enabled.
+
+### 4.5 Payment Simulation and Checkout (Feature-Flagged)
+
+These endpoints are implemented behind `FeatureFlags:PaymentsCheckoutEnabled` and remain disabled by default. The checkout slice is simulation-only and never calls an external payment provider.
+
+| Endpoint | Method | Path | Description | Auth |
+|---|---|---|---|---|
+| Create Checkout Session | POST | `/api/v1/events/{eventId}/checkout-sessions` | Create or return a simulated checkout session for a joined event participant | Yes |
+| Complete Checkout Session | POST | `/api/v1/checkout-sessions/{checkoutSessionId}/completion` | Mark a pending checkout session completed | Yes |
+| Cancel Checkout Session | POST | `/api/v1/checkout-sessions/{checkoutSessionId}/cancellation` | Mark a pending checkout session cancelled | Yes |
+
+Representative response shape:
+
+```json
+{
+  "checkoutSessionId": "uuid",
+  "eventId": "uuid",
+  "userId": "uuid",
+  "status": "Pending",
+  "currency": "USD",
+  "subtotalCents": 2500,
+  "discountCents": 375,
+  "totalCents": 2125,
+  "createdAtUtc": "timestamp",
+  "updatedAtUtc": "timestamp",
+  "completedAtUtc": null,
+  "cancelledAtUtc": null
+}
+```
+
+Contract rules:
+
+- Disabled checkout endpoints return `404 Not Found`.
+- Only the checkout-session owner may complete or cancel the session; unrelated callers receive `404 Not Found`.
+- Checkout creation requires the caller to be a current `JOINED` event participant.
+- Checkout creation requires a selected restaurant and returns `409 Conflict` if the event has only a cuisine target.
+- Simulated subtotal is derived from the selected restaurant price tier.
+- Active discount activation may reduce the simulated total.
+- Completed sessions cannot be cancelled, and cancelled sessions cannot be completed.
+- No real money movement, settlement, refunds, tax calculation, tips, saved payment methods, or provider webhooks are implied.
 
 ## 5. Recommended MVP Public Surface
 

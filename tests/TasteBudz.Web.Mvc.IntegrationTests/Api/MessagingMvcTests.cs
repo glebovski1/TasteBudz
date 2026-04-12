@@ -18,7 +18,7 @@ public sealed class MessagingMvcTests
         factory.BackendHandler.Requests.Clear();
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
-            $"/api/v1/events/{eventId}/messages?pageSize=15",
+            $"/api/v1/events/{eventId}/messages?pageSize=20",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
                 new CursorPageResponse<ChatMessageDto>(
@@ -33,6 +33,38 @@ public sealed class MessagingMvcTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("const SCOPE_TYPE = 0;", html);
+        Assert.Contains("const HUB_URL = \"https://backend.test/hubs/chat\";", html);
+        Assert.Contains("const ACCESS_TOKEN = \"access-token\";", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task DirectChat_RendersDirectScopeAndBackendHubMetadata()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var directChatId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/direct-chats/{directChatId}/messages?pageSize=20",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CursorPageResponse<ChatMessageDto>(
+                    new[]
+                    {
+                        new ChatMessageDto(Guid.NewGuid(), Guid.NewGuid(), "sam", "Sam Carter", "Hello direct chat", DateTimeOffset.UtcNow),
+                    },
+                    null)));
+
+        using var response = await client.GetAsync($"/Messaging/DirectChat/{directChatId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Direct Chat", html);
+        Assert.Contains("const SCOPE_TYPE = 2;", html);
         Assert.Contains("const HUB_URL = \"https://backend.test/hubs/chat\";", html);
         Assert.Contains("const ACCESS_TOKEN = \"access-token\";", html);
         factory.BackendHandler.AssertDrained();

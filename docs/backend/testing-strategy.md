@@ -151,6 +151,8 @@ The following areas are the highest priority for backend testing.
 - only active group members can access group chat
 - only joined event participants can access event chat
 - leaving or removal revokes access immediately
+- direct chat remains hidden when disabled
+- enabled direct chat is limited to connected Budz, current block state, and active `ChatSend` restrictions
 
 ### P1 - Feature-flagged restaurant operations
 
@@ -161,6 +163,14 @@ The following areas are the highest priority for backend testing.
 - event-host slot reservation enforces event/slot uniqueness, host ownership, active event status, and time/capacity fit
 - discount simulation recalculates before cutoff and freezes after cutoff
 - reserved-slot cancellation cancels the linked event through normal cancellation behavior
+
+### P1 - Feature-flagged checkout simulation
+
+- disabled checkout endpoints return `404`
+- checkout creation requires a current joined event participant and selected restaurant
+- simulated totals derive from restaurant price tier and active discount state
+- checkout completion and cancellation are owner-only terminal transitions
+- checkout remains simulation-only and has no external provider side effects
 
 ### P1 - Moderation and audit
 
@@ -208,6 +218,7 @@ tests/
     Discovery/
     Messaging/
     Moderation/
+    Payments/
     Shared/
   TasteBudz.Backend.IntegrationTests/
     Api/
@@ -269,6 +280,8 @@ These scenarios should anchor early backend testing work.
 | BT-16 | Event host reserves an open restaurant slot | High | Event restaurant selection, cuisine clearing, and reservation uniqueness are correct |
 | BT-17 | Restaurant admin cancels a reserved slot | High | Reservation and linked event cancellation behavior is correct |
 | BT-18 | Discount threshold crosses before and after cutoff | Medium | Simulation state recalculates before cutoff and freezes after cutoff |
+| BT-19 | Direct chat between Budz is enabled behind flag | High | Budz-only access, block checks, history retrieval, and hub delivery are correct |
+| BT-20 | Joined participant creates and completes simulated checkout | High | Feature flag, selected-restaurant requirement, simulated totals, and terminal status transitions are correct |
 
 ## 14. Module-Specific Test Emphasis
 
@@ -281,7 +294,8 @@ These scenarios should anchor early backend testing work.
 | Events | create, update, cancel, join, leave, invites, lifecycle, concurrency |
 | Groups | create, join, leave, private invites, owner-only actions, group-owner-only later admin flows |
 | Discovery and Budz | search, privacy/block/restriction filters, swipe replacement, reciprocal-like connection creation |
-| Messaging | membership-derived access, history retrieval, restriction-aware send behavior |
+| Messaging | membership-derived access, Budz-only direct chat, history retrieval, restriction-aware send behavior |
+| Payments | feature-flag behavior, participant-owned checkout creation, simulated totals, completion/cancellation state rules |
 | Notifications | workflow-triggered notifications, type contract, required context payload, read-state updates |
 | Moderation and Audit | reports, restrictions, scope validation, role enforcement, audit entries |
 

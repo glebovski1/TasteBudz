@@ -15,6 +15,7 @@ using TasteBudz.Backend.Modules.Messaging;
 using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
+using TasteBudz.Backend.Modules.Payments;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
 
@@ -61,6 +62,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGroupRepository, SqliteGroupRepository>();
         services.AddScoped<IDiscoveryRepository, SqliteDiscoveryRepository>();
         services.AddScoped<IMessagingRepository, SqliteMessagingRepository>();
+        services.AddScoped<ICheckoutSessionRepository, SqliteCheckoutSessionRepository>();
         services.AddScoped<IMediaRepository, SqliteMediaRepository>();
         services.AddScoped<IModerationRepository, SqliteModerationRepository>();
         services.AddScoped<INotificationRepository, SqliteNotificationRepository>();
@@ -83,6 +85,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DiscoveryService>();
         services.AddScoped<NotificationCenterService>();
         services.AddScoped<MessagingService>();
+        services.AddScoped<CheckoutSessionService>();
         services.AddScoped<MediaService>();
         services.AddScoped<RestaurantSearchService>();
         services.AddScoped<RestaurantRecommendationService>();
