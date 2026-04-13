@@ -1,0 +1,4 @@
+interface:
+  display_name: "Azure App Service Deployment"
+  short_description: "Deploy TasteBudz to Azure App Service with Azure SQL."
+  default_prompt: "Use this skill to deploy the TasteBudz single-host ASP.NET Core app to Azure App Service with Azure SQL, manual database scripts, and zip deployment."
