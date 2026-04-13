@@ -2,6 +2,39 @@
 
 Use these commands from the repository root. Replace placeholder values before running.
 
+## Update Existing App
+
+For code-only updates to the current production App Service, use the repo-local update script instead of repeating the full resource creation flow:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1
+```
+
+The script defaults to:
+
+- resource group `rg-tastebudz-prod`
+- web app `tastebudz-prod-23df46c9`
+- MVC host project `src/TasteBudz.Web.Mvc/TasteBudz.Web.Mvc.csproj`
+- publish root `artifacts\publish`
+
+Useful options:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1 -Subscription "<subscription name or id>"
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1 -KeepArtifacts
+```
+
+The script always runs Release restore, build, and tests before publishing only the MVC host. It deploys a zip package with `az webapp deploy` first, falls back to Kudu zipdeploy when needed, restores original SCM/FTP basic publishing policy states, and verifies:
+
+- homepage returns `200`
+- unauthenticated `/api/v1/restaurants` returns `401`
+- unauthenticated `POST /hubs/chat/negotiate?negotiateVersion=1` returns `401`
+
+Generated publish artifacts are deleted unless `-KeepArtifacts` is passed.
+
+Schema changes remain manual. When production schema changes, apply the ordered scripts from `src/TasteBudz.Database/sqlserver` as an explicit release step; do not rely on the app update script to apply SQL.
+
 ## Authenticate
 
 ```powershell

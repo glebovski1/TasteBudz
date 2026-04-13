@@ -1,13 +1,13 @@
 ---
 name: azure-app-service-deployment
-description: Deploy the TasteBudz single-host ASP.NET Core app to Azure App Service with Azure SQL. Use when the user asks to deploy TasteBudz to Azure, publish the MVC/API/SignalR host, configure Azure SQL, apply production SQL scripts, create or configure App Service resources, or troubleshoot TasteBudz Azure App Service deployment.
+description: Deploy or update the TasteBudz single-host ASP.NET Core app on Azure App Service with Azure SQL. Use when the user asks to deploy TasteBudz to Azure, update the existing published app, publish the MVC/API/SignalR host, configure Azure SQL, apply production SQL scripts, create or configure App Service resources, or troubleshoot TasteBudz Azure App Service deployment.
 ---
 
 # Azure App Service Deployment
 
 ## Purpose
 
-Deploy TasteBudz as one ASP.NET Core App Service host from `src/TasteBudz.Web.Mvc`, with MVC, backend API controllers, SignalR at `/hubs/chat`, backend services, and EF Core persistence in the same publish artifact.
+Deploy or update TasteBudz as one ASP.NET Core App Service host from `src/TasteBudz.Web.Mvc`, with MVC, backend API controllers, SignalR at `/hubs/chat`, backend services, and EF Core persistence in the same publish artifact.
 
 ## Guardrails
 
@@ -15,12 +15,34 @@ Deploy TasteBudz as one ASP.NET Core App Service host from `src/TasteBudz.Web.Mv
 - Do not deploy `TasteBudz.Backend` as a separate web app.
 - Do not auto-create or auto-migrate production schema at app startup.
 - Apply Azure SQL scripts manually, in order, before starting the app against a new database.
+- Use `scripts/update-published-app.ps1` for normal code-only updates to the existing App Service.
+- Do not use the update script to apply database schema changes. SQL scripts remain a manual release step.
 - Keep `BackendApi__BaseUrl` blank for same-host App Service deployment unless the user explicitly requests a separate API topology.
 - Keep SQL passwords and connection strings out of commits and final answers.
 - Confirm subscription, resource names, region, and expected Azure costs before creating paid resources.
 - Do not delete Azure resources unless the user explicitly asks.
 
 ## Workflow
+
+### Update Existing App
+
+Use this path for code-only updates to the already published App Service.
+
+1. Confirm whether the change includes database schema changes.
+   - If yes, keep SQL deployment manual with `src/TasteBudz.Database/sqlserver` scripts.
+   - If no, continue with the update script.
+2. Run a dry run when you need to confirm defaults without changing Azure:
+   - `powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1 -DryRun`
+3. Run the update script for the current production defaults:
+   - `powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1`
+4. Use optional parameters only when needed:
+   - `-Subscription <name-or-id>`
+   - `-PublishRoot <path>`
+   - `-KeepArtifacts`
+   - `-DryRun`
+5. Report restore, Release build, Release test, deployment, and smoke verification status. Do not print SQL passwords, publishing passwords, access tokens, or full connection strings.
+
+### Initial Provision
 
 1. Confirm Azure CLI access:
    - `az login`

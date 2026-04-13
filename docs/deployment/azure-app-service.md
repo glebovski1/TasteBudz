@@ -45,4 +45,12 @@ Startup validates required SQL Server tables and columns. It does not create or 
 
 ## Codex Deployment Automation
 
-No Azure-specific Codex deployment skill is currently installed in this workspace. A later follow-up can add or install one for repeatable App Service deployment. Until then, use standard Azure CLI or portal deployment steps around the Release publish output.
+Use the repo-local Codex skill at `.agents/skills/azure-app-service-deployment` for Azure App Service deployment work.
+
+For code-only updates to the existing published app, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1
+```
+
+The script validates Release restore/build/test, publishes only the MVC host, deploys a zip package, and verifies the homepage plus unauthenticated API and SignalR `401` responses. SQL schema deployment remains manual: when schema changes, apply the ordered scripts in `src/TasteBudz.Database/sqlserver` as a separate release step and keep production startup migrations disabled.
