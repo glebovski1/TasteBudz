@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 
 /// <summary>
-/// Opens a database transaction when one is not already active on the shared DbContext.
+/// Opens a relational database transaction when one is not already active on the shared DbContext.
 /// </summary>
 public sealed class SqliteTransactionRunner(TasteBudzDbContext dbContext) : IPersistenceTransactionRunner
 {
@@ -23,10 +23,16 @@ public sealed class SqliteTransactionRunner(TasteBudzDbContext dbContext) : IPer
             return await action();
         }
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-        var result = await action();
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return result;
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(
+            async () =>
+            {
+                await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+                var result = await action();
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return result;
+            });
     }
 }
