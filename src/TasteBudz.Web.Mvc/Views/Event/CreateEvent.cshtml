@@ -18,12 +18,7 @@
         });
     var mapJson = System.Text.Json.JsonSerializer.Serialize(mapRestaurants);
 
-    // Build cuisine list for the filter dropdown from all loaded restaurants
-    var allCuisines = Model.Restaurants
-        .SelectMany(r => r.CuisineTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .OrderBy(c => c)
-        .ToList();
+    var allCuisines = EventCreateViewModel.AvailableCuisineTags;
 }
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -59,7 +54,13 @@
                     </div>
                     <div class="field">
                         <label asp-for="CuisineTarget"></label>
-                        <input asp-for="CuisineTarget" placeholder="e.g. Japanese, Mexican, Italian… (optional)" />
+                        <select asp-for="CuisineTarget">
+                            <option value="">Any cuisine (optional)</option>
+                            @foreach (var c in EventCreateViewModel.AvailableCuisineTags)
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
                         <span asp-validation-for="CuisineTarget" class="field-validation-error"></span>
                     </div>
                 </div>

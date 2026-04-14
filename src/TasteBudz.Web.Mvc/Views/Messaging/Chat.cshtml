@@ -55,7 +55,7 @@
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
     <script>
         (function () {
-            const SCOPE_TYPE = @((int)Model.ScopeType);
+            const SCOPE_TYPE = "@Model.ScopeType";
             const SCOPE_ID = @Html.Raw(JsonSerializer.Serialize(Model.ScopeId));
             const HUB_URL = @Html.Raw(JsonSerializer.Serialize(Model.HubUrl));
             const ACCESS_TOKEN = @Html.Raw(JsonSerializer.Serialize(Model.AccessToken));

@@ -7,28 +7,7 @@ namespace TasteBudz.Web.Mvc.ViewModels;
 
 public sealed class ProfileEditViewModel
 {
-    public static IReadOnlyList<string> AvailableCuisineTags { get; } = new[]
-    {
-        "American",
-        "Brazilian",
-        "Caribbean",
-        "Chinese",
-        "French",
-        "German",
-        "Greek",
-        "Indian",
-        "Italian",
-        "Jamaican",
-        "Japanese",
-        "Korean",
-        "Mediterranean",
-        "Mexican",
-        "Seafood",
-        "Spanish",
-        "Tex-Mex",
-        "Thai",
-        "Vietnamese",
-    };
+    public static IReadOnlyList<string> AvailableCuisineTags => CuisineData.AvailableCuisineTags;
 
     public static IReadOnlyList<string> AvailableDietaryFlags { get; } = new[]
     {

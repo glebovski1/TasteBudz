@@ -85,7 +85,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("Overpass", client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "TasteBudz/1.0 (restaurant import; contact@tastebudz.local)");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(120);
         });
         services.AddScoped<EventLifecycleService>();
         services.AddScoped<EventBrowseService>();

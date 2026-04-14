@@ -26,36 +26,160 @@ public sealed class OverpassRestaurantImporter(
     private const double BBoxWest = -84.90; // West past Harrison / Lawrenceburg IN
     private const double BBoxEast = -84.15; // East past Batavia / Milford OH
 
-    // Maps OSM cuisine tag values to your existing Cuisine names in the database.
+    // Maps OSM cuisine tag values to display cuisine names in the database.
+    // OSM tags are lowercase and use underscores; values are the display names
+    // shown in the UI. Multiple OSM tags can map to the same display name.
+    // Maps OSM cuisine tag values to display cuisine names in the database.
+    // OSM tags are lowercase and use underscores; values are the display names
+    // shown in the UI. Multiple OSM tags can map to the same display name.
     private static readonly Dictionary<string, string> CuisineTagMap = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["sushi"] = "Sushi",
-        ["japanese"] = "Japanese",
-        ["indian"] = "Indian",
-        ["mexican"] = "Mexican",
-        ["tacos"] = "Tacos",
-        ["thai"] = "Thai",
-        ["noodles"] = "Noodles",
+        // American
         ["american"] = "American",
-        ["mediterranean"] = "Mediterranean",
-        ["vegetarian"] = "Vegetarian",
-        ["vietnamese"] = "Vietnamese",
-        ["pizza"] = "Pizza",
-        ["italian"] = "Italian",
         ["burger"] = "American",
         ["burgers"] = "American",
-        ["chinese"] = "Chinese",
-        ["korean"] = "Korean",
-        ["greek"] = "Greek",
-        ["french"] = "French",
-        ["seafood"] = "Seafood",
-        ["tex-mex"] = "Tex-Mex",
         ["sandwich"] = "American",
+        ["sandwiches"] = "American",
         ["barbecue"] = "American",
+        ["bbq"] = "American",
         ["steak_house"] = "American",
+        ["steak"] = "American",
         ["chicken"] = "American",
+        ["wings"] = "American",
+        ["soul_food"] = "American",
+        ["southern"] = "American",
+        ["comfort_food"] = "American",
+        ["diner"] = "American",
+        ["breakfast"] = "American",
+        ["brunch"] = "American",
+        ["chili"] = "American",
+        ["regional"] = "American",
+        ["american;regional"] = "American",
+        ["hot_dog"] = "American",
+        ["donut"] = "American",
+        ["donuts"] = "American",
+        ["bagel"] = "American",
+        ["bagels"] = "American",
+        ["ice_cream"] = "American",
+        ["frozen_yogurt"] = "American",
+        ["cookie"] = "American",
+        ["cookies"] = "American",
+
+        // Italian
+        ["italian"] = "Italian",
+        ["pizza"] = "Italian",
+        ["pasta"] = "Italian",
+
+        // Mexican
+        ["mexican"] = "Mexican",
+        ["tacos"] = "Mexican",
+        ["taco"] = "Mexican",
+        ["tex-mex"] = "Tex-Mex",
+        ["tex_mex"] = "Tex-Mex",
+
+        // Chinese
+        ["chinese"] = "Chinese",
+        ["dim_sum"] = "Chinese",
+        ["cantonese"] = "Chinese",
+        ["szechuan"] = "Chinese",
+        ["sichuan"] = "Chinese",
+        ["hunan"] = "Chinese",
+        ["noodles"] = "Chinese",
+        ["dumpling"] = "Chinese",
+        ["dumplings"] = "Chinese",
+        ["mongolian"] = "Chinese",
+        ["chinese;sushi"] = "Chinese",
+
+        // Japanese
+        ["japanese"] = "Japanese",
+        ["sushi"] = "Japanese",
+        ["ramen"] = "Japanese",
+        ["udon"] = "Japanese",
+        ["tempura"] = "Japanese",
+        ["teppanyaki"] = "Japanese",
+        ["teriyaki"] = "Japanese",
+        ["japanese;sushi"] = "Japanese",
+        ["sushi;japanese"] = "Japanese",
+        ["hibachi"] = "Japanese",
+
+        // Indian
+        ["indian"] = "Indian",
+        ["curry"] = "Indian",
+        ["pakistani"] = "Indian",
+
+        // Thai
+        ["thai"] = "Thai",
+        ["thai;sushi"] = "Thai",
+
+        // Vietnamese
+        ["vietnamese"] = "Vietnamese",
+        ["pho"] = "Vietnamese",
+
+        // Korean
+        ["korean"] = "Korean",
+        ["korean_bbq"] = "Korean",
+
+        // Mediterranean
+        ["mediterranean"] = "Mediterranean",
+        ["turkish"] = "Mediterranean",
+        ["lebanese"] = "Mediterranean",
+        ["middle_eastern"] = "Mediterranean",
+        ["falafel"] = "Mediterranean",
+        ["kebab"] = "Mediterranean",
+        ["shawarma"] = "Mediterranean",
+        ["tapas"] = "Mediterranean",
+        ["moroccan"] = "Mediterranean",
+        ["egyptian"] = "Mediterranean",
+
+        // Greek
+        ["greek"] = "Greek",
+
+        // French
+        ["french"] = "French",
+        ["crepe"] = "French",
+        ["crepes"] = "French",
+        ["belgian"] = "French",
+
+        // Seafood
+        ["seafood"] = "Seafood",
+        ["fish_and_chips"] = "Seafood",
+        ["fish"] = "Seafood",
+        ["sushi;seafood"] = "Seafood",
+
+        // Latin American
+        ["latin_american"] = "Latin American",
+        ["caribbean"] = "Caribbean",
+        ["cuban"] = "Caribbean",
+        ["haitian"] = "Caribbean",
+        ["jamaican"] = "Caribbean",
+        ["brazilian"] = "Brazilian",
+        ["peruvian"] = "Latin American",
+        ["colombian"] = "Latin American",
+
+        // African
+        ["african"] = "African",
+        ["ethiopian"] = "African",
+        ["west_african"] = "African",
+        ["cambodian"] = "Asian",
+
+        // Other Asian
+        ["asian"] = "Asian",
+        ["asian_fusion"] = "Asian",
+        ["fusion"] = "Asian",
+        ["filipino"] = "Asian",
+        ["taiwanese"] = "Asian",
+        ["malaysian"] = "Asian",
+        ["indonesian"] = "Asian",
+        ["singaporean"] = "Asian",
+
+        // European
+        ["german"] = "German",
+        ["spanish"] = "Spanish",
+        ["portuguese"] = "Spanish",
     };
 
+    // Fallback cuisine name used when a restaurant has no OSM cuisine tag at all.
+    private const string FallbackCuisine = "Other";
     /// <summary>
     /// Runs the import for the Greater Cincinnati bounding box.
     /// Returns the number of new restaurants inserted.
@@ -71,8 +195,12 @@ public sealed class OverpassRestaurantImporter(
             .Select(r => r.ExternalPlaceId!)
             .ToHashSetAsync(cancellationToken);
 
-        // Ensure any new cuisine names from the map exist in the database
-        foreach (var cuisineName in CuisineTagMap.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+        // Ensure any new cuisine names from the map exist in the database,
+        // including the fallback used for restaurants with no OSM cuisine tag.
+        var allCuisineNames = CuisineTagMap.Values
+            .Append(FallbackCuisine)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var cuisineName in allCuisineNames)
         {
             if (!cuisines.ContainsKey(cuisineName))
             {
@@ -113,6 +241,11 @@ public sealed class OverpassRestaurantImporter(
             var restaurantId = Guid.NewGuid();
             var cuisineTagRaw = node.Tags.GetValueOrDefault("cuisine") ?? "";
             var matchedCuisines = ResolveCuisines(cuisineTagRaw, cuisines);
+
+            // If OSM has no cuisine data, assign the fallback so the restaurant
+            // still appears in the UI rather than showing as untagged.
+            if (matchedCuisines.Count == 0 && cuisines.TryGetValue(FallbackCuisine, out var fallbackId))
+                matchedCuisines = [fallbackId];
             var city = node.Tags.GetValueOrDefault("addr:city") ?? DeriveCity(node.Lat.Value, node.Lon.Value);
             var state = node.Tags.GetValueOrDefault("addr:state") ?? DeriveState(node.Lat.Value, node.Lon.Value);
             var zipCode = node.Tags.GetValueOrDefault("addr:postcode") ?? DeriveZip(node.Lat.Value, node.Lon.Value);

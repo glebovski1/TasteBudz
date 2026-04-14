@@ -1,0 +1,125 @@
+﻿@model NotificationsViewModel
+
+@{
+    ViewData["Title"] = "Notifications";
+}
+
+<section class="profile-shell">
+
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Notifications</h1>
+            <p>
+                @if (Model.UnreadCount > 0)
+                {
+                    <span>You have <strong>@Model.UnreadCount</strong> unread notification@(Model.UnreadCount == 1 ? "" : "s").</span>
+                }
+                else
+                {
+                    <span>You're all caught up!</span>
+                }
+            </p>
+        </div>
+        @if (Model.UnreadCount > 0)
+        {
+            <div class="button-row">
+                <form asp-action="MarkAllRead" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="button button--secondary">Mark all as read</button>
+                </form>
+            </div>
+        }
+    </div>
+
+    @if (!Model.HasAny)
+    {
+        <div class="panel" style="text-align: center; padding: 3rem 1.4rem;">
+            <p class="empty-state">No notifications yet — check back after connecting with some Budz!</p>
+        </div>
+    }
+    else
+    {
+        @if (Model.Unread.Count > 0)
+        {
+            <section class="panel stack">
+                <h2 style="margin:0; letter-spacing:-0.02em;">New</h2>
+                <div class="notif-list">
+                    @foreach (var notif in Model.Unread)
+                    {
+                        <div class="notif-row notif-row--unread" data-notif-id="@notif.Id">
+                            <span class="notif-row__icon" aria-hidden="true">@notif.Icon</span>
+                            <div class="notif-row__body">
+                                @if (notif.Link is not null)
+                                {
+                                    <a href="@notif.Link" class="notif-row__message notif-row__message--link">@notif.Message</a>
+                                }
+                                else
+                                {
+                                    <span class="notif-row__message">@notif.Message</span>
+                                }
+                                <span class="notif-row__time">@notif.TimeAgo</span>
+                            </div>
+                            <button class="notif-row__dismiss"
+                                    aria-label="Mark as read"
+                                    onclick="markRead('@notif.Id', this)">
+                                ✕
+                            </button>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (Model.Read.Count > 0)
+        {
+            <section class="panel stack">
+                <h2 style="margin:0; letter-spacing:-0.02em; color: var(--muted);">Earlier</h2>
+                <div class="notif-list">
+                    @foreach (var notif in Model.Read)
+                    {
+                        <div class="notif-row notif-row--read">
+                            <span class="notif-row__icon" aria-hidden="true">@notif.Icon</span>
+                            <div class="notif-row__body">
+                                @if (notif.Link is not null)
+                                {
+                                    <a href="@notif.Link" class="notif-row__message notif-row__message--link">@notif.Message</a>
+                                }
+                                else
+                                {
+                                    <span class="notif-row__message">@notif.Message</span>
+                                }
+                                <span class="notif-row__time">@notif.TimeAgo</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    }
+
+</section>
+
+@section Scripts {
+    <script>
+        const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? "";
+
+        async function markRead(id, btn) {
+            try {
+                const res = await fetch(`/Notifications/MarkRead/${id}`, {
+                    method: "POST",
+                    headers: { "X-CSRF-TOKEN": csrfToken, "Content-Type": "application/json" },
+                });
+                if (res.ok) {
+                    const row = btn.closest(".notif-row");
+                    row.classList.remove("notif-row--unread");
+                    row.classList.add("notif-row--read");
+                    btn.remove();
+
+                    // Update unread count in nav bell if present
+                    if (window.refreshNotifBell) window.refreshNotifBell();
+                }
+            } catch { /* silent */ }
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

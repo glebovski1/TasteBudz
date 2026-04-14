@@ -1,0 +1,196 @@
+﻿@*
+    Notification bell — drop this inside the authenticated nav block in _Layout.cshtml.
+    Polls /Notifications/Summary every 60 seconds and shows a live unread count badge.
+*@
+<div class="notif-bell" id="notifBell">
+    <button class="notif-bell__btn"
+            id="notifBellBtn"
+            aria-label="Notifications"
+            aria-expanded="false"
+            aria-controls="notifDropdown">
+        🔔
+        <span class="notif-bell__badge" id="notifBadge" hidden>0</span>
+    </button>
+
+    <div class="notif-dropdown" id="notifDropdown" aria-live="polite">
+        <div class="notif-dropdown__header">
+            <span class="notif-dropdown__title">Notifications</span>
+            <a href="/Notifications" class="notif-dropdown__see-all">See all</a>
+        </div>
+        <div class="notif-dropdown__list" id="notifDropdownList">
+            <p class="notif-dropdown__empty">Loading…</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const btn       = document.getElementById("notifBellBtn");
+        const dropdown  = document.getElementById("notifDropdown");
+        const badge     = document.getElementById("notifBadge");
+        const list      = document.getElementById("notifDropdownList");
+        const csrfToken = () => document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? "";
+
+        if (!btn) return;
+
+        // ── Toggle dropdown ────────────────────────────────────────────────────
+
+        btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            const isOpen = dropdown.classList.contains("is-open");
+            if (!isOpen) {
+                dropdown.classList.add("is-open");
+                btn.setAttribute("aria-expanded", "true");
+                loadDropdown();
+            } else {
+                closeDropdown();
+            }
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!document.getElementById("notifBell").contains(e.target)) {
+                closeDropdown();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") closeDropdown();
+        });
+
+        function closeDropdown() {
+            dropdown.classList.remove("is-open");
+            btn.setAttribute("aria-expanded", "false");
+        }
+
+        // ── Load / render ──────────────────────────────────────────────────────
+
+        async function fetchSummary() {
+            try {
+                const res = await fetch("/Notifications/Summary");
+                if (!res.ok) return null;
+                return await res.json();
+            } catch { return null; }
+        }
+
+        async function loadDropdown() {
+            list.innerHTML = '<p class="notif-dropdown__empty">Loading…</p>';
+            const data = await fetchSummary();
+            if (!data) {
+                list.innerHTML = '<p class="notif-dropdown__empty">Could not load notifications.</p>';
+                return;
+            }
+            renderDropdown(data);
+        }
+
+        function renderDropdown(data) {
+            updateBadge(data.unreadCount);
+
+            if (!data.items || data.items.length === 0) {
+                list.innerHTML = '<p class="notif-dropdown__empty">No notifications yet.</p>';
+                return;
+            }
+
+            list.innerHTML = data.items.map(n => {
+                const timeAgo = formatTimeAgo(n.createdAt);
+                const unreadClass = n.isRead ? "" : "notif-dropdown__item--unread";
+                const inner = n.link
+                    ? `<a href="${escHtml(n.link)}" class="notif-dropdown__item-msg notif-dropdown__item-msg--link">${escHtml(n.message)}</a>`
+                    : `<span class="notif-dropdown__item-msg">${escHtml(n.message)}</span>`;
+
+                const dismissBtn = !n.isRead
+                    ? `<button class="notif-dropdown__dismiss" aria-label="Mark as read"
+                          onclick="window._notifMarkRead('${n.id}', this)">✕</button>`
+                    : "";
+
+                return `
+                    <div class="notif-dropdown__item ${unreadClass}" data-notif-id="${n.id}">
+                        <span class="notif-dropdown__item-icon" aria-hidden="true">${typeIcon(n.type)}</span>
+                        <div class="notif-dropdown__item-body">
+                            ${inner}
+                            <span class="notif-dropdown__item-time">${escHtml(timeAgo)}</span>
+                        </div>
+                        ${dismissBtn}
+                    </div>`;
+            }).join("");
+        }
+
+        function updateBadge(count) {
+            if (count > 0) {
+                badge.textContent = count > 99 ? "99+" : count;
+                badge.removeAttribute("hidden");
+            } else {
+                badge.setAttribute("hidden", "");
+            }
+        }
+
+        // ── Mark read ──────────────────────────────────────────────────────────
+
+        window._notifMarkRead = async function (id, btn) {
+            try {
+                const res = await fetch(`/Notifications/MarkRead/${id}`, {
+                    method: "POST",
+                    headers: { "X-CSRF-TOKEN": csrfToken() },
+                });
+                if (res.ok) {
+                    const item = btn.closest(".notif-dropdown__item");
+                    item.classList.remove("notif-dropdown__item--unread");
+                    btn.remove();
+                    // Refresh badge count
+                    const data = await fetchSummary();
+                    if (data) updateBadge(data.unreadCount);
+                }
+            } catch { /* silent */ }
+        };
+
+        // Exposed so the Notifications page can trigger a refresh after inline mark-read
+        window.refreshNotifBell = async function () {
+            const data = await fetchSummary();
+            if (data) updateBadge(data.unreadCount);
+        };
+
+        // ── Poll every 60 s ────────────────────────────────────────────────────
+
+        async function pollBadge() {
+            const data = await fetchSummary();
+            if (data) updateBadge(data.unreadCount);
+        }
+
+        pollBadge();
+        setInterval(pollBadge, 60_000);
+
+        // ── Helpers ────────────────────────────────────────────────────────────
+
+        function typeIcon(type) {
+            const icons = {
+                BudMatched:          "🍔",
+                EventInviteReceived: "📅",
+                EventJoined:         "🎉",
+                EventLeft:           "👋",
+                EventConfirmed:      "✅",
+                EventCancelled:      "❌",
+                EventUpdated:        "📝",
+                GroupInviteReceived: "👥",
+            };
+            return icons[type] ?? "🔔";
+        }
+
+        function formatTimeAgo(isoString) {
+            const elapsed = (Date.now() - new Date(isoString).getTime()) / 1000;
+            if (elapsed < 60)   return "just now";
+            if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ago`;
+            if (elapsed < 86400) return `${Math.floor(elapsed / 3600)}h ago`;
+            if (elapsed < 604800) return `${Math.floor(elapsed / 86400)}d ago`;
+            return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        }
+
+        function escHtml(str) {
+            return String(str ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+    }());
+</script>
