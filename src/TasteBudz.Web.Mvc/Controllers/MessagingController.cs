@@ -51,14 +51,14 @@ public sealed class MessagingController : Controller
         }
     }
 
-    // GET /Messaging/EventChat/{id}
+    // GET /Messaging/EventChat/{eventId}
     [HttpGet]
-    public async Task<IActionResult> EventChat(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> EventChat(Guid eventId, CancellationToken cancellationToken)
     {
         try
         {
-            var history = await messagingApiService.ListEventMessagesAsync(id, cancellationToken: cancellationToken);
-            return View("Chat", ChatViewModel.ForEvent(id, history.Items, BuildHubUrl(), GetAccessToken()));
+            var history = await messagingApiService.ListEventMessagesAsync(eventId, cancellationToken: cancellationToken);
+            return View("Chat", ChatViewModel.ForEvent(eventId, history.Items, BuildHubUrl(), GetAccessToken()));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -67,18 +67,18 @@ public sealed class MessagingController : Controller
         catch
         {
             TempData["StatusMessage"] = "Could not load chat history.";
-            return View("Chat", ChatViewModel.ForEvent(id, [], BuildHubUrl(), GetAccessToken()));
+            return View("Chat", ChatViewModel.ForEvent(eventId, [], BuildHubUrl(), GetAccessToken()));
         }
     }
 
-    // GET /Messaging/GroupChat/{id}
+    // GET /Messaging/GroupChat/{groupId}
     [HttpGet]
-    public async Task<IActionResult> GroupChat(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GroupChat(Guid groupId, CancellationToken cancellationToken)
     {
         try
         {
-            var history = await messagingApiService.ListGroupMessagesAsync(id, cancellationToken: cancellationToken);
-            return View("Chat", ChatViewModel.ForGroup(id, history.Items, BuildHubUrl(), GetAccessToken()));
+            var history = await messagingApiService.ListGroupMessagesAsync(groupId, cancellationToken: cancellationToken);
+            return View("Chat", ChatViewModel.ForGroup(groupId, history.Items, BuildHubUrl(), GetAccessToken()));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -87,7 +87,7 @@ public sealed class MessagingController : Controller
         catch
         {
             TempData["StatusMessage"] = "Could not load chat history.";
-            return View("Chat", ChatViewModel.ForGroup(id, [], BuildHubUrl(), GetAccessToken()));
+            return View("Chat", ChatViewModel.ForGroup(groupId, [], BuildHubUrl(), GetAccessToken()));
         }
     }
 

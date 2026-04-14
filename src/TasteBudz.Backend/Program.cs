@@ -12,7 +12,26 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
-builder.Services.AddCors();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("TasteBudzCors", policy =>
+    {
+        var origins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()?
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .ToArray() ?? [];
+
+        if (origins.Length > 0)
+        {
+            policy
+                .WithOrigins(origins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    });
+});
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
@@ -24,13 +43,6 @@ builder.Services
 builder.Services.AddTasteBudzFoundation(builder.Configuration);
 
 var app = builder.Build();
-var allowedCorsOrigins = app.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>()?
-    .Where(origin => !string.IsNullOrWhiteSpace(origin))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray() ?? [];
-
 var normalizedConnectionString = SqliteConnectionStringHelper.Normalize(
     builder.Configuration.GetConnectionString("TasteBudz") ?? throw new InvalidOperationException("ConnectionStrings:TasteBudz must be configured."),
     app.Environment.ContentRootPath);
@@ -52,22 +64,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseCors(policy =>
-{
-    if (allowedCorsOrigins.Length > 0)
-    {
-        policy
-            .WithOrigins(allowedCorsOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    }
-});
+app.UseCors("TasteBudzCors");
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<ChatHub>("/hubs/chat").RequireCors("TasteBudzCors");
 
 app.Run();
 

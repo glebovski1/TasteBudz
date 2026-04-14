@@ -93,7 +93,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EventParticipationService>();
         services.AddScoped<EventService>();
         services.AddScoped<UserEventQueryService>();
-        services.AddSignalR();
+        services.AddSignalR()
+            .AddJsonProtocol(options =>
+            {
+                options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+            });
 
         // The app uses a custom bearer handler backed by the session repository instead of JWT validation.
         services
