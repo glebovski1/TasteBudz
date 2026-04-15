@@ -161,11 +161,9 @@
                                     <span class="muted-note">Reported user: <code>@report.RelatedUserId.Value.ToString()[..8]…</code></span>
                                 }
                             </div>
-
                             <div class="button-row">
                                 @if (report.RelatedUserId.HasValue)
                                 {
-                                    <!-- Ban modal trigger -->
                                     <button class="button button--danger"
                                             onclick="openBanModal('@report.RelatedUserId', '@report.ReportId')">
                                         Ban User
@@ -186,17 +184,14 @@
         <button class="ban-modal__close" onclick="closeBanModal()" aria-label="Close">✕</button>
         <h2 class="card__title">Ban User</h2>
         <p class="card__subtitle">Choose the restriction duration. This action is logged.</p>
-
         <form asp-action="BanUser" method="post" class="stack" id="banForm">
             @Html.AntiForgeryToken()
             <input type="hidden" name="userId" id="banUserId" />
             <input type="hidden" name="reportId" id="banReportId" />
-
             <div class="field">
                 <label for="banReason">Reason</label>
                 <textarea id="banReason" name="reason" placeholder="Brief reason for this restriction…" required></textarea>
             </div>
-
             <div class="ban-duration-row">
                 <button type="submit" name="permanent" value="false" class="button button--primary ban-btn">
                     🕐 7-Day Ban
@@ -216,12 +211,10 @@
             document.getElementById('banReportId').value = reportId;
             document.getElementById('banOverlay').removeAttribute('hidden');
         }
-
         function closeBanModal() {
             document.getElementById('banOverlay').setAttribute('hidden', '');
             document.getElementById('banReason').value = '';
         }
-
         document.getElementById('banOverlay').addEventListener('click', function (e) {
             if (e.target === this) closeBanModal();
         });

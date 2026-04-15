@@ -18,6 +18,8 @@
             googleMapsUrl = r.GoogleMapsUrl,
         });
     var mapJson = System.Text.Json.JsonSerializer.Serialize(mapRestaurants);
+
+    var allCuisines = EventCreateViewModel.AvailableCuisineTags;
 }
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -40,22 +42,28 @@
 
         <div class="editor-grid">
 
-            <section class="card stack">
+            <section class="card stack" style="grid-column: 1 / -1;">
                 <div>
                     <h2 class="card__title">Event Details</h2>
                     <p class="card__subtitle">Give your event a name and choose a cuisine theme.</p>
                 </div>
-
-                <div class="field">
-                    <label asp-for="Title"></label>
-                    <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday…" />
-                    <span asp-validation-for="Title" class="field-validation-error"></span>
-                </div>
-
-                <div class="field">
-                    <label asp-for="CuisineTarget"></label>
-                    <input asp-for="CuisineTarget" placeholder="e.g. Japanese, Mexican, Italian… (optional)" />
-                    <span asp-validation-for="CuisineTarget" class="field-validation-error"></span>
+                <div class="editor-grid" style="gap: 1rem;">
+                    <div class="field">
+                        <label asp-for="Title"></label>
+                        <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday…" />
+                        <span asp-validation-for="Title" class="field-validation-error"></span>
+                    </div>
+                    <div class="field">
+                        <label asp-for="CuisineTarget"></label>
+                        <select asp-for="CuisineTarget">
+                            <option value="">Any cuisine (optional)</option>
+                            @foreach (var c in EventCreateViewModel.AvailableCuisineTags)
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
+                        <span asp-validation-for="CuisineTarget" class="field-validation-error"></span>
+                    </div>
                 </div>
             </section>
 
@@ -64,7 +72,6 @@
                     <h2>Type &amp; Capacity</h2>
                     <p class="card__subtitle">Open events are public. Closed events are invite-only.</p>
                 </div>
-
                 <div class="field">
                     <label asp-for="EventType"></label>
                     <select asp-for="EventType">
@@ -74,7 +81,6 @@
                     </select>
                     <span asp-validation-for="EventType" class="field-validation-error"></span>
                 </div>
-
                 <div class="field">
                     <label asp-for="Capacity"></label>
                     <input asp-for="Capacity" type="number" min="2" max="8" placeholder="2–8 people" />
@@ -87,7 +93,6 @@
                     <h2 class="card__title">Date &amp; Time</h2>
                     <p class="card__subtitle">When is the event taking place?</p>
                 </div>
-
                 <div class="field">
                     <label asp-for="EventStartAt"></label>
                     <input asp-for="EventStartAt"
@@ -97,22 +102,65 @@
                 </div>
             </section>
 
+            @* ── Restaurant picker ── *@
             <section class="card stack" style="grid-column: 1 / -1;">
                 <div>
                     <h2 class="card__title">Restaurant <span class="muted-note">(optional)</span></h2>
-                    <p class="card__subtitle">Click a pin on the map to select a restaurant, or leave blank to decide later.</p>
+                    <p class="card__subtitle">Filter the map to find a restaurant, then click a pin to select it.</p>
                 </div>
 
                 <input type="hidden" asp-for="SelectedRestaurantId" id="selectedRestaurantId" />
 
-                @if (!Model.Restaurants.Any())
+                @if (!Model.Restaurants.Any(r => r.Latitude.HasValue && r.Longitude.HasValue))
                 {
-                    <p class="empty-state">No restaurants available right now.</p>
+                    <p class="empty-state">No restaurants with location data available. Try importing from the Admin panel.</p>
                 }
                 else
                 {
+                    @* ── Filter bar ── *@
+                    <div class="restaurant-filters">
+
+                        <div class="field" style="margin:0;">
+                            <label for="filterName">Search by name</label>
+                            <input id="filterName" type="text" placeholder="e.g. Pizza…" autocomplete="off" />
+                        </div>
+
+                        <div class="field" style="margin:0;">
+                            <label for="filterCuisine">Cuisine</label>
+                            <select id="filterCuisine">
+                                <option value="">All cuisines</option>
+                                @foreach (var c in allCuisines)
+                                {
+                                    <option value="@c" selected="@(c.Equals(Model.CuisineTarget, StringComparison.OrdinalIgnoreCase))">@c</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="field" style="margin:0;">
+                            <label for="filterPrice">Price</label>
+                            <select id="filterPrice">
+                                <option value="">Any price</option>
+                                <option value="$">$ — Budget</option>
+                                <option value="$$">$$ — Moderate</option>
+                                <option value="$$$">$$$ — Upscale</option>
+                                <option value="$$$$">$$$$ — Fine dining</option>
+                            </select>
+                        </div>
+
+                        <button type="button" id="clearFilters"
+                                class="button button--secondary"
+                                style="align-self:end; display:none;">
+                            Clear filters
+                        </button>
+                    </div>
+
+                    @* ── Results count ── *@
+                    <p id="filterCount" class="muted-note" style="margin:0;"></p>
+
+                    @* ── Map ── *@
                     <div id="restaurantMap" class="restaurant-map"></div>
 
+                    @* ── Selection bar ── *@
                     <div class="restaurant-selection-bar" id="selectionBar">
                         <span id="selectionLabel">No restaurant selected.</span>
                         <button type="button" class="button button--secondary button--sm" id="clearSelection" style="display:none;">
@@ -140,24 +188,32 @@
         (function () {
         const restaurants = @Html.Raw(mapJson);
         const hiddenId    = document.getElementById("selectedRestaurantId");
+        const cuisineTarget = document.getElementById("CuisineTarget");
         const label       = document.getElementById("selectionLabel");
         const clearBtn    = document.getElementById("clearSelection");
         const mapEl       = document.getElementById("restaurantMap");
+        const filterName    = document.getElementById("filterName");
+        const filterCuisine = document.getElementById("filterCuisine");
+        const filterPrice   = document.getElementById("filterPrice");
+        const clearFilters  = document.getElementById("clearFilters");
+        const filterCount   = document.getElementById("filterCount");
 
         if (!mapEl || restaurants.length === 0) return;
 
-        // Centre the map on the average of all restaurant coordinates
+        // ── Map setup ────────────────────────────────────────────────────────
+
         const avgLat = restaurants.reduce((s, r) => s + r.lat, 0) / restaurants.length;
         const avgLng = restaurants.reduce((s, r) => s + r.lng, 0) / restaurants.length;
 
-        const map = L.map("restaurantMap").setView([avgLat, avgLng], 12);
+        const map = L.map("restaurantMap").setView([avgLat, avgLng], 13);
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
         }).addTo(map);
 
-        // Custom marker icons
+        // ── Marker icons ─────────────────────────────────────────────────────
+
         const defaultIcon = L.divIcon({
         className: "map-pin",
         html: "🍽️",
@@ -174,36 +230,34 @@
         popupAnchor: [0, -32],
         });
 
-        let selectedMarker = null;
+        const hiddenIcon = L.divIcon({
+        className: "map-pin map-pin--hidden",
+        html: "",
+        iconSize: [0, 0],
+        });
 
-        restaurants.forEach(r => {
+        // ── Build markers ────────────────────────────────────────────────────
+
+        const markers = restaurants.map(r => {
         const marker = L.marker([r.lat, r.lng], { icon: defaultIcon })
         .addTo(map)
         .bindPopup(createRestaurantPopup(r));
 
-        marker._restaurantId   = r.id;
-        marker._restaurantName = r.name;
-        marker._defaultIcon    = defaultIcon;
-        marker._selectedIcon   = selectedIcon;
-
-        marker.on("click", () => map.setView([r.lat, r.lng], 14));
+        marker._data = r;
+        marker._visible = true;
+        marker.on("click", () => map.setView([r.lat, r.lng], 15));
+        return marker;
         });
 
         function selectRestaurant(id, name) {
         hiddenId.value = id;
         label.textContent = "Selected: " + name;
         clearBtn.style.display = "inline-block";
+        if (cuisineTarget) cuisineTarget.value = "";
 
-        // Update marker icons
-        map.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-        if (layer._restaurantId === id) {
-        layer.setIcon(selectedIcon);
-        selectedMarker = layer;
-        } else {
-        layer.setIcon(defaultIcon);
-        }
-        }
+        markers.forEach(m => {
+        if (!m._visible) return;
+        m.setIcon(m._data.id === id ? selectedIcon : defaultIcon);
         });
         }
 
@@ -256,13 +310,88 @@
         hiddenId.value = "";
         label.textContent = "No restaurant selected.";
         clearBtn.style.display = "none";
+        markers.forEach(m => { if (m._visible) m.setIcon(defaultIcon); });
+        });
 
-        map.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-        layer.setIcon(defaultIcon);
+        cuisineTarget?.addEventListener("change", () => {
+        if (!cuisineTarget.value) return;
+        hiddenId.value = "";
+        label.textContent = "No restaurant selected.";
+        clearBtn.style.display = "none";
+        markers.forEach(m => { if (m._visible) m.setIcon(defaultIcon); });
+        });
+
+        // ── Filtering ────────────────────────────────────────────────────────
+
+        function applyFilters() {
+        const nameQ    = (filterName?.value  ?? "").trim().toLowerCase();
+        const cuisineQ = (filterCuisine?.value ?? "").toLowerCase();
+        const priceQ   = (filterPrice?.value  ?? "");
+        const hasFilter = nameQ || cuisineQ || priceQ;
+
+        if (clearFilters) clearFilters.style.display = hasFilter ? "inline-block" : "none";
+
+        let visible = 0;
+        const selectedId = hiddenId.value;
+
+        markers.forEach(m => {
+        const r = m._data;
+        const cuisineStr = (r.cuisine ?? "").toLowerCase();
+        const priceStr   = (r.priceTier ?? "");
+
+        const matchName    = !nameQ    || r.name.toLowerCase().includes(nameQ);
+        const matchCuisine = !cuisineQ || cuisineStr.split(",").map(s => s.trim()).includes(cuisineQ);
+        const matchPrice   = !priceQ   || priceStr === priceQ;
+        const show         = matchName && matchCuisine && matchPrice;
+
+        m._visible = show;
+
+        if (show) {
+        visible++;
+        const isSelected = r.id === selectedId;
+        m.setIcon(isSelected ? selectedIcon : defaultIcon);
+        if (!map.hasLayer(m)) m.addTo(map);
+        } else {
+        if (map.hasLayer(m)) map.removeLayer(m);
+        // Deselect if the selected restaurant is now filtered out
+        if (r.id === selectedId) {
+        hiddenId.value = "";
+        label.textContent = "No restaurant selected.";
+        clearBtn.style.display = "none";
+        }
         }
         });
+
+        if (filterCount) {
+        filterCount.textContent = hasFilter
+        ? `Showing ${visible} of ${restaurants.length} restaurants`
+        : "";
+        }
+        }
+
+        filterName?.addEventListener("input", applyFilters);
+        filterCuisine?.addEventListener("change", applyFilters);
+        filterPrice?.addEventListener("change", applyFilters);
+
+        clearFilters?.addEventListener("click", () => {
+        if (filterName)    filterName.value    = "";
+        if (filterCuisine) filterCuisine.value = "";
+        if (filterPrice)   filterPrice.value   = "";
+        applyFilters();
         });
+
+        // Apply the pre-selected cuisine filter on page load
+        applyFilters();
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+
+        function escHtml(str) {
+        return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+        }
+
         }());
     </script>
 }

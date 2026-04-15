@@ -110,7 +110,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("Overpass", client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "TasteBudz/1.0 (restaurant import; contact@tastebudz.local)");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(120);
         });
         services.AddScoped<EventLifecycleService>();
         services.AddScoped<EventBrowseService>();
@@ -118,7 +118,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EventParticipationService>();
         services.AddScoped<EventService>();
         services.AddScoped<UserEventQueryService>();
-        services.AddSignalR();
+        services.AddSignalR()
+            .AddJsonProtocol(options =>
+            {
+                options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+            });
 
         // The app uses a custom bearer handler backed by the session repository instead of JWT validation.
         services

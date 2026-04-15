@@ -51,14 +51,26 @@ public sealed class DiscoveryService(
 
     public async Task<ListResponse<DiscoveryProfilePreviewDto>> GetSwipeCandidatesAsync(Guid currentUserId, SwipeCandidatesQuery query, CancellationToken cancellationToken = default)
     {
+        // Exclude anyone already connected as a Bud.
         var budConnections = await discoveryRepository.ListBudConnectionsAsync(cancellationToken);
         var connectedUserIds = budConnections
             .Where(connection => connection.State == BudConnectionState.Connected && (connection.UserOneId == currentUserId || connection.UserTwoId == currentUserId))
             .Select(connection => connection.UserOneId == currentUserId ? connection.UserTwoId : connection.UserOneId)
             .ToHashSet();
+
+        // Exclude anyone the current user has already swiped on (like or pass).
+        // Without this, the full candidate pool reappears on every page reload.
+        var existingSwipes = await discoveryRepository.ListSwipeDecisionsAsync(cancellationToken);
+        var alreadySwipedUserIds = existingSwipes
+            .Where(s => s.ActorUserId == currentUserId)
+            .Select(s => s.SubjectUserId)
+            .ToHashSet();
+
         var candidates = (await GetDiscoverableUsersAsync(currentUserId, cancellationToken))
-            .Where(candidate => !connectedUserIds.Contains(candidate.UserId))
+            .Where(candidate => !connectedUserIds.Contains(candidate.UserId)
+                             && !alreadySwipedUserIds.Contains(candidate.UserId))
             .ToArray();
+
         var items = candidates
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)

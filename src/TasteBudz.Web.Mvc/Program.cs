@@ -18,7 +18,26 @@ var mvcSessionIdleTimeout = TimeSpan.FromHours(8);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
-builder.Services.AddCors();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("TasteBudzCors", policy =>
+    {
+        var origins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()?
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .ToArray() ?? [];
+
+        if (origins.Length > 0)
+        {
+            policy
+                .WithOrigins(origins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    });
+});
 
 builder.Services
     .AddOptions<BackendApiOptions>()
@@ -114,13 +133,6 @@ builder.Services.AddHttpClient("BackendApi", (serviceProvider, client) =>
     });
 
 var app = builder.Build();
-var allowedCorsOrigins = app.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>()?
-    .Where(origin => !string.IsNullOrWhiteSpace(origin))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
-    .ToArray() ?? [];
-
 await app.EnsureTasteBudzPersistenceReadyAsync();
 
 app.UseExceptionHandler();
@@ -137,24 +149,14 @@ else
 app.UseHttpsRedirection();
 app.MapStaticAssets();
 app.UseRouting();
-app.UseCors(policy =>
-{
-    if (allowedCorsOrigins.Length > 0)
-    {
-        policy
-            .WithOrigins(allowedCorsOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    }
-});
+app.UseCors("TasteBudzCors");
 app.UseAntiforgery();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<ChatHub>("/hubs/chat").RequireCors("TasteBudzCors");
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")

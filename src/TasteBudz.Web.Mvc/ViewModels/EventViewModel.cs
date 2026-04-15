@@ -78,6 +78,8 @@ public sealed record EventCreateViewModel
 
     public IReadOnlyList<RestaurantPickerItem> Restaurants { get; init; } = [];
 
+    public static IReadOnlyList<string> AvailableCuisineTags => CuisineData.AvailableCuisineTags;
+
     public CreateEventRequest ToRequest() => new()
     {
         EventType = EventType!.Value,

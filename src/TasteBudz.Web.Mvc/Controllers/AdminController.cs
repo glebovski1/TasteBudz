@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using TasteBudz.Backend.Domain;
@@ -32,7 +32,6 @@ public sealed class AdminController : Controller
         this.userSessionService = userSessionService;
     }
 
-    // GET /Admin/Index — overview: user list + open reports
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -43,14 +42,12 @@ public sealed class AdminController : Controller
                 cancellationToken);
             var (restaurantOperationsAvailable, restaurantAssignments) = await BuildRestaurantAssignmentPanelAsync(cancellationToken);
 
-            var vm = new AdminIndexViewModel
+            return View(new AdminIndexViewModel
             {
                 PendingReports = reports.Items,
                 RestaurantOperationsAvailable = restaurantOperationsAvailable,
-                RestaurantAssignments = restaurantAssignments
-            };
-
-            return View(vm);
+                RestaurantAssignments = restaurantAssignments,
+            });
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -58,7 +55,6 @@ public sealed class AdminController : Controller
         }
     }
 
-    // GET /Admin/Reports — full paginated report list
     [HttpGet]
     public async Task<IActionResult> Reports(
         ModerationReportStatus? status,
@@ -67,24 +63,17 @@ public sealed class AdminController : Controller
     {
         try
         {
-            var query = new BrowseModerationReportsQuery
-            {
-                Status = status,
-                Page = page,
-                PageSize = 20
-            };
+            var reports = await moderationApiService.ListReportsAsync(
+                new BrowseModerationReportsQuery { Status = status, Page = page, PageSize = 20 },
+                cancellationToken);
 
-            var reports = await moderationApiService.ListReportsAsync(query, cancellationToken);
-
-            var vm = new AdminReportsViewModel
+            return View(new AdminReportsViewModel
             {
                 Reports = reports.Items,
                 CurrentPage = page,
                 TotalCount = reports.TotalCount,
-                FilterStatus = status
-            };
-
-            return View(vm);
+                FilterStatus = status,
+            });
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -92,7 +81,6 @@ public sealed class AdminController : Controller
         }
     }
 
-    // GET /Admin/ReportDetail/{id}
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> ReportDetail(Guid id, CancellationToken cancellationToken)
     {
@@ -107,7 +95,6 @@ public sealed class AdminController : Controller
         }
     }
 
-    // POST /Admin/BanUser — issue a 7-day or permanent ban
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> BanUser(
@@ -118,21 +105,17 @@ public sealed class AdminController : Controller
     {
         try
         {
-            var request = new CreateRestrictionRequest
+            await moderationApiService.CreateRestrictionAsync(new CreateRestrictionRequest
             {
                 SubjectUserId = userId,
                 Scope = RestrictionScope.DiscoveryVisibility,
                 Reason = reason,
-                ExpiresAtUtc = permanent ? null : DateTimeOffset.UtcNow.AddDays(7)
-            };
-
-            await moderationApiService.CreateRestrictionAsync(request, cancellationToken);
+                ExpiresAtUtc = permanent ? null : DateTimeOffset.UtcNow.AddDays(7),
+            }, cancellationToken);
 
             TempData["StatusMessage"] = permanent
                 ? "User has been permanently banned."
                 : "User has been banned for 7 days.";
-
-            return RedirectToAction(nameof(Index));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -141,11 +124,11 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Error: {ex.Message}";
-            return RedirectToAction(nameof(Index));
         }
+
+        return RedirectToAction(nameof(Index));
     }
 
-    // POST /Admin/ImportRestaurants - triggers live Overpass import, Admin only
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Admin")]

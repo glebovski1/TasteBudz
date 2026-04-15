@@ -42,6 +42,10 @@ public sealed class RestaurantsController(
         return restaurantSlotService.ListReservableAsync(restaurantId, cancellationToken);
     }
 
+    /// <summary>
+    /// Triggers a live import of restaurants from OpenStreetMap (Overpass API).
+    /// Restricted to Admin role. Safe to call multiple times; skips existing entries.
+    /// </summary>
     [HttpPost("import")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Import(CancellationToken cancellationToken)

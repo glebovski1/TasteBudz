@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Restaurants;
-using TasteBudz.Backend.Domain;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
@@ -232,7 +232,7 @@ public sealed class EventController : Controller
             {
                 Restaurants = restaurants.Items
                     .Select(RestaurantPickerItem.FromDto)
-                    .ToList()
+                    .ToList(),
             };
         }
         catch

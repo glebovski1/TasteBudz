@@ -18,11 +18,21 @@
                 </span>
             </a>
 
-            <nav class="tb-nav" aria-label="Primary">
+            @* Hamburger button — only visible on mobile via CSS *@
+            <button class="nav-toggle"
+                    id="navToggle"
+                    aria-controls="primaryNav"
+                    aria-expanded="false"
+                    aria-label="Open navigation menu">
+                <span class="nav-toggle__bar"></span>
+                <span class="nav-toggle__bar"></span>
+                <span class="nav-toggle__bar"></span>
+            </button>
+
+            <nav class="tb-nav" id="primaryNav" aria-label="Primary">
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <a asp-controller="Profile" asp-action="View">Dashboard</a>
-                    <a asp-controller="Profile" asp-action="Edit">Edit Profile</a>
                     <a asp-controller="Discovery" asp-action="Swipe">Find Budz</a>
                     <a asp-controller="Group" asp-action="Index">Groups</a>
                     <a asp-controller="Event" asp-action="Index">Events</a>
@@ -30,6 +40,7 @@
                     {
                         <a asp-controller="RestaurantAdmin" asp-action="Index">Restaurants</a>
                     }
+                    <partial name="_NotificationBell" />
                     <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="tb-nav-logout">Log Out</button>
@@ -59,12 +70,12 @@
 
         @if (User.Identity?.IsAuthenticated == true)
         {
-            <button class="floating-btn" onclick="window.location.href ='/Messaging/Chat'">
-                +
-            </button>
+            <a asp-controller="Messaging" asp-action="Chat" class="floating-btn" aria-label="Open chats">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+            </a>
         }
-
-
     </main>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
@@ -72,6 +83,37 @@
     <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <partial name="_UserCardModal" />
+
+    <script>
+        // Hamburger toggle
+        (function () {
+        var btn = document.getElementById('navToggle');
+        var nav = document.getElementById('primaryNav');
+        if (!btn || !nav) return;
+
+        btn.addEventListener('click', function () {
+        var open = nav.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+
+        // Close menu when a nav link is clicked
+        nav.querySelectorAll('a, button').forEach(function (el) {
+        el.addEventListener('click', function () {
+        nav.classList.remove('is-open');
+        btn.setAttribute('aria-expanded', 'false');
+        });
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function (e) {
+        if (!nav.contains(e.target) && !btn.contains(e.target)) {
+        nav.classList.remove('is-open');
+        btn.setAttribute('aria-expanded', 'false');
+        }
+        });
+        }());
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -15,39 +15,120 @@ public sealed class OverpassRestaurantImporter(
 {
     private const string OverpassUrl = "https://overpass-api.de/api/interpreter";
     private const string OpenStreetMapPlaceIdPrefix = "osm:";
+    private const string FallbackCuisine = "Other";
 
-    private const double BBoxSouth = 38.95;
-    private const double BBoxNorth = 39.35;
-    private const double BBoxWest = -84.75;
-    private const double BBoxEast = -84.25;
+    // Expanded Greater Cincinnati / Northern Kentucky bounding box.
+    private const double BBoxSouth = 38.90;
+    private const double BBoxNorth = 39.40;
+    private const double BBoxWest = -84.90;
+    private const double BBoxEast = -84.15;
 
     private static readonly Dictionary<string, string> CuisineTagMap = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["sushi"] = "Sushi",
-        ["japanese"] = "Japanese",
-        ["indian"] = "Indian",
-        ["mexican"] = "Mexican",
-        ["tacos"] = "Tacos",
-        ["thai"] = "Thai",
-        ["noodles"] = "Noodles",
         ["american"] = "American",
-        ["mediterranean"] = "Mediterranean",
-        ["vegetarian"] = "Vegetarian",
-        ["vietnamese"] = "Vietnamese",
-        ["pizza"] = "Pizza",
-        ["italian"] = "Italian",
         ["burger"] = "American",
         ["burgers"] = "American",
+        ["sandwich"] = "American",
+        ["sandwiches"] = "American",
+        ["barbecue"] = "American",
+        ["bbq"] = "American",
+        ["steak_house"] = "American",
+        ["steak"] = "American",
+        ["chicken"] = "American",
+        ["wings"] = "American",
+        ["soul_food"] = "American",
+        ["southern"] = "American",
+        ["comfort_food"] = "American",
+        ["diner"] = "American",
+        ["breakfast"] = "American",
+        ["brunch"] = "American",
+        ["chili"] = "American",
+        ["regional"] = "American",
+        ["hot_dog"] = "American",
+        ["donut"] = "American",
+        ["donuts"] = "American",
+        ["bagel"] = "American",
+        ["bagels"] = "American",
+        ["ice_cream"] = "American",
+        ["frozen_yogurt"] = "American",
+        ["cookie"] = "American",
+        ["cookies"] = "American",
+        ["italian"] = "Italian",
+        ["pizza"] = "Italian",
+        ["pasta"] = "Italian",
+        ["mexican"] = "Mexican",
+        ["tacos"] = "Mexican",
+        ["taco"] = "Mexican",
+        ["tex-mex"] = "Tex-Mex",
+        ["tex_mex"] = "Tex-Mex",
         ["chinese"] = "Chinese",
+        ["dim_sum"] = "Chinese",
+        ["cantonese"] = "Chinese",
+        ["szechuan"] = "Chinese",
+        ["sichuan"] = "Chinese",
+        ["hunan"] = "Chinese",
+        ["noodles"] = "Chinese",
+        ["dumpling"] = "Chinese",
+        ["dumplings"] = "Chinese",
+        ["mongolian"] = "Chinese",
+        ["japanese"] = "Japanese",
+        ["sushi"] = "Japanese",
+        ["ramen"] = "Japanese",
+        ["udon"] = "Japanese",
+        ["tempura"] = "Japanese",
+        ["teppanyaki"] = "Japanese",
+        ["teriyaki"] = "Japanese",
+        ["hibachi"] = "Japanese",
+        ["indian"] = "Indian",
+        ["curry"] = "Indian",
+        ["pakistani"] = "Indian",
+        ["thai"] = "Thai",
+        ["vietnamese"] = "Vietnamese",
+        ["pho"] = "Vietnamese",
         ["korean"] = "Korean",
+        ["korean_bbq"] = "Korean",
+        ["mediterranean"] = "Mediterranean",
+        ["turkish"] = "Mediterranean",
+        ["lebanese"] = "Mediterranean",
+        ["middle_eastern"] = "Mediterranean",
+        ["falafel"] = "Mediterranean",
+        ["kebab"] = "Mediterranean",
+        ["shawarma"] = "Mediterranean",
+        ["tapas"] = "Mediterranean",
+        ["moroccan"] = "Mediterranean",
+        ["egyptian"] = "Mediterranean",
         ["greek"] = "Greek",
         ["french"] = "French",
+        ["crepe"] = "French",
+        ["crepes"] = "French",
+        ["belgian"] = "French",
         ["seafood"] = "Seafood",
-        ["tex-mex"] = "Tex-Mex",
-        ["sandwich"] = "American",
-        ["barbecue"] = "American",
-        ["steak_house"] = "American",
-        ["chicken"] = "American",
+        ["fish_and_chips"] = "Seafood",
+        ["fish"] = "Seafood",
+        ["latin_american"] = "Latin American",
+        ["caribbean"] = "Caribbean",
+        ["cuban"] = "Caribbean",
+        ["haitian"] = "Caribbean",
+        ["jamaican"] = "Caribbean",
+        ["brazilian"] = "Brazilian",
+        ["peruvian"] = "Latin American",
+        ["colombian"] = "Latin American",
+        ["african"] = "African",
+        ["ethiopian"] = "African",
+        ["west_african"] = "African",
+        ["asian"] = "Asian",
+        ["asian_fusion"] = "Asian",
+        ["fusion"] = "Asian",
+        ["cambodian"] = "Asian",
+        ["filipino"] = "Asian",
+        ["taiwanese"] = "Asian",
+        ["malaysian"] = "Asian",
+        ["indonesian"] = "Asian",
+        ["singaporean"] = "Asian",
+        ["german"] = "German",
+        ["spanish"] = "Spanish",
+        ["portuguese"] = "Spanish",
+        ["vegetarian"] = "Vegetarian",
     };
 
     public async Task<int> ImportAsync(CancellationToken cancellationToken = default)
@@ -60,7 +141,11 @@ public sealed class OverpassRestaurantImporter(
             .Select(restaurant => restaurant.ExternalPlaceId!)
             .ToHashSetAsync(cancellationToken);
 
-        foreach (var cuisineName in CuisineTagMap.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+        var allCuisineNames = CuisineTagMap.Values
+            .Append(FallbackCuisine)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var cuisineName in allCuisineNames)
         {
             if (cuisines.ContainsKey(cuisineName))
             {
@@ -75,38 +160,58 @@ public sealed class OverpassRestaurantImporter(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var client = httpClientFactory.CreateClient("Overpass");
-        var nodes = await QueryOverpassAsync(client, cancellationToken);
+        logger.LogInformation(
+            "Querying Overpass for restaurants in Greater Cincinnati ({South},{West}) to ({North},{East}).",
+            BBoxSouth,
+            BBoxWest,
+            BBoxNorth,
+            BBoxEast);
+
+        var elements = await QueryOverpassAsync(client, cancellationToken);
+        logger.LogInformation("Found {Count} OpenStreetMap restaurant elements.", elements.Count);
+
         var inserted = 0;
 
-        foreach (var node in nodes)
+        foreach (var element in elements)
         {
-            var openStreetMapId = $"{OpenStreetMapPlaceIdPrefix}{node.Id}";
-            if (existingOpenStreetMapIds.Contains(openStreetMapId))
+            if (!element.Latitude.HasValue || !element.Longitude.HasValue)
             {
                 continue;
             }
 
-            var name = node.Tags.GetValueOrDefault("name");
+            var providerQualifiedId = $"{OpenStreetMapPlaceIdPrefix}{element.Type}:{element.Id}";
+            var legacyNodeId = $"{OpenStreetMapPlaceIdPrefix}{element.Id}";
+            if (existingOpenStreetMapIds.Contains(providerQualifiedId) ||
+                existingOpenStreetMapIds.Contains(legacyNodeId))
+            {
+                continue;
+            }
+
+            var name = element.Tags.GetValueOrDefault("name");
             if (string.IsNullOrWhiteSpace(name))
             {
                 continue;
             }
 
             var restaurantId = Guid.NewGuid();
-            var cuisineTagRaw = node.Tags.GetValueOrDefault("cuisine") ?? string.Empty;
+            var cuisineTagRaw = element.Tags.GetValueOrDefault("cuisine") ?? string.Empty;
             var matchedCuisines = ResolveCuisines(cuisineTagRaw, cuisines);
+            if (matchedCuisines.Count == 0 && cuisines.TryGetValue(FallbackCuisine, out var fallbackCuisineId))
+            {
+                matchedCuisines = [fallbackCuisineId];
+            }
 
             dbContext.Restaurants.Add(new RestaurantEntity
             {
                 Id = restaurantId,
                 Name = name.Trim(),
-                City = node.Tags.GetValueOrDefault("addr:city") ?? DeriveCity(node.Lat),
-                State = node.Tags.GetValueOrDefault("addr:state") ?? DeriveState(node.Lat),
-                ZipCode = node.Tags.GetValueOrDefault("addr:postcode") ?? DeriveZip(node.Lat, node.Lon),
-                Latitude = node.Lat,
-                Longitude = node.Lon,
+                City = element.Tags.GetValueOrDefault("addr:city") ?? DeriveCity(element.Latitude.Value),
+                State = element.Tags.GetValueOrDefault("addr:state") ?? DeriveState(element.Latitude.Value),
+                ZipCode = element.Tags.GetValueOrDefault("addr:postcode") ?? DeriveZip(element.Latitude.Value, element.Longitude.Value),
+                Latitude = element.Latitude.Value,
+                Longitude = element.Longitude.Value,
                 PriceTier = PriceTier.Two,
-                ExternalPlaceId = openStreetMapId,
+                ExternalPlaceId = providerQualifiedId,
             });
 
             foreach (var cuisineId in matchedCuisines)
@@ -118,12 +223,13 @@ public sealed class OverpassRestaurantImporter(
                 });
             }
 
-            existingOpenStreetMapIds.Add(openStreetMapId);
+            existingOpenStreetMapIds.Add(providerQualifiedId);
             inserted++;
 
-            if (inserted % 100 == 0)
+            if (inserted % 200 == 0)
             {
                 await dbContext.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Saved {InsertedCount} imported restaurants so far.", inserted);
             }
         }
 
@@ -132,14 +238,15 @@ public sealed class OverpassRestaurantImporter(
         return inserted;
     }
 
-    private async Task<List<OsmNode>> QueryOverpassAsync(
-        HttpClient client,
-        CancellationToken cancellationToken)
+    private async Task<List<OsmElement>> QueryOverpassAsync(HttpClient client, CancellationToken cancellationToken)
     {
         var query = $"""
-            [out:json][timeout:60];
-            node["amenity"="restaurant"]({BBoxSouth},{BBoxWest},{BBoxNorth},{BBoxEast});
-            out;
+            [out:json][timeout:90];
+            (
+              node["amenity"="restaurant"]({BBoxSouth},{BBoxWest},{BBoxNorth},{BBoxEast});
+              way["amenity"="restaurant"]({BBoxSouth},{BBoxWest},{BBoxNorth},{BBoxEast});
+            );
+            out center;
             """;
 
         try
@@ -154,23 +261,7 @@ public sealed class OverpassRestaurantImporter(
             return document.RootElement
                 .GetProperty("elements")
                 .EnumerateArray()
-                .Select(element =>
-                {
-                    var tags = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    if (element.TryGetProperty("tags", out var tagsElement))
-                    {
-                        foreach (var tag in tagsElement.EnumerateObject())
-                        {
-                            tags[tag.Name] = tag.Value.GetString() ?? string.Empty;
-                        }
-                    }
-
-                    return new OsmNode(
-                        element.GetProperty("id").GetInt64(),
-                        element.GetProperty("lat").GetDouble(),
-                        element.GetProperty("lon").GetDouble(),
-                        tags);
-                })
+                .Select(ReadOsmElement)
                 .ToList();
         }
         catch (Exception ex)
@@ -180,9 +271,45 @@ public sealed class OverpassRestaurantImporter(
         }
     }
 
-    private static IReadOnlyCollection<Guid> ResolveCuisines(
-        string rawTag,
-        Dictionary<string, Guid> cuisineIndex)
+    private static OsmElement ReadOsmElement(JsonElement element)
+    {
+        var tags = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (element.TryGetProperty("tags", out var tagsElement))
+        {
+            foreach (var tag in tagsElement.EnumerateObject())
+            {
+                tags[tag.Name] = tag.Value.GetString() ?? string.Empty;
+            }
+        }
+
+        var type = element.GetProperty("type").GetString() ?? "node";
+        double? latitude = null;
+        double? longitude = null;
+
+        if (element.TryGetProperty("lat", out var latitudeElement))
+        {
+            latitude = latitudeElement.GetDouble();
+        }
+        else if (element.TryGetProperty("center", out var centerElement))
+        {
+            latitude = centerElement.GetProperty("lat").GetDouble();
+            longitude = centerElement.GetProperty("lon").GetDouble();
+        }
+
+        if (element.TryGetProperty("lon", out var longitudeElement))
+        {
+            longitude = longitudeElement.GetDouble();
+        }
+
+        return new OsmElement(
+            element.GetProperty("id").GetInt64(),
+            type,
+            latitude,
+            longitude,
+            tags);
+    }
+
+    private static IReadOnlyCollection<Guid> ResolveCuisines(string rawTag, Dictionary<string, Guid> cuisineIndex)
     {
         var matched = new HashSet<Guid>();
 
@@ -198,23 +325,24 @@ public sealed class OverpassRestaurantImporter(
         return matched;
     }
 
-    private static string DeriveCity(double lat) => lat < 39.09 ? "Covington" : "Cincinnati";
+    private static string DeriveCity(double latitude) => latitude < 39.09 ? "Covington" : "Cincinnati";
 
-    private static string DeriveState(double lat) => lat < 39.09 ? "KY" : "OH";
+    private static string DeriveState(double latitude) => latitude < 39.09 ? "KY" : "OH";
 
-    private static string DeriveZip(double lat, double lon) => (lat, lon) switch
+    private static string DeriveZip(double latitude, double longitude) => (latitude, longitude) switch
     {
-        _ when lat < 39.09 => "41011",
-        _ when lon < -84.55 => "45220",
-        _ when lat < 39.12 => "45202",
-        _ when lat < 39.13 => "45219",
-        _ when lon > -84.45 => "45208",
+        _ when latitude < 39.09 => "41011",
+        _ when longitude < -84.55 => "45220",
+        _ when latitude < 39.12 => "45202",
+        _ when latitude < 39.13 => "45219",
+        _ when longitude > -84.45 => "45208",
         _ => "45206",
     };
 
-    private sealed record OsmNode(
+    private sealed record OsmElement(
         long Id,
-        double Lat,
-        double Lon,
+        string Type,
+        double? Latitude,
+        double? Longitude,
         Dictionary<string, string> Tags);
 }

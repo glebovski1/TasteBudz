@@ -16,7 +16,7 @@
             <section class="card stack">
                 <div>
                     <h2 class="card__title">Profile Basics</h2>
-                    <p class="card__subtitle">Current-user profile data from `/api/v1/profiles/me`.</p>
+
                 </div>
 
                 <div class="field">
@@ -54,8 +54,8 @@
 
             <section class="panel stack">
                 <div>
-                    <h2>Preference Signals</h2>
-                    <p class="card__subtitle">These are the onboarding fields the backend checks for completion.</p>
+                    <h2>Food Preferences</h2>
+
                 </div>
 
                 <div class="field">
@@ -91,7 +91,7 @@
             <section class="panel stack">
                 <div>
                     <h2>Dietary Notes</h2>
-                    <p class="card__subtitle">Dietary flags are sent as normalized string tags; allergies stay freeform.</p>
+
                 </div>
 
                 <div class="field-group">
@@ -123,17 +123,13 @@
             <section class="panel stack">
                 <div>
                     <h2>Privacy</h2>
-                    <p class="card__subtitle">Phase 1 only exposes the discovery visibility flag supported by the current API.</p>
+
                 </div>
 
                 <label class="checkbox-row">
                     <input asp-for="DiscoveryEnabled" />
                     <span>Allow people discovery and search to show my profile.</span>
                 </label>
-
-                <p class="muted-note">
-                    Groups, events, discovery swipes, and chat pages are intentionally deferred until the auth/profile slice is stable.
-                </p>
             </section>
         </div>
 

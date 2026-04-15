@@ -33,7 +33,7 @@ public sealed class ChatInboxViewModel
                 ScopeId = e.EventId,
                 Name = string.IsNullOrWhiteSpace(e.Title) ? "Untitled Event" : e.Title,
                 ScopeLabel = "Event",
-                ChatUrl = $"/Messaging/EventChat/{e.EventId}",
+                ChatUrl = $"/Messaging/EventChat?eventId={e.EventId}",
             });
         }
 
@@ -44,7 +44,7 @@ public sealed class ChatInboxViewModel
                 ScopeId = g.GroupId,
                 Name = g.Name,
                 ScopeLabel = "Group",
-                ChatUrl = $"/Messaging/GroupChat/{g.GroupId}",
+                ChatUrl = $"/Messaging/GroupChat?groupId={g.GroupId}",
             });
         }
 
