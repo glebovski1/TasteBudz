@@ -112,6 +112,101 @@
                 <h2>Host Controls</h2>
                 <p class="muted-note">You are hosting this event.</p>
 
+                @* ── Invite panel — closed events only ── *@
+                @if (Model.EventType == "Closed" && isActive)
+                {
+                    <details class="invite-details">
+                        <summary class="button button--secondary" style="display:inline-block; cursor:pointer;">
+                            ✉️ Invite People
+                        </summary>
+                        <form asp-action="Invite" method="post" class="stack" style="margin-top:0.75rem;" id="inviteForm">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="eventId" value="@Model.EventId" />
+
+                            @if (!Model.Budz.Any() && !Model.InvitableGroups.Any())
+                            {
+                                <p class="muted-note">You don't have any Budz or group members to invite yet.</p>
+                            }
+                            else
+                            {
+                                @* Already-invited/joined usernames so we can grey them out *@
+                                var alreadyIn = Model.Participants.Select(p => p.Username).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                                @if (Model.Budz.Any())
+                                {
+                                    <div class="field-group">
+                                        <p class="group-label" style="margin:0;">Your Budz</p>
+                                        <div class="invite-checklist">
+                                            @foreach (var bud in Model.Budz)
+                                            {
+                                                var disabled = alreadyIn.Contains(bud.Username);
+                                                <label class="invite-check @(disabled ? "invite-check--disabled" : "")">
+                                                    <input type="checkbox"
+                                                           name="usernames"
+                                                           value="@bud.Username"
+                                                    @(disabled ? "disabled" : "") />
+                                                    <span class="invite-check__avatar">@bud.DisplayName.Substring(0, 1).ToUpper()</span>
+                                                    <span class="invite-check__info">
+                                                        <strong>@bud.DisplayName</strong>
+                                                        <span>@@@bud.Username</span>
+                                                    </span>
+                                                    @if (disabled)
+                                                    {
+                                                        <span class="pill" style="font-size:0.75rem; margin-left:auto;">Already in</span>
+                                                    }
+                                                </label>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @foreach (var group in Model.InvitableGroups.Where(g => g.Members.Any()))
+                                {
+                                    <div class="field-group">
+                                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                                            <p class="group-label" style="margin:0;">@group.Name</p>
+                                            <button type="button"
+                                                    class="button button--secondary button--sm"
+                                                    onclick="selectAllGroup('@group.GroupId')">
+                                                Select all
+                                            </button>
+                                        </div>
+                                        <div class="invite-checklist" id="group-@group.GroupId">
+                                            @foreach (var member in group.Members)
+                                            {
+                                                var disabled = alreadyIn.Contains(member.Username);
+                                                <label class="invite-check @(disabled ? "invite-check--disabled" : "")"
+                                                       data-group="@group.GroupId">
+                                                    <input type="checkbox"
+                                                           name="usernames"
+                                                           value="@member.Username"
+                                                    @(disabled ? "disabled" : "") />
+                                                    <span class="invite-check__avatar">@member.DisplayName.Substring(0, 1).ToUpper()</span>
+                                                    <span class="invite-check__info">
+                                                        <strong>@member.DisplayName</strong>
+                                                        <span>@@@member.Username</span>
+                                                    </span>
+                                                    @if (disabled)
+                                                    {
+                                                        <span class="pill" style="font-size:0.75rem; margin-left:auto;">Already in</span>
+                                                    }
+                                                </label>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                <div class="button-row">
+                                    <button type="submit" class="button button--primary">
+                                        Send Invites
+                                    </button>
+                                    <span id="inviteCount" class="muted-note"></span>
+                                </div>
+                            }
+                        </form>
+                    </details>
+                }
+
                 @if (isActive)
                 {
                     <details class="cancel-details">
@@ -158,8 +253,32 @@
             </section>
         }
 
-        @* ── Join panel ── *@
-        @if (!Model.IsHost && !Model.IsParticipant && Model.Status == "Open")
+        @* ── Accept invite panel — closed events where user is invited ── *@
+        @if (!Model.IsHost && Model.IsInvited && isActive)
+        {
+            <section class="panel stack">
+                <h2>You’re Invited!</h2>
+                <p class="muted-note">You have been invited to this event. Would you like to join?</p>
+                <div class="button-row">
+                    <form asp-action="Accept" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="eventId" value="@Model.EventId" />
+                        <button type="submit" class="button button--primary">Accept Invitation</button>
+                    </form>
+                    <form asp-action="Decline" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="eventId" value="@Model.EventId" />
+                        <button type="submit" class="button button--secondary"
+                                onclick="return confirm('Decline this invitation?')">
+                            Decline
+                        </button>
+                    </form>
+                </div>
+            </section>
+        }
+
+        @* ── Join panel — open-type events only ── *@
+        @if (!Model.IsHost && !Model.IsParticipant && Model.Status == "Open" && Model.EventType == "Open")
         {
             <section class="panel stack">
                 <h2>Join this Event</h2>
@@ -176,3 +295,24 @@
     </div>
 
 </section>
+
+@section Scripts {
+    <script>
+        // "Select all" for a group
+        function selectAllGroup(groupId) {
+            document.querySelectorAll(`[data-group="${groupId}"] input[type="checkbox"]:not(:disabled)`)
+                .forEach(cb => cb.checked = true);
+            updateInviteCount();
+        }
+
+        // Live count of selected invitees
+        function updateInviteCount() {
+            const count = document.querySelectorAll('#inviteForm input[type="checkbox"]:checked').length;
+            const el = document.getElementById('inviteCount');
+            if (el) el.textContent = count > 0 ? `${count} person${count === 1 ? '' : 's'} selected` : '';
+        }
+
+        document.querySelectorAll('#inviteForm input[type="checkbox"]')
+            .forEach(cb => cb.addEventListener('change', updateInviteCount));
+    </script>
+}

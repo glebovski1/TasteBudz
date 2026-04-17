@@ -117,7 +117,7 @@
                 else
                 {
                     @* ── Filter bar ── *@
-                    <div class="restaurant-filters">
+                    <div class="restaurant-filters" style="grid-template-columns: 1fr 1fr 1fr auto auto;">
 
                         <div class="field" style="margin:0;">
                             <label for="filterName">Search by name</label>
@@ -146,6 +146,18 @@
                             </select>
                         </div>
 
+                        <div class="field" style="margin:0;">
+                            <label for="filterDistance">Max distance</label>
+                            <select id="filterDistance">
+                                <option value="">Any distance</option>
+                                <option value="1">Within 1 mile</option>
+                                <option value="3">Within 3 miles</option>
+                                <option value="5">Within 5 miles</option>
+                                <option value="10">Within 10 miles</option>
+                                <option value="25">Within 25 miles</option>
+                            </select>
+                        </div>
+
                         <button type="button" id="clearFilters"
                                 class="button button--secondary"
                                 style="align-self:end; display:none;">
@@ -155,6 +167,26 @@
 
                     @* ── Results count ── *@
                     <p id="filterCount" class="muted-note" style="margin:0;"></p>
+
+                    @* ── Randomizer ── *@
+                    <div class="randomizer-bar">
+                        <button type="button" id="randomBtn" class="button button--primary">
+                            🎲 Surprise Me!
+                        </button>
+                        <div class="randomizer-result" id="randomizerResult" hidden>
+                            <span class="randomizer-result__icon">🍽️</span>
+                            <div class="randomizer-result__info">
+                                <strong id="randName"></strong>
+                                <span id="randMeta"></span>
+                            </div>
+                            <button type="button" class="button button--secondary button--sm" id="randPickAnother">
+                                Pick another
+                            </button>
+                            <button type="button" class="button button--primary button--sm" id="randConfirm">
+                                Use this one
+                            </button>
+                        </div>
+                    </div>
 
                     @* ── Map ── *@
                     <div id="restaurantMap" class="restaurant-map"></div>
@@ -190,11 +222,19 @@
         const label       = document.getElementById("selectionLabel");
         const clearBtn    = document.getElementById("clearSelection");
         const mapEl       = document.getElementById("restaurantMap");
-        const filterName    = document.getElementById("filterName");
-        const filterCuisine = document.getElementById("filterCuisine");
-        const filterPrice   = document.getElementById("filterPrice");
-        const clearFilters  = document.getElementById("clearFilters");
-        const filterCount   = document.getElementById("filterCount");
+        const filterName     = document.getElementById("filterName");
+        const filterCuisine  = document.getElementById("filterCuisine");
+        const filterPrice    = document.getElementById("filterPrice");
+        const filterDistance = document.getElementById("filterDistance");
+        const clearFilters   = document.getElementById("clearFilters");
+        const filterCount    = document.getElementById("filterCount");
+
+        const randomBtn       = document.getElementById("randomBtn");
+        const randomizerResult = document.getElementById("randomizerResult");
+        const randName        = document.getElementById("randName");
+        const randMeta        = document.getElementById("randMeta");
+        const randPickAnother = document.getElementById("randPickAnother");
+        const randConfirm     = document.getElementById("randConfirm");
 
         if (!mapEl || restaurants.length === 0) return;
 
@@ -280,10 +320,11 @@
         // ── Filtering ────────────────────────────────────────────────────────
 
         function applyFilters() {
-        const nameQ    = (filterName?.value  ?? "").trim().toLowerCase();
-        const cuisineQ = (filterCuisine?.value ?? "").toLowerCase();
-        const priceQ   = (filterPrice?.value  ?? "");
-        const hasFilter = nameQ || cuisineQ || priceQ;
+        const nameQ     = (filterName?.value     ?? "").trim().toLowerCase();
+        const cuisineQ  = (filterCuisine?.value  ?? "").toLowerCase();
+        const priceQ    = (filterPrice?.value    ?? "");
+        const distanceQ = filterDistance?.value ? parseFloat(filterDistance.value) : null;
+        const hasFilter = nameQ || cuisineQ || priceQ || distanceQ;
 
         if (clearFilters) clearFilters.style.display = hasFilter ? "inline-block" : "none";
 
@@ -295,10 +336,11 @@
         const cuisineStr = (r.cuisine ?? "").toLowerCase();
         const priceStr   = (r.priceTier ?? "");
 
-        const matchName    = !nameQ    || r.name.toLowerCase().includes(nameQ);
-        const matchCuisine = !cuisineQ || cuisineStr.split(",").map(s => s.trim()).includes(cuisineQ);
-        const matchPrice   = !priceQ   || priceStr === priceQ;
-        const show         = matchName && matchCuisine && matchPrice;
+        const matchName    = !nameQ      || r.name.toLowerCase().includes(nameQ);
+        const matchCuisine = !cuisineQ   || cuisineStr.split(",").map(s => s.trim()).includes(cuisineQ);
+        const matchPrice   = !priceQ     || priceStr === priceQ;
+        const matchDist    = !distanceQ  || (r._distance !== null && r._distance <= distanceQ);
+        const show         = matchName && matchCuisine && matchPrice && matchDist;
 
         m._visible = show;
 
@@ -328,16 +370,91 @@
         filterName?.addEventListener("input", applyFilters);
         filterCuisine?.addEventListener("change", applyFilters);
         filterPrice?.addEventListener("change", applyFilters);
+        filterDistance?.addEventListener("change", applyFilters);
 
         clearFilters?.addEventListener("click", () => {
-        if (filterName)    filterName.value    = "";
-        if (filterCuisine) filterCuisine.value = "";
-        if (filterPrice)   filterPrice.value   = "";
+        if (filterName)     filterName.value     = "";
+        if (filterCuisine)  filterCuisine.value  = "";
+        if (filterPrice)    filterPrice.value    = "";
+        if (filterDistance) filterDistance.value = "";
         applyFilters();
         });
 
         // Apply the pre-selected cuisine filter on page load
         applyFilters();
+
+        // ── Distance calculation ─────────────────────────────────────────────
+        // Compute each marker's distance from the map centre so the distance
+        // filter and randomizer can use it without re-querying the server.
+
+        function haversineMiles(lat1, lon1, lat2, lon2) {
+        const R = 3958.8;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 +
+        Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+        return R * 2 * Math.asin(Math.sqrt(a));
+        }
+
+        markers.forEach(m => {
+        m._data._distance = haversineMiles(avgLat, avgLng, m._data.lat, m._data.lng);
+        });
+
+        // ── Randomizer ───────────────────────────────────────────────────────
+
+        let lastRandId = null;
+
+        function getVisibleCandidates() {
+        return markers.filter(m => m._visible);
+        }
+
+        function pickRandom(exclude) {
+        const pool = getVisibleCandidates().filter(m => m._data.id !== exclude);
+        if (pool.length === 0) return getVisibleCandidates()[0] ?? null;
+        return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function showRandomResult(marker) {
+        if (!marker) {
+        randomizerResult.setAttribute("hidden", "");
+        return;
+        }
+        const r = marker._data;
+        lastRandId = r.id;
+        randName.textContent = r.name;
+        randMeta.textContent = [r.priceTier, r.cuisine, r._distance != null ? r._distance.toFixed(1) + " mi" : ""].filter(Boolean).join(" · ");
+        randomizerResult.removeAttribute("hidden");
+
+        // Pan map to the chosen restaurant
+        map.setView([r.lat, r.lng], 15);
+        markers.forEach(m => {
+        if (!m._visible) return;
+        m.setIcon(m._data.id === r.id ? selectedIcon : defaultIcon);
+        });
+        }
+
+        randomBtn?.addEventListener("click", () => {
+        applyFilters();
+        const picked = pickRandom(null);
+        if (!picked) {
+        alert("No restaurants match the current filters. Try adjusting the cuisine, price, or distance.");
+        return;
+        }
+        showRandomResult(picked);
+        });
+
+        randPickAnother?.addEventListener("click", () => {
+        const picked = pickRandom(lastRandId);
+        showRandomResult(picked);
+        });
+
+        randConfirm?.addEventListener("click", () => {
+        if (!lastRandId) return;
+        const marker = markers.find(m => m._data.id === lastRandId);
+        if (marker) window.selectRestaurant(lastRandId, marker._data.name);
+        randomizerResult.setAttribute("hidden", "");
+        lastRandId = null;
+        });
 
         // ── Helpers ──────────────────────────────────────────────────────────
 

@@ -37,15 +37,12 @@
                     <a asp-controller="Group" asp-action="Index">Groups</a>
                     <a asp-controller="Event" asp-action="Index">Events</a>
                     <partial name="_NotificationBell" />
-                    <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="tb-nav-logout">Log Out</button>
-                    </form>
+                    <button type="button" class="tb-nav-logout" onclick="confirmLogout()">Log Out</button>
                 }
                 else
                 {
                     <a asp-controller="Home" asp-action="Index">Home</a>
-                    <a asp-controller="Account" asp-action="Login">Log In</a>
+                    <a asp-controller="Account" asp-action="Login" class="tb-nav-login">Log In</a>
                     <a asp-controller="Account" asp-action="CreateAccount">Create Account</a>
                 }
                 @if (User.IsInRole("Admin") || User.IsInRole("Moderator"))
@@ -53,6 +50,14 @@
                     <a asp-controller="Admin" asp-action="Index">Admin</a>
                 }
             </nav>
+
+            @* Hidden logout form — submitted by JS after confirmation *@
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <form id="logoutForm" asp-controller="Account" asp-action="Logout" method="post" style="display:none;">
+                    @Html.AntiForgeryToken()
+                </form>
+            }
         </div>
     </header>
 
@@ -108,6 +113,12 @@
         }
         });
         }());
+
+        function confirmLogout() {
+        if (confirm("Are you sure you want to log out?")) {
+        document.getElementById("logoutForm").submit();
+        }
+        }
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)

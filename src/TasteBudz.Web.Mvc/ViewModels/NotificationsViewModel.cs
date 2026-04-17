@@ -37,9 +37,9 @@ public sealed class NotificationsViewModel
 
         return contextType switch
         {
-            "Event" => $"/Event/EventDetails/{contextId}",
+            "Event" => $"/Event/EventDetails?eventId={contextId}",
             "BudConnection" => "/Profile/View",
-            "Group" => $"/Group/Manage/{contextId}",
+            "Group" => $"/Group/Manage?groupId={contextId}",
             _ => null,
         };
     }

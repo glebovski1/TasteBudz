@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
@@ -80,15 +82,25 @@ public sealed record EventCreateViewModel
 
     public static IReadOnlyList<string> AvailableCuisineTags => CuisineData.AvailableCuisineTags;
 
-    public CreateEventRequest ToRequest() => new()
+    public CreateEventRequest ToRequest()
     {
-        EventType = EventType!.Value,
-        EventStartAtUtc = new DateTimeOffset(EventStartAt!.Value, TimeSpan.Zero),
-        Capacity = Capacity!.Value,
-        Title = string.IsNullOrWhiteSpace(Title) ? null : Title.Trim(),
-        CuisineTarget = string.IsNullOrWhiteSpace(CuisineTarget) ? null : CuisineTarget.Trim(),
-        SelectedRestaurantId = SelectedRestaurantId,
-    };
+        // The DB constraint requires exactly one of SelectedRestaurantId or CuisineTarget.
+        // If the user picked a restaurant, clear CuisineTarget so both are never sent together.
+        // If neither is set, send CuisineTarget as null and let EventPolicy give a clean error.
+        var cuisineTarget = SelectedRestaurantId.HasValue
+            ? null
+            : string.IsNullOrWhiteSpace(CuisineTarget) ? null : CuisineTarget.Trim();
+
+        return new()
+        {
+            EventType = EventType!.Value,
+            EventStartAtUtc = new DateTimeOffset(EventStartAt!.Value, TimeSpan.Zero),
+            Capacity = Capacity!.Value,
+            Title = string.IsNullOrWhiteSpace(Title) ? null : Title.Trim(),
+            CuisineTarget = cuisineTarget,
+            SelectedRestaurantId = SelectedRestaurantId,
+        };
+    }
 }
 
 public sealed class RestaurantPickerItem
@@ -127,13 +139,20 @@ public sealed class EventDetailViewModel
     public string? CuisineTarget { get; init; }
     public bool IsHost { get; init; }
     public bool IsParticipant { get; init; }
+    public bool IsInvited { get; init; }
     public Guid? GroupId { get; init; }
     public IReadOnlyList<EventParticipantItem> Participants { get; init; } = [];
+
+    // Populated only for the host of a closed event — used to render the invite panel.
+    public IReadOnlyList<BudConnectionDto> Budz { get; init; } = [];
+    public IReadOnlyList<InvitableGroup> InvitableGroups { get; init; } = [];
 
     public static EventDetailViewModel FromDto(
         EventDetailDto dto,
         IReadOnlyCollection<EventParticipantDto> participants,
-        Guid currentUserId) => new()
+        Guid currentUserId,
+        IReadOnlyList<BudConnectionDto>? budz = null,
+        IReadOnlyList<InvitableGroup>? invitableGroups = null) => new()
         {
             EventId = dto.EventId,
             Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Event" : dto.Title,
@@ -152,7 +171,20 @@ public sealed class EventDetailViewModel
             IsParticipant = participants.Any(p =>
                 p.UserId == currentUserId &&
                 p.State == EventParticipantState.Joined),
+            IsInvited = participants.Any(p =>
+                p.UserId == currentUserId &&
+                p.State == EventParticipantState.Invited),
+            Budz = budz ?? [],
+            InvitableGroups = invitableGroups ?? [],
         };
+}
+
+/// <summary>A group the host belongs to, with its active members for invite selection.</summary>
+public sealed class InvitableGroup
+{
+    public Guid GroupId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public IReadOnlyList<GroupMemberDto> Members { get; init; } = [];
 }
 
 public sealed class EventParticipantItem
