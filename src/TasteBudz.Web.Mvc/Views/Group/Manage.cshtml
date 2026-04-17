@@ -23,6 +23,14 @@
         <div class="button-row">
             <a asp-action="Index" class="button button--secondary">Back to Groups</a>
 
+            @if (Model.IsCurrentUserOwner)
+            {
+                <a asp-controller="Event"
+                   asp-action="CreateEvent"
+                   asp-route-groupId="@Model.GroupId"
+                   class="button button--primary">Create Group Event</a>
+            }
+
             @* Chat button — visible to all members *@
             @if (Model.IsCurrentUserMember || Model.IsCurrentUserOwner)
             {
@@ -90,6 +98,76 @@
                                     </button>
                                 </form>
                             }
+                        </article>
+                    }
+                }
+            </div>
+        </section>
+
+        <section class="panel stack" style="grid-column: 1 / -1;">
+            <div>
+                <h2>Group Event History</h2>
+                <p class="card__subtitle">Linked event feedback appears here when you have access to view it.</p>
+            </div>
+
+            <div class="panel__items">
+                @if (Model.EventHistory.Count == 0)
+                {
+                    <p class="empty-state">No group events yet.</p>
+                }
+                else
+                {
+                    @foreach (var groupEvent in Model.EventHistory)
+                    {
+                        <article class="summary-card stack">
+                            <div class="member-row__info">
+                                <strong>
+                                    <a asp-controller="Event"
+                                       asp-action="EventDetails"
+                                       asp-route-eventId="@groupEvent.EventId">@groupEvent.Title</a>
+                                </strong>
+                                <span>@groupEvent.EventStartAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                <div class="profile-meta">
+                                    <span class="pill">@groupEvent.EventType</span>
+                                    <span class="pill">@groupEvent.Status</span>
+                                    <span class="pill">@groupEvent.ActiveParticipants / @groupEvent.Capacity joined</span>
+                                    @if (!string.IsNullOrWhiteSpace(groupEvent.CuisineTarget))
+                                    {
+                                        <span class="pill">@groupEvent.CuisineTarget</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="stack">
+                                <h3 style="margin:0;">Feedback</h3>
+                                @if (!groupEvent.IsCompleted)
+                                {
+                                    <p class="empty-state">Feedback opens after the event is completed.</p>
+                                }
+                                else if (groupEvent.Feedback.Count == 0)
+                                {
+                                    <p class="empty-state">No feedback visible yet.</p>
+                                }
+                                else
+                                {
+                                    @if (groupEvent.AverageRating.HasValue)
+                                    {
+                                        <p class="muted-note">Average rating: @groupEvent.AverageRating.Value.ToString("0.0") / 5</p>
+                                    }
+
+                                    @foreach (var feedback in groupEvent.Feedback)
+                                    {
+                                        <div class="summary-card">
+                                            <div class="member-row__info">
+                                                <strong>@feedback.AuthorDisplayName</strong>
+                                                <span>@@@feedback.AuthorUsername</span>
+                                                <span>Rating: @feedback.Rating / 5</span>
+                                            </div>
+                                            <p>@feedback.Text</p>
+                                        </div>
+                                    }
+                                }
+                            </div>
                         </article>
                     }
                 }

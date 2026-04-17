@@ -308,6 +308,7 @@ Priority legend:
 - An event may store an optional `GroupId`.
 - Only the current group owner can associate an event with that group's context in MVP.
 - Group-linked events are viewable in group context.
+- Group event history may display linked-event feedback by reusing event feedback visibility rules.
 - Group membership does not replace event participation rules.
 
 ### FR-014 Event Status Lifecycle
@@ -436,6 +437,7 @@ Priority legend:
 - Feedback may include up to four optional image photos stored through the database-backed media path.
 - Open-event feedback is visible to authenticated users who can view the event.
 - Closed-event feedback is visible only to the host, joined participants, moderators, and admins.
+- Group-linked event feedback can appear in group event history only when the current user is allowed to view that event's feedback.
 - Feedback and photos can be reported through the existing report flow with related event/user context.
 - Feedback does not change event lifecycle, participation, capacity, chat, or notification behavior.
 

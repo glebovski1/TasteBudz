@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
@@ -88,6 +89,7 @@ public sealed class GroupManageViewModel
     public bool IsCurrentUserOwner { get; init; }
     public bool IsCurrentUserMember { get; init; }
     public IReadOnlyList<GroupMemberItem> Members { get; init; } = [];
+    public IReadOnlyList<GroupEventHistoryItem> EventHistory { get; init; } = [];
 
     // Edit sub-form — pre-populated for the owner settings panel
     public string? EditName { get; set; }
@@ -97,7 +99,10 @@ public sealed class GroupManageViewModel
     // Invite sub-form
     public string? InviteUsername { get; set; }
 
-    public static GroupManageViewModel FromDto(GroupDetailDto dto, Guid currentUserId) => new()
+    public static GroupManageViewModel FromDto(
+        GroupDetailDto dto,
+        Guid currentUserId,
+        IReadOnlyList<GroupEventHistoryItem>? eventHistory = null) => new()
     {
         GroupId = dto.GroupId,
         Name = dto.Name,
@@ -109,6 +114,7 @@ public sealed class GroupManageViewModel
             .Where(m => m.State == GroupMemberState.Active)
             .Select(m => GroupMemberItem.FromDto(m, dto.OwnerUserId))
             .ToList(),
+        EventHistory = eventHistory ?? [],
         EditName = dto.Name,
         EditDescription = dto.Description,
         EditVisibility = dto.Visibility,
@@ -131,4 +137,44 @@ public sealed class GroupMemberItem
         IsOwner = dto.UserId == ownerUserId,
         JoinedAtUtc = dto.JoinedAtUtc,
     };
+}
+
+public sealed class GroupEventHistoryItem
+{
+    public Guid EventId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string EventType { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public DateTimeOffset EventStartAtUtc { get; init; }
+    public int Capacity { get; init; }
+    public int ActiveParticipants { get; init; }
+    public string? CuisineTarget { get; init; }
+    public IReadOnlyList<EventFeedbackItem> Feedback { get; init; } = [];
+    public double? AverageRating { get; init; }
+    public bool IsCompleted { get; init; }
+
+    public static GroupEventHistoryItem FromDto(
+        EventSummaryDto dto,
+        IReadOnlyCollection<EventFeedbackDto> feedback,
+        Guid currentUserId)
+    {
+        var feedbackItems = feedback
+            .Select(item => EventFeedbackItem.FromDto(item, currentUserId))
+            .ToList();
+
+        return new()
+        {
+            EventId = dto.EventId,
+            Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Event" : dto.Title,
+            EventType = dto.EventType.ToString(),
+            Status = dto.Status.ToString(),
+            EventStartAtUtc = dto.EventStartAtUtc,
+            Capacity = dto.Capacity,
+            ActiveParticipants = dto.ActiveParticipants,
+            CuisineTarget = dto.CuisineTarget,
+            Feedback = feedbackItems,
+            AverageRating = feedbackItems.Count == 0 ? null : feedbackItems.Average(item => item.Rating),
+            IsCompleted = dto.Status == EventStatus.Completed,
+        };
+    }
 }

@@ -333,12 +333,14 @@ Representative browse query parameters:
 | Create Group | POST | `/api/v1/groups` | Create group | Yes |
 | Get Group Detail | GET | `/api/v1/groups/{groupId}` | Return group detail | Yes |
 | Update Group | PATCH | `/api/v1/groups/{groupId}` | Update group settings | Yes |
-| List Group-Linked Events | GET | `/api/v1/groups/{groupId}/events` | View linked events in group context | Yes |
+| List Group-Linked Events | GET | `/api/v1/groups/{groupId}/events` | View linked events for group history/context | Yes |
 | Join Group | POST | `/api/v1/groups/{groupId}/members` | Join public group | Yes |
 | Leave Group | DELETE | `/api/v1/groups/{groupId}/members/me` | Leave group | Yes |
 | Remove Group Member | POST | `/api/v1/groups/{groupId}/members/{userId}/removal` | Owner removes member | Yes |
 | Invite User to Group | POST | `/api/v1/groups/{groupId}/invites` | Invite user to private group | Yes |
 | Respond to Group Invite | PATCH | `/api/v1/groups/invites/{inviteId}` | Accept/decline invite | Yes |
+
+Group event history clients should compose `GET /api/v1/groups/{groupId}/events` with `GET /api/v1/events/{eventId}/feedback` when feedback is needed. Feedback visibility remains owned by the Events module.
 
 Representative request shapes:
 

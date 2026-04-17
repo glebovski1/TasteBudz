@@ -28,16 +28,34 @@
 
     <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
         <div>
-            <h1>Create Event</h1>
-            <p>Set up a food event and invite others to join.</p>
+            <h1>@(Model.IsGroupEvent ? "Create Group Event" : "Create Event")</h1>
+            @if (Model.IsGroupEvent)
+            {
+                <p>Plan a dining event for @(string.IsNullOrWhiteSpace(Model.GroupName) ? "this group" : Model.GroupName).</p>
+            }
+            else
+            {
+                <p>Set up a food event and invite others to join.</p>
+            }
         </div>
         <div class="button-row">
-            <a asp-action="Index" class="button button--secondary">Back to Events</a>
+            @if (Model.IsGroupEvent)
+            {
+                <a asp-controller="Group"
+                   asp-action="Manage"
+                   asp-route-groupId="@Model.GroupId"
+                   class="button button--secondary">Back to Group</a>
+            }
+            else
+            {
+                <a asp-action="Index" class="button button--secondary">Back to Events</a>
+            }
         </div>
     </div>
 
     <form asp-action="CreateEvent" method="post" class="stack-lg" novalidate>
         @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="GroupId" />
         <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
 
         <div class="editor-grid">
@@ -173,8 +191,18 @@
         </div>
 
         <div class="button-row">
-            <button type="submit" class="button button--primary">Create Event</button>
-            <a asp-action="Index" class="button button--secondary">Cancel</a>
+            <button type="submit" class="button button--primary">@(Model.IsGroupEvent ? "Create Group Event" : "Create Event")</button>
+            @if (Model.IsGroupEvent)
+            {
+                <a asp-controller="Group"
+                   asp-action="Manage"
+                   asp-route-groupId="@Model.GroupId"
+                   class="button button--secondary">Cancel</a>
+            }
+            else
+            {
+                <a asp-action="Index" class="button button--secondary">Cancel</a>
+            }
         </div>
 
     </form>

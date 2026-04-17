@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
@@ -15,11 +17,16 @@ namespace TasteBudz.Web.Mvc.Controllers;
 public sealed class GroupController : Controller
 {
     private readonly GroupApiService groupApiService;
+    private readonly EventApiService eventApiService;
     private readonly UserSessionService userSessionService;
 
-    public GroupController(GroupApiService groupApiService, UserSessionService userSessionService)
+    public GroupController(
+        GroupApiService groupApiService,
+        EventApiService eventApiService,
+        UserSessionService userSessionService)
     {
         this.groupApiService = groupApiService;
+        this.eventApiService = eventApiService;
         this.userSessionService = userSessionService;
     }
 
@@ -86,7 +93,10 @@ public sealed class GroupController : Controller
         {
             var detail = await groupApiService.GetAsync(groupId, cancellationToken);
             var currentUserId = GetCurrentUserId();
-            return View(GroupManageViewModel.FromDto(detail, currentUserId));
+            var linkedEvents = await TryListGroupEventsAsync(groupId, cancellationToken);
+            var eventHistory = await BuildEventHistoryAsync(linkedEvents, currentUserId, cancellationToken);
+
+            return View(GroupManageViewModel.FromDto(detail, currentUserId, eventHistory));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -235,6 +245,66 @@ public sealed class GroupController : Controller
     {
         var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+    }
+
+    private async Task<IReadOnlyCollection<EventSummaryDto>> TryListGroupEventsAsync(
+        Guid groupId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await groupApiService.ListGroupEventsAsync(
+                groupId,
+                new GroupEventsQuery { PageSize = 50 },
+                cancellationToken);
+
+            return result.Items;
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            return [];
+        }
+    }
+
+    private async Task<IReadOnlyList<GroupEventHistoryItem>> BuildEventHistoryAsync(
+        IReadOnlyCollection<EventSummaryDto> events,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<GroupEventHistoryItem>(events.Count);
+
+        foreach (var eventSummary in events.OrderByDescending(item => item.EventStartAtUtc))
+        {
+            IReadOnlyCollection<EventFeedbackDto> feedback = eventSummary.Status == EventStatus.Completed
+                ? await TryListEventFeedbackAsync(eventSummary.EventId, cancellationToken)
+                : Array.Empty<EventFeedbackDto>();
+
+            items.Add(GroupEventHistoryItem.FromDto(eventSummary, feedback, currentUserId));
+        }
+
+        return items;
+    }
+
+    private async Task<IReadOnlyCollection<EventFeedbackDto>> TryListEventFeedbackAsync(
+        Guid eventId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await eventApiService.ListFeedbackAsync(eventId, cancellationToken);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException ex) when (ex.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+        {
+            return [];
+        }
     }
 
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)

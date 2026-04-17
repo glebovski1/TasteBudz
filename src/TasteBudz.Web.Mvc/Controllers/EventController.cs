@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
@@ -16,17 +17,20 @@ namespace TasteBudz.Web.Mvc.Controllers;
 public sealed class EventController : Controller
 {
     private readonly EventApiService eventApiService;
+    private readonly GroupApiService groupApiService;
     private readonly RestaurantApiService restaurantApiService;
     private readonly ModerationApiService moderationApiService;
     private readonly UserSessionService userSessionService;
 
     public EventController(
         EventApiService eventApiService,
+        GroupApiService groupApiService,
         RestaurantApiService restaurantApiService,
         ModerationApiService moderationApiService,
         UserSessionService userSessionService)
     {
         this.eventApiService = eventApiService;
+        this.groupApiService = groupApiService;
         this.restaurantApiService = restaurantApiService;
         this.moderationApiService = moderationApiService;
         this.userSessionService = userSessionService;
@@ -56,9 +60,36 @@ public sealed class EventController : Controller
 
     // GET /Event/CreateEvent
     [HttpGet]
-    public async Task<IActionResult> CreateEvent(CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateEvent(Guid? groupId, CancellationToken cancellationToken)
     {
-        var model = await BuildCreateViewModelAsync(new EventCreateViewModel(), cancellationToken);
+        var model = new EventCreateViewModel { GroupId = groupId };
+
+        if (groupId.HasValue)
+        {
+            try
+            {
+                var group = await groupApiService.GetAsync(groupId.Value, cancellationToken);
+
+                if (group.OwnerUserId != GetCurrentUserId())
+                {
+                    TempData["StatusMessage"] = "Only the group owner can create a group event.";
+                    return RedirectToAction(nameof(GroupController.Manage), "Group", new { groupId = groupId.Value });
+                }
+
+                model = model with { GroupName = group.Name };
+            }
+            catch (BackendAuthenticationExpiredException)
+            {
+                return await RedirectToLoginAsync(cancellationToken);
+            }
+            catch
+            {
+                TempData["StatusMessage"] = "That group could not be found.";
+                return RedirectToAction(nameof(GroupController.Index), "Group");
+            }
+        }
+
+        model = await BuildCreateViewModelAsync(model, cancellationToken);
         return View(model);
     }
 
@@ -76,7 +107,9 @@ public sealed class EventController : Controller
         try
         {
             var detail = await eventApiService.CreateAsync(model.ToRequest(), cancellationToken);
-            TempData["StatusMessage"] = $"Event \"{detail.Title ?? "Untitled"}\" created!";
+            TempData["StatusMessage"] = detail.GroupId.HasValue
+                ? $"Group event \"{detail.Title ?? "Untitled"}\" created!"
+                : $"Event \"{detail.Title ?? "Untitled"}\" created!";
             return RedirectToAction(nameof(EventDetails), new { eventId = detail.EventId });
         }
         catch (BackendAuthenticationExpiredException)
@@ -99,7 +132,7 @@ public sealed class EventController : Controller
         {
             var detail = await eventApiService.GetAsync(eventId, cancellationToken);
             var participants = await eventApiService.ListParticipantsAsync(eventId, cancellationToken);
-            var feedback = await eventApiService.ListFeedbackAsync(eventId, cancellationToken);
+            var feedback = await TryListFeedbackAsync(eventId, cancellationToken);
             var selectedRestaurant = await TryGetSelectedRestaurantAsync(detail.SelectedRestaurantId, cancellationToken);
             var currentUserId = GetCurrentUserId();
             var reservableSlots = detail.HostUserId == currentUserId
@@ -358,6 +391,21 @@ public sealed class EventController : Controller
         EventCreateViewModel model,
         CancellationToken cancellationToken)
     {
+        var groupName = model.GroupName;
+
+        if (model.GroupId.HasValue && string.IsNullOrWhiteSpace(groupName))
+        {
+            try
+            {
+                var group = await groupApiService.GetAsync(model.GroupId.Value, cancellationToken);
+                groupName = group.Name;
+            }
+            catch
+            {
+                groupName = null;
+            }
+        }
+
         try
         {
             var restaurants = await restaurantApiService.BrowseAsync(
@@ -366,6 +414,7 @@ public sealed class EventController : Controller
 
             return model with
             {
+                GroupName = groupName,
                 Restaurants = restaurants.Items
                     .Select(RestaurantPickerItem.FromDto)
                     .ToList(),
@@ -373,7 +422,7 @@ public sealed class EventController : Controller
         }
         catch
         {
-            return model with { Restaurants = [] };
+            return model with { GroupName = groupName, Restaurants = [] };
         }
     }
 
@@ -421,6 +470,24 @@ public sealed class EventController : Controller
         catch (BackendApiException)
         {
             return null;
+        }
+    }
+
+    private async Task<IReadOnlyCollection<EventFeedbackDto>> TryListFeedbackAsync(
+        Guid eventId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await eventApiService.ListFeedbackAsync(eventId, cancellationToken);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            return [];
         }
     }
 

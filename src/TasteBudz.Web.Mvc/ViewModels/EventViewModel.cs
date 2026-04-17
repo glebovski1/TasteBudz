@@ -76,6 +76,10 @@ public sealed record EventCreateViewModel
     public Guid? SelectedRestaurantId { get; set; }
     public string? SelectedRestaurantName { get; set; }
 
+    public Guid? GroupId { get; set; }
+    public string? GroupName { get; init; }
+    public bool IsGroupEvent => GroupId.HasValue;
+
     public IReadOnlyList<RestaurantPickerItem> Restaurants { get; init; } = [];
 
     public static IReadOnlyList<string> AvailableCuisineTags => CuisineData.AvailableCuisineTags;
@@ -88,6 +92,7 @@ public sealed record EventCreateViewModel
         Title = string.IsNullOrWhiteSpace(Title) ? null : Title.Trim(),
         CuisineTarget = string.IsNullOrWhiteSpace(CuisineTarget) ? null : CuisineTarget.Trim(),
         SelectedRestaurantId = SelectedRestaurantId,
+        GroupId = GroupId,
     };
 }
 

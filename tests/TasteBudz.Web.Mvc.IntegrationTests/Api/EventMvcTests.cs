@@ -176,6 +176,61 @@ public sealed class EventMvcTests
     }
 
     [Fact]
+    public async Task EventDetails_WhenFeedbackForbiddenStillRendersEvent()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Closed ramen",
+                    EventType.Closed,
+                    EventStatus.Open,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 4, 30, 19, 0, 0, TimeSpan.Zero),
+                    4,
+                    2,
+                    1,
+                    hostUserId,
+                    null,
+                    "Ramen",
+                    null,
+                    null)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/participants",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventParticipantDto(session.CurrentUser.UserId, "alex", "Alex Carter", EventParticipantState.Invited, DateTimeOffset.UtcNow, null, null),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Problem(HttpStatusCode.Forbidden, "Forbidden", "You are not allowed to view feedback for this event."));
+
+        using var response = await client.GetAsync($"/Event/EventDetails?eventId={eventId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Closed ramen", html);
+        Assert.Contains("Attendees", html);
+        Assert.Contains("No feedback yet.", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task EventDetails_ForCompletedJoinedParticipant_RendersFeedbackSection()
     {
         using var factory = new TasteBudzMvcFactory();
