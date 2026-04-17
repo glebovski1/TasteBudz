@@ -135,6 +135,8 @@ The following areas are the highest priority for backend testing.
 - closed-event invites do not reserve seats
 - `DecisionAt` locks participant changes except approved override paths
 - lifecycle transitions remain server-controlled
+- completed-event feedback is accepted only from joined participants
+- event feedback upsert enforces one entry per participant, required text, and 1-5 rating
 
 ### P0 - Authorization, privacy, and blocking
 
@@ -146,6 +148,8 @@ The following areas are the highest priority for backend testing.
 - launched-but-forbidden behavior returns the correct status code (for example `403`)
 - hidden/not-launched feature-flagged endpoints return `404`
 - role-owned later endpoints enforce the correct actor context (`GroupOwner`, `RestaurantAdmin`)
+- event feedback visibility follows Open vs Closed event rules
+- event-feedback media retrieval uses the same authorization boundary as feedback listing
 
 ### P1 - Groups and messaging access
 
@@ -180,6 +184,7 @@ The following areas are the highest priority for backend testing.
 
 - reports can be created and resolved
 - report-evidence attachments respect reporter vs moderator/admin access boundaries
+- event-feedback reports preserve the feedback author's user target and related event context
 - restrictions prevent forbidden actions while active
 - restriction scope values are validated against the documented API contract
 - moderation and support actions create audit records where required
@@ -292,6 +297,7 @@ These scenarios should anchor early backend testing work.
 | BT-21 | Admin issues a password reset token and user completes reset | High | Admin-only issue, one-time token use, password update, and session revocation are correct |
 | BT-22 | User and admin exchange support messages | High | Support-scope access is limited to the supported user and admins across REST and hub behavior |
 | BT-23 | User swipes another user before reciprocal decision | Medium | The swiped user is hidden from that actor's people search until deciding back |
+| BT-24 | Joined participant adds feedback to a completed event | High | Completed-only eligibility, one-entry upsert, Open/Closed visibility, photo authorization, and validation are correct |
 
 ## 14. Module-Specific Test Emphasis
 
@@ -301,7 +307,7 @@ These scenarios should anchor early backend testing work.
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
 | Restaurant Operations | feature-flag behavior, assignments, slot lifecycle, reservation invariants, discount simulation |
-| Events | create, update, cancel, join, leave, invites, lifecycle, concurrency |
+| Events | create, update, cancel, join, leave, invites, lifecycle, feedback, concurrency |
 | Groups | create, join, leave, private invites, owner-only actions, group-owner-only later admin flows |
 | Discovery and Budz | search, privacy/block/restriction filters, one-sided outbound swipe search filtering, swipe replacement, reciprocal-like connection creation |
 | Messaging | membership-derived access, support-scope access, Budz-only direct chat, history retrieval, restriction-aware send behavior |

@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Net.Http.Headers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Modules.Events;
@@ -99,6 +101,42 @@ public sealed class EventApiService
             request,
             cancellationToken: cancellationToken);
 
+    public Task<IReadOnlyCollection<EventFeedbackDto>> ListFeedbackAsync(
+        Guid eventId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<EventFeedbackDto>>(
+            $"/api/v1/events/{eventId}/feedback",
+            cancellationToken);
+
+    public Task<EventFeedbackDto> UpsertFeedbackAsync(
+        Guid eventId,
+        UpsertEventFeedbackRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PutAsync<UpsertEventFeedbackRequest, EventFeedbackDto>(
+            $"/api/v1/events/{eventId}/feedback/me",
+            request,
+            cancellationToken);
+
+    public Task<EventFeedbackPhotoDto> UploadFeedbackPhotoAsync(
+        Guid eventId,
+        IFormFile file,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostMultipartAsync<EventFeedbackPhotoDto>(
+            $"/api/v1/events/{eventId}/feedback/me/photos",
+            () => CreateMultipartContent(file),
+            cancellationToken: cancellationToken);
+
+    public Task DeleteFeedbackPhotoAsync(
+        Guid eventId,
+        Guid mediaAssetId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.DeleteAsync(
+            $"/api/v1/events/{eventId}/feedback/me/photos/{mediaAssetId}",
+            cancellationToken: cancellationToken);
+
+    public Task<BackendFileResponse> GetMediaAsync(Guid mediaAssetId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetFileAsync($"/api/v1/media/{mediaAssetId}", cancellationToken);
+
     public Task<CheckoutSessionDto> CreateCheckoutSessionAsync(
         Guid eventId,
         CancellationToken cancellationToken = default) =>
@@ -183,5 +221,19 @@ public sealed class EventApiService
         builder.Add("pageSize", query.PageSize.ToString(CultureInfo.InvariantCulture));
 
         return $"/api/v1/events{builder.ToQueryString()}";
+    }
+
+    private static MultipartFormDataContent CreateMultipartContent(IFormFile file)
+    {
+        var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(file.OpenReadStream());
+
+        if (!string.IsNullOrWhiteSpace(file.ContentType))
+        {
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.ContentType);
+        }
+
+        content.Add(fileContent, "file", file.FileName);
+        return content;
     }
 }

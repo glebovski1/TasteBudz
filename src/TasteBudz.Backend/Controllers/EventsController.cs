@@ -6,6 +6,7 @@ using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Messaging;
 using TasteBudz.Backend.Modules.Restaurants;
 
@@ -22,6 +23,7 @@ public sealed class EventsController(
     EventService eventService,
     EventParticipationService eventParticipationService,
     EventInviteService eventInviteService,
+    EventFeedbackService eventFeedbackService,
     EventSlotReservationService eventSlotReservationService,
     MessagingService messagingService,
     IFeatureFlagService featureFlagService,
@@ -53,6 +55,26 @@ public sealed class EventsController(
     [HttpGet("{eventId:guid}/messages")]
     public Task<CursorPageResponse<ChatMessageDto>> ListMessages(Guid eventId, [FromQuery] ChatHistoryQuery query, CancellationToken cancellationToken) =>
         messagingService.ListEventMessagesAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, eventId, query, cancellationToken);
+
+    [HttpGet("{eventId:guid}/feedback")]
+    public Task<IReadOnlyCollection<EventFeedbackDto>> ListFeedback(Guid eventId, CancellationToken cancellationToken) =>
+        eventFeedbackService.ListAsync(currentUserAccessor.GetRequiredCurrentUser(), eventId, cancellationToken);
+
+    [HttpPut("{eventId:guid}/feedback/me")]
+    public Task<EventFeedbackDto> UpsertMyFeedback(Guid eventId, [FromBody] UpsertEventFeedbackRequest request, CancellationToken cancellationToken) =>
+        eventFeedbackService.UpsertMineAsync(currentUserAccessor.GetRequiredCurrentUser(), eventId, request, cancellationToken);
+
+    [HttpPost("{eventId:guid}/feedback/me/photos")]
+    [Consumes("multipart/form-data")]
+    public Task<EventFeedbackPhotoDto> UploadMyFeedbackPhoto(Guid eventId, [FromForm] UploadImageRequest request, CancellationToken cancellationToken) =>
+        eventFeedbackService.UploadMyPhotoAsync(currentUserAccessor.GetRequiredCurrentUser(), eventId, request, cancellationToken);
+
+    [HttpDelete("{eventId:guid}/feedback/me/photos/{mediaAssetId:guid}")]
+    public async Task<IActionResult> DeleteMyFeedbackPhoto(Guid eventId, Guid mediaAssetId, CancellationToken cancellationToken)
+    {
+        await eventFeedbackService.DeleteMyPhotoAsync(currentUserAccessor.GetRequiredCurrentUser(), eventId, mediaAssetId, cancellationToken);
+        return NoContent();
+    }
 
     [HttpPost("{eventId:guid}/participants")]
     public Task<EventParticipantDto> Join(Guid eventId, CancellationToken cancellationToken) =>

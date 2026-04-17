@@ -19,6 +19,7 @@ Implement the following MVP items first. Each item references the owning require
 - Event status lifecycle + DecisionAt evaluation (FR-014)
 - In-app notifications for state changes and material event updates (FR-016)
 - Event + group + support chat, real-time and text-only (FR-017, FR-017A, FR-017B)
+- Completed-event feedback with ratings, text, and optional photos (FR-017C)
 - Safety stack: report -> moderation queue -> scoped soft bans -> audit log (FR-025, FR-026, FR-027, FR-028)
 
 > MVP decisions locked for the capstone:
@@ -83,6 +84,7 @@ Priority legend:
 - US-018: As a user, I want notifications so I do not miss important changes.
 - US-019: As an event participant, I want an event chat for coordination.
 - US-020: As a group member, I want a group chat for group coordination.
+- US-020A: As an event participant, I want to leave feedback after a completed event.
 - US-021: As a user, I want to block someone.
 - US-022: As a user, I want to report inappropriate behavior.
 - US-023: As a moderator, I want a queue of reports to review.
@@ -417,6 +419,25 @@ Priority legend:
 - Admins can list support conversations and reply in the selected user's support thread.
 - Support chat is text-only and uses the same SignalR plus history-retrieval model as event and group chat.
 - Normal users cannot read or write another user's support thread.
+
+### FR-017C Event Feedback
+
+**Priority:** MVP
+
+**Description:** Joined event participants shall be able to leave feedback after a dining event is completed.
+
+**Acceptance Criteria**
+
+- Feedback can be submitted only after the event reaches `COMPLETED`.
+- Cancelled, open, full, and confirmed events do not accept feedback.
+- Only users with a current `JOINED` participant record for the completed event can create or update feedback.
+- Each participant can maintain one editable feedback entry per event.
+- Feedback includes required text and a required rating from 1 to 5.
+- Feedback may include up to four optional image photos stored through the database-backed media path.
+- Open-event feedback is visible to authenticated users who can view the event.
+- Closed-event feedback is visible only to the host, joined participants, moderators, and admins.
+- Feedback and photos can be reported through the existing report flow with related event/user context.
+- Feedback does not change event lifecycle, participation, capacity, chat, or notification behavior.
 
 ### FR-018 People Discovery (Search)
 
@@ -783,6 +804,8 @@ This appendix defines safe fallback variants for higher-risk features.
 - Restaurant
 - Event
 - EventParticipant
+- EventFeedback
+- EventFeedbackPhoto
 - Group
 - GroupMember
 - GroupInvite
@@ -820,6 +843,7 @@ This appendix defines safe fallback variants for higher-risk features.
 - Clarified Budz as reciprocal Like only in MVP, with no pending Bud-request state.
 - Corrected event sizing to a typical 4-6 participants with a hard maximum capacity of 8 and no hard maximum group-member cap in MVP.
 - Added explicit host event-edit and automatic event-completion rules so the requirements match the backend architecture and decision log.
+- Added completed-event feedback with participant-authored ratings, text, and optional database-backed photos.
 - Refreshed the data model checklist so it matches the standalone backend domain model.
 - Promoted direct chat and simulation-only checkout to feature-flagged MVP++ backend behavior.
 - Added support chat, admin-issued password reset links, and search filtering for one-sided outbound swipe decisions.

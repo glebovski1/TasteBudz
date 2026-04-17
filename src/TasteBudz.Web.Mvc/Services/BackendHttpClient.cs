@@ -64,6 +64,19 @@ public sealed class BackendHttpClient
             requiresAuth,
             cancellationToken);
 
+    public Task<TResponse> PostMultipartAsync<TResponse>(
+        string path,
+        Func<MultipartFormDataContent> contentFactory,
+        bool requiresAuth = true,
+        CancellationToken cancellationToken = default) =>
+        SendAsync<TResponse>(
+            () => new HttpRequestMessage(HttpMethod.Post, path)
+            {
+                Content = contentFactory(),
+            },
+            requiresAuth,
+            cancellationToken);
+
     public Task PostAsync<TRequest>(
         string path,
         TRequest payload,
@@ -110,6 +123,14 @@ public sealed class BackendHttpClient
             requiresAuth,
             cancellationToken);
 
+    public Task<BackendFileResponse> GetFileAsync(
+        string path,
+        CancellationToken cancellationToken = default) =>
+        SendFileAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, path),
+            requiresAuth: true,
+            cancellationToken);
+
     private async Task<TResponse> SendAsync<TResponse>(
         Func<HttpRequestMessage> requestFactory,
         bool requiresAuth,
@@ -133,6 +154,19 @@ public sealed class BackendHttpClient
         // This path is used for endpoints that succeed without returning a response body.
         using var response = await SendWithRefreshAsync(requestFactory, requiresAuth, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    private async Task<BackendFileResponse> SendFileAsync(
+        Func<HttpRequestMessage> requestFactory,
+        bool requiresAuth,
+        CancellationToken cancellationToken)
+    {
+        using var response = await SendWithRefreshAsync(requestFactory, requiresAuth, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        return new BackendFileResponse(content, contentType);
     }
 
     private async Task<HttpResponseMessage> SendWithRefreshAsync(
@@ -333,6 +367,8 @@ internal sealed class BackendAuthenticationExpiredException : BackendApiExceptio
     {
     }
 }
+
+public sealed record BackendFileResponse(byte[] Content, string ContentType);
 
 /// <summary>
 /// Small ProblemDetails shape used when the backend returns API errors.

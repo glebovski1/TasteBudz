@@ -2,6 +2,7 @@ using System.Net;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
@@ -88,6 +89,10 @@ public sealed class EventMvcTests
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventParticipantDto>()));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
             $"/api/v1/restaurants/{restaurantId}",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
@@ -142,6 +147,10 @@ public sealed class EventMvcTests
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventParticipantDto>()));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
             $"/api/v1/restaurants/{restaurantId}",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
@@ -164,5 +173,218 @@ public sealed class EventMvcTests
         Assert.Contains("Reserve", html);
         Assert.Contains(slotId.ToString(), html);
         factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task EventDetails_ForCompletedJoinedParticipant_RendersFeedbackSection()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var mediaAssetId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        EnqueueCompletedEventDetails(factory, eventId, hostUserId, session.CurrentUser.UserId, otherUserId, mediaAssetId);
+
+        using var response = await client.GetAsync($"/Event/EventDetails?eventId={eventId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Event Feedback", html);
+        Assert.Contains("Average rating: 4.0 / 5", html);
+        Assert.Contains("Save Feedback", html);
+        Assert.Contains("Upload Photo", html);
+        Assert.Contains("Report Feedback", html);
+        Assert.Contains(mediaAssetId.ToString(), html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task SaveFeedback_PostsPayloadAndRedirectsToDetails()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var mediaAssetId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        EnqueueCompletedEventDetails(factory, eventId, hostUserId, session.CurrentUser.UserId, otherUserId, mediaAssetId);
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, $"/Event/EventDetails?eventId={eventId}");
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Put,
+            $"/api/v1/events/{eventId}/feedback/me",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventFeedbackDto(Guid.NewGuid(), eventId, session.CurrentUser.UserId, "alex", "Alex Carter", 5, "Fresh update.", Array.Empty<EventFeedbackPhotoDto>(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)));
+
+        using var response = await client.PostAsync(
+            "/Event/SaveFeedback",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["EventId"] = eventId.ToString(),
+                ["Rating"] = "5",
+                ["Text"] = "Fresh update.",
+            }));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains($"/Event/EventDetails?eventId={eventId}", response.Headers.Location?.ToString());
+        Assert.Contains(
+            "\"rating\":5",
+            factory.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/feedback/me").Body);
+        Assert.Contains(
+            "\"text\":\"Fresh update.\"",
+            factory.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/feedback/me").Body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task FeedbackPhoto_ProxiesBackendImageBytes()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var mediaAssetId = Guid.NewGuid();
+        var bytes = new byte[] { 9, 8, 7 };
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/media/{mediaAssetId}",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(bytes)
+                {
+                    Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") },
+                },
+            });
+
+        using var response = await client.GetAsync($"/Event/FeedbackPhoto?mediaAssetId={mediaAssetId}");
+        var actualBytes = await response.Content.ReadAsByteArrayAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(bytes, actualBytes);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task ReportFeedback_PostsExpectedModerationPayload()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var mediaAssetId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        EnqueueCompletedEventDetails(factory, eventId, hostUserId, session.CurrentUser.UserId, otherUserId, mediaAssetId);
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, $"/Event/EventDetails?eventId={eventId}");
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/reports",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ModerationReportDto(Guid.NewGuid(), session.CurrentUser.UserId, ReportTargetType.User, otherUserId, "Event feedback", "Inappropriate", "Details", eventId, otherUserId, null, DateTimeOffset.UtcNow, ModerationReportStatus.Pending, null, null, null, null)));
+
+        using var response = await client.PostAsync(
+            "/Event/ReportFeedback",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["eventId"] = eventId.ToString(),
+                ["authorUserId"] = otherUserId.ToString(),
+                ["reason"] = "Inappropriate",
+                ["explanation"] = "Details",
+            }));
+
+        var body = factory.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/reports").Body;
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("\"targetType\":\"User\"", body);
+        Assert.Contains($"\"targetId\":\"{otherUserId}", body);
+        Assert.Contains($"\"relatedEventId\":\"{eventId}", body);
+        Assert.Contains($"\"relatedUserId\":\"{otherUserId}", body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    private static void EnqueueCompletedEventDetails(
+        TasteBudzMvcFactory factory,
+        Guid eventId,
+        Guid hostUserId,
+        Guid currentUserId,
+        Guid otherUserId,
+        Guid mediaAssetId)
+    {
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Completed ramen",
+                    EventType.Open,
+                    EventStatus.Completed,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                    6,
+                    2,
+                    2,
+                    hostUserId,
+                    null,
+                    "Ramen",
+                    null,
+                    null)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/participants",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventParticipantDto(currentUserId, "alex", "Alex Carter", EventParticipantState.Joined, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+                    new EventParticipantDto(otherUserId, "sam", "Sam Carter", EventParticipantState.Joined, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventFeedbackDto(
+                        Guid.NewGuid(),
+                        eventId,
+                        currentUserId,
+                        "alex",
+                        "Alex Carter",
+                        5,
+                        "Great table.",
+                        new[] { new EventFeedbackPhotoDto(mediaAssetId, "table.png", "image/png", 3, DateTimeOffset.UtcNow) },
+                        DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow),
+                    new EventFeedbackDto(
+                        Guid.NewGuid(),
+                        eventId,
+                        otherUserId,
+                        "sam",
+                        "Sam Carter",
+                        3,
+                        "Food was late.",
+                        Array.Empty<EventFeedbackPhotoDto>(),
+                        DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow),
+                }));
     }
 }

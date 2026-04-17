@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
@@ -16,15 +17,18 @@ public sealed class EventController : Controller
 {
     private readonly EventApiService eventApiService;
     private readonly RestaurantApiService restaurantApiService;
+    private readonly ModerationApiService moderationApiService;
     private readonly UserSessionService userSessionService;
 
     public EventController(
         EventApiService eventApiService,
         RestaurantApiService restaurantApiService,
+        ModerationApiService moderationApiService,
         UserSessionService userSessionService)
     {
         this.eventApiService = eventApiService;
         this.restaurantApiService = restaurantApiService;
+        this.moderationApiService = moderationApiService;
         this.userSessionService = userSessionService;
     }
 
@@ -95,13 +99,14 @@ public sealed class EventController : Controller
         {
             var detail = await eventApiService.GetAsync(eventId, cancellationToken);
             var participants = await eventApiService.ListParticipantsAsync(eventId, cancellationToken);
+            var feedback = await eventApiService.ListFeedbackAsync(eventId, cancellationToken);
             var selectedRestaurant = await TryGetSelectedRestaurantAsync(detail.SelectedRestaurantId, cancellationToken);
             var currentUserId = GetCurrentUserId();
             var reservableSlots = detail.HostUserId == currentUserId
                 ? await TryGetReservableSlotsAsync(detail, selectedRestaurant, cancellationToken)
                 : [];
 
-            return View(EventDetailViewModel.FromDto(detail, participants, currentUserId, selectedRestaurant, reservableSlots));
+            return View(EventDetailViewModel.FromDto(detail, participants, currentUserId, selectedRestaurant, reservableSlots, feedback));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -214,6 +219,137 @@ public sealed class EventController : Controller
             TempData["StatusMessage"] = $"Could not cancel: {ex.Message}";
             return RedirectToAction(nameof(EventDetails), new { eventId });
         }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveFeedback(EventFeedbackFormViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Feedback needs a rating and text.";
+            return RedirectToAction(nameof(EventDetails), new { eventId = model.EventId });
+        }
+
+        try
+        {
+            await eventApiService.UpsertFeedbackAsync(model.EventId, model.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "Feedback saved.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not save feedback: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId = model.EventId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadFeedbackPhoto(Guid eventId, IFormFile? photo, CancellationToken cancellationToken)
+    {
+        if (photo is null || photo.Length == 0)
+        {
+            TempData["StatusMessage"] = "Choose a photo before uploading.";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
+        }
+
+        try
+        {
+            await eventApiService.UploadFeedbackPhotoAsync(eventId, photo, cancellationToken);
+            TempData["StatusMessage"] = "Feedback photo uploaded.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not upload feedback photo: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteFeedbackPhoto(Guid eventId, Guid mediaAssetId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await eventApiService.DeleteFeedbackPhotoAsync(eventId, mediaAssetId, cancellationToken);
+            TempData["StatusMessage"] = "Feedback photo removed.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not remove feedback photo: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> FeedbackPhoto(Guid mediaAssetId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var media = await eventApiService.GetMediaAsync(mediaAssetId, cancellationToken);
+            return File(media.Content, media.ContentType);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return Unauthorized();
+        }
+        catch
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReportFeedback(Guid eventId, Guid authorUserId, string reason, string? explanation, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            TempData["StatusMessage"] = "A report reason is required.";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
+        }
+
+        try
+        {
+            await moderationApiService.CreateReportAsync(
+                new CreateModerationReportRequest
+                {
+                    TargetType = ReportTargetType.User,
+                    TargetId = authorUserId,
+                    Category = "Event feedback",
+                    Reason = reason.Trim(),
+                    Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation.Trim(),
+                    RelatedEventId = eventId,
+                    RelatedUserId = authorUserId,
+                },
+                cancellationToken);
+            TempData["StatusMessage"] = "Feedback report submitted.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not submit report: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

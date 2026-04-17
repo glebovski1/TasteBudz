@@ -585,3 +585,25 @@ People search excludes users for whom the current actor has an effective outboun
 - Search results avoid one-sided repeat exposure after a swipe.
 - The rule remains query-time discovery behavior and does not introduce a pending Bud-request state.
 - Reciprocal effective Like decisions still create Budz directly in MVP.
+
+## [ADR-031] Event Feedback Is Completed-Only and Participant-Authored
+
+- Date: 2026-04-17
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+Participants need a lightweight way to rate and describe their event experience after an event is over. Existing `RestaurantReviews` are restaurant-facing and should not be reused because this feature evaluates the event experience, host/participant context, and related behavior rather than the restaurant itself.
+
+### Decision
+Events own event feedback. Each joined participant may create or update one feedback entry per completed event, enforced by a unique `(EventId, AuthorUserId)` rule. Feedback requires a 1-5 rating and non-empty trimmed text capped at 1000 characters. Feedback is rejected for active, pending, confirmed, or cancelled events, and deleting an entire feedback entry is out of scope for the first slice.
+
+Feedback visibility follows event visibility. Feedback for Open events is readable by authenticated users who can view the event. Feedback for Closed events is readable only by the host, joined participants, and Moderator/Admin roles for moderation review. Feedback photos are optional, capped at four per feedback entry, stored as database-backed `MediaAsset` records linked to the event and feedback entry, and reuse the same 2 MB image type validation as other media uploads.
+
+Feedback reports use the existing moderation report flow with `TargetType=User`, the feedback author's user id as the target, and the event/user references as related context.
+
+### Consequences
+- Event feedback stays separate from restaurant reviews and does not affect event lifecycle, capacity, invites, chat, notifications, or browse/search ranking.
+- The Events module owns feedback policy and repositories; the Media module stores bytes and delegates event-feedback image authorization to Events.
+- Feedback image access must be checked through the same visibility rules as feedback listing.
+- External object storage, chat attachments, realtime updates, and feedback notifications remain out of scope for this slice.

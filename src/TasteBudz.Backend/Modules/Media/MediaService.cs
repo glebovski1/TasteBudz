@@ -3,6 +3,7 @@ using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 
@@ -16,17 +17,9 @@ public sealed class MediaService(
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
     IModerationRepository moderationRepository,
+    IEventFeedbackAccessService eventFeedbackAccessService,
     IClock clock)
 {
-    private const int MaxImageBytes = 2 * 1024 * 1024;
-    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/gif",
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-    };
-
     public async Task<MediaAssetDto> UploadProfileAvatarAsync(CurrentUser currentUser, UploadImageRequest request, CancellationToken cancellationToken = default)
     {
         _ = await authRepository.GetByIdAsync(currentUser.UserId, cancellationToken)
@@ -34,7 +27,7 @@ public sealed class MediaService(
         _ = await profileRepository.GetProfileAsync(currentUser.UserId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
 
-        var file = await ReadValidatedImageAsync(request, cancellationToken);
+        var file = await ImageUploadValidator.ReadValidatedImageAsync(request, cancellationToken);
         var existingAvatar = await mediaRepository.GetProfileAvatarAsync(currentUser.UserId, cancellationToken);
 
         if (existingAvatar is not null)
@@ -74,7 +67,7 @@ public sealed class MediaService(
             throw ApiException.Conflict("Resolved reports cannot accept new evidence attachments.");
         }
 
-        var file = await ReadValidatedImageAsync(request, cancellationToken);
+        var file = await ImageUploadValidator.ReadValidatedImageAsync(request, cancellationToken);
         var mediaAsset = new MediaAsset(
             Guid.NewGuid(),
             currentUser.UserId,
@@ -115,6 +108,17 @@ public sealed class MediaService(
             return mediaAsset;
         }
 
+        if (mediaAsset.EventId.HasValue)
+        {
+            var photo = await eventFeedbackAccessService.GetFeedbackPhotoByMediaAssetAsync(mediaAsset.Id, cancellationToken);
+
+            if (photo is not null &&
+                await eventFeedbackAccessService.CanViewFeedbackAsync(currentUser, mediaAsset.EventId.Value, cancellationToken))
+            {
+                return mediaAsset;
+            }
+        }
+
         throw ApiException.Forbidden("The requested media asset is not available through this endpoint.");
     }
 
@@ -134,54 +138,6 @@ public sealed class MediaService(
         }
 
         throw ApiException.Forbidden("You are not allowed to access attachments for this report.");
-    }
-
-    private static async Task<(byte[] Content, string ContentType, string FileName)> ReadValidatedImageAsync(UploadImageRequest request, CancellationToken cancellationToken)
-    {
-        var file = request.File ?? throw ApiException.BadRequest("file is required.");
-
-        if (file.Length <= 0)
-        {
-            throw ApiException.BadRequest("file must not be empty.");
-        }
-
-        if (file.Length > MaxImageBytes)
-        {
-            throw ApiException.BadRequest($"file must be {MaxImageBytes} bytes or smaller.");
-        }
-
-        var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? string.Empty : file.ContentType.Trim();
-
-        if (!AllowedContentTypes.Contains(contentType))
-        {
-            throw ApiException.BadRequest("Only PNG, JPEG, GIF, and WebP images are supported.");
-        }
-
-        var fileName = NormalizeFileName(file.FileName);
-
-        await using var source = file.OpenReadStream();
-        using var buffer = new MemoryStream();
-        await source.CopyToAsync(buffer, cancellationToken);
-
-        if (buffer.Length <= 0)
-        {
-            throw ApiException.BadRequest("file must not be empty.");
-        }
-
-        if (buffer.Length > MaxImageBytes)
-        {
-            throw ApiException.BadRequest($"file must be {MaxImageBytes} bytes or smaller.");
-        }
-
-        return (buffer.ToArray(), contentType, fileName);
-    }
-
-    private static string NormalizeFileName(string? value)
-    {
-        var fileName = Path.GetFileName(value ?? string.Empty).Trim();
-        return string.IsNullOrWhiteSpace(fileName)
-            ? "upload"
-            : fileName[..Math.Min(fileName.Length, 255)];
     }
 
     private static MediaAssetDto ToDto(MediaAsset mediaAsset) =>

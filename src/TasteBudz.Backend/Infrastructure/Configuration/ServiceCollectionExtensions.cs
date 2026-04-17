@@ -71,6 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRestaurantRepository, SqliteRestaurantRepository>();
         services.AddScoped<IRestaurantOperationsRepository, SqliteRestaurantOperationsRepository>();
         services.AddScoped<IEventRepository, SqliteEventRepository>();
+        services.AddScoped<IEventFeedbackRepository, SqliteEventFeedbackRepository>();
         services.AddScoped<IGroupRepository, SqliteGroupRepository>();
         services.AddScoped<IDiscoveryRepository, SqliteDiscoveryRepository>();
         services.AddScoped<IMessagingRepository, SqliteMessagingRepository>();
@@ -117,6 +118,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EventInviteService>();
         services.AddScoped<EventParticipationService>();
         services.AddScoped<EventService>();
+        services.AddScoped<EventFeedbackService>();
+        services.AddScoped<IEventFeedbackAccessService>(serviceProvider => serviceProvider.GetRequiredService<EventFeedbackService>());
         services.AddScoped<UserEventQueryService>();
         services.AddSignalR()
             .AddJsonProtocol(options =>

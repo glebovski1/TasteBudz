@@ -291,6 +291,24 @@ internal sealed class EventParticipantEntity
     public DateTimeOffset? RemovedAtUtc { get; set; }
 }
 
+internal sealed class EventFeedbackEntity
+{
+    public Guid Id { get; set; }
+    public Guid EventId { get; set; }
+    public Guid AuthorUserId { get; set; }
+    public int Rating { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset UpdatedAtUtc { get; set; }
+}
+
+internal sealed class EventFeedbackPhotoEntity
+{
+    public Guid EventFeedbackId { get; set; }
+    public Guid MediaAssetId { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
+}
+
 internal sealed class ChatThreadEntity
 {
     public Guid Id { get; set; }

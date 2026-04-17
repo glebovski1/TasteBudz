@@ -49,6 +49,10 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<string, EventParticipant> EventParticipants { get; } = new(StringComparer.Ordinal);
 
+    public Dictionary<Guid, EventFeedback> EventFeedbacks { get; } = new();
+
+    public Dictionary<string, EventFeedbackPhoto> EventFeedbackPhotos { get; } = new(StringComparer.Ordinal);
+
     public Dictionary<Guid, Group> Groups { get; } = new();
 
     public Dictionary<string, GroupMember> GroupMembers { get; } = new(StringComparer.Ordinal);
@@ -97,6 +101,8 @@ public sealed class InMemoryTasteBudzStore
             Blocks.Clear();
             Events.Clear();
             EventParticipants.Clear();
+            EventFeedbacks.Clear();
+            EventFeedbackPhotos.Clear();
             Groups.Clear();
             GroupMembers.Clear();
             GroupInvites.Clear();

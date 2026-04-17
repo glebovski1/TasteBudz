@@ -5,6 +5,7 @@ using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
@@ -29,7 +30,7 @@ public sealed class MediaServiceTests
         await authRepository.CreateAccountAsync(new UserAccount(userId, "alex", "ALEX", "alex@example.com", "ALEX@EXAMPLE.COM", "hash", AccountStatus.Active, new[] { UserRole.User }, clock.UtcNow, clock.UtcNow, null));
         await profileRepository.SaveProfileAsync(new UserProfile(userId, "Alex", null, "45220", SocialGoal.Friends, clock.UtcNow, clock.UtcNow));
 
-        var service = new MediaService(mediaRepository, authRepository, profileRepository, moderationRepository, clock);
+        var service = new MediaService(mediaRepository, authRepository, profileRepository, moderationRepository, new DenyingEventFeedbackAccessService(), clock);
         var currentUser = new CurrentUser(userId, "alex", new[] { UserRole.User });
 
         var first = await service.UploadProfileAvatarAsync(currentUser, CreateUploadRequest("first.png", "image/png", new byte[] { 1, 2, 3 }));
@@ -57,7 +58,7 @@ public sealed class MediaServiceTests
         await authRepository.CreateAccountAsync(new UserAccount(userId, "alex", "ALEX", "alex@example.com", "ALEX@EXAMPLE.COM", "hash", AccountStatus.Active, new[] { UserRole.User }, clock.UtcNow, clock.UtcNow, null));
         await profileRepository.SaveProfileAsync(new UserProfile(userId, "Alex", null, "45220", SocialGoal.Friends, clock.UtcNow, clock.UtcNow));
 
-        var service = new MediaService(mediaRepository, authRepository, profileRepository, moderationRepository, clock);
+        var service = new MediaService(mediaRepository, authRepository, profileRepository, moderationRepository, new DenyingEventFeedbackAccessService(), clock);
         var currentUser = new CurrentUser(userId, "alex", new[] { UserRole.User });
 
         var exception = await Assert.ThrowsAsync<ApiException>(() =>
@@ -89,7 +90,7 @@ public sealed class MediaServiceTests
         await profileRepository.SaveProfileAsync(new UserProfile(subjectId, "Subject", null, "45220", SocialGoal.Friends, clock.UtcNow, clock.UtcNow));
         await moderationRepository.SaveReportAsync(new ModerationReport(reportId, reporterId, ReportTargetType.User, subjectId, "Harassment", "Repeated abuse", null, null, subjectId, null, clock.UtcNow, ModerationReportStatus.Pending, null, null, null, null));
 
-        var service = new MediaService(mediaRepository, authRepository, profileRepository, moderationRepository, clock);
+        var service = new MediaService(mediaRepository, authRepository, profileRepository, moderationRepository, new DenyingEventFeedbackAccessService(), clock);
         var currentUser = new CurrentUser(outsiderId, "outsider", new[] { UserRole.User });
 
         var exception = await Assert.ThrowsAsync<ApiException>(() =>
@@ -108,5 +109,14 @@ public sealed class MediaServiceTests
 
         file.Headers[HeaderNames.ContentType] = contentType;
         return new UploadImageRequest { File = file };
+    }
+
+    private sealed class DenyingEventFeedbackAccessService : IEventFeedbackAccessService
+    {
+        public Task<bool> CanViewFeedbackAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<EventFeedbackPhoto?> GetFeedbackPhotoByMediaAssetAsync(Guid mediaAssetId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<EventFeedbackPhoto?>(null);
     }
 }

@@ -135,13 +135,28 @@ public sealed class EventDetailViewModel
     public DiscountActivationDto? DiscountActivation { get; init; }
     public IReadOnlyList<RestaurantSlotDto> ReservableSlots { get; init; } = [];
     public IReadOnlyList<EventParticipantItem> Participants { get; init; } = [];
+    public IReadOnlyList<EventFeedbackItem> Feedback { get; init; } = [];
+    public bool CanSubmitFeedback { get; init; }
+    public EventFeedbackFormViewModel FeedbackForm { get; init; } = new();
+    public double? AverageRating { get; init; }
 
     public static EventDetailViewModel FromDto(
         EventDetailDto dto,
         IReadOnlyCollection<EventParticipantDto> participants,
         Guid currentUserId,
         RestaurantDto? selectedRestaurant = null,
-        IReadOnlyCollection<RestaurantSlotDto>? reservableSlots = null) => new()
+        IReadOnlyCollection<RestaurantSlotDto>? reservableSlots = null,
+        IReadOnlyCollection<EventFeedbackDto>? feedback = null)
+    {
+        var feedbackItems = (feedback ?? Array.Empty<EventFeedbackDto>())
+            .Select(item => EventFeedbackItem.FromDto(item, currentUserId))
+            .ToList();
+        var existingFeedback = feedbackItems.FirstOrDefault(item => item.AuthorUserId == currentUserId);
+        var isJoinedParticipant = participants.Any(p =>
+            p.UserId == currentUserId &&
+            p.State == EventParticipantState.Joined);
+
+        return new()
         {
             EventId = dto.EventId,
             Title = string.IsNullOrWhiteSpace(dto.Title) ? "Untitled Event" : dto.Title,
@@ -163,10 +178,18 @@ public sealed class EventDetailViewModel
                 .Where(p => p.State == EventParticipantState.Joined)
                 .Select(p => EventParticipantItem.FromDto(p, dto.HostUserId))
                 .ToList(),
-            IsParticipant = participants.Any(p =>
-                p.UserId == currentUserId &&
-                p.State == EventParticipantState.Joined),
+            IsParticipant = isJoinedParticipant,
+            Feedback = feedbackItems,
+            CanSubmitFeedback = dto.Status == EventStatus.Completed && isJoinedParticipant,
+            FeedbackForm = new EventFeedbackFormViewModel
+            {
+                EventId = dto.EventId,
+                Rating = existingFeedback?.Rating,
+                Text = existingFeedback?.Text ?? string.Empty,
+            },
+            AverageRating = feedbackItems.Count == 0 ? null : feedbackItems.Average(item => item.Rating),
         };
+    }
 }
 
 public sealed class SelectedRestaurantItem
@@ -235,5 +258,72 @@ public sealed class EventParticipantItem
         DisplayName = dto.DisplayName,
         Username = dto.Username,
         IsHost = dto.UserId == hostUserId,
+    };
+}
+
+public sealed class EventFeedbackFormViewModel
+{
+    public Guid EventId { get; set; }
+
+    [Required(ErrorMessage = "Rating is required.")]
+    [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5.")]
+    public int? Rating { get; set; }
+
+    [Required(ErrorMessage = "Feedback is required.")]
+    [MaxLength(1000, ErrorMessage = "Feedback cannot exceed 1000 characters.")]
+    public string Text { get; set; } = string.Empty;
+
+    public UpsertEventFeedbackRequest ToRequest() => new()
+    {
+        Rating = Rating,
+        Text = Text,
+    };
+}
+
+public sealed class EventFeedbackItem
+{
+    public Guid FeedbackId { get; init; }
+    public Guid EventId { get; init; }
+    public Guid AuthorUserId { get; init; }
+    public string AuthorUsername { get; init; } = string.Empty;
+    public string AuthorDisplayName { get; init; } = string.Empty;
+    public int Rating { get; init; }
+    public string Text { get; init; } = string.Empty;
+    public IReadOnlyList<EventFeedbackPhotoItem> Photos { get; init; } = [];
+    public DateTimeOffset CreatedAtUtc { get; init; }
+    public DateTimeOffset UpdatedAtUtc { get; init; }
+    public bool IsCurrentUser { get; init; }
+
+    public static EventFeedbackItem FromDto(EventFeedbackDto dto, Guid currentUserId) => new()
+    {
+        FeedbackId = dto.FeedbackId,
+        EventId = dto.EventId,
+        AuthorUserId = dto.AuthorUserId,
+        AuthorUsername = dto.AuthorUsername,
+        AuthorDisplayName = dto.AuthorDisplayName,
+        Rating = dto.Rating,
+        Text = dto.Text,
+        Photos = dto.Photos.Select(EventFeedbackPhotoItem.FromDto).ToList(),
+        CreatedAtUtc = dto.CreatedAtUtc,
+        UpdatedAtUtc = dto.UpdatedAtUtc,
+        IsCurrentUser = dto.AuthorUserId == currentUserId,
+    };
+}
+
+public sealed class EventFeedbackPhotoItem
+{
+    public Guid MediaAssetId { get; init; }
+    public string OriginalFileName { get; init; } = string.Empty;
+    public string ContentType { get; init; } = string.Empty;
+    public long ContentLength { get; init; }
+    public DateTimeOffset CreatedAtUtc { get; init; }
+
+    public static EventFeedbackPhotoItem FromDto(EventFeedbackPhotoDto dto) => new()
+    {
+        MediaAssetId = dto.MediaAssetId,
+        OriginalFileName = dto.OriginalFileName,
+        ContentType = dto.ContentType,
+        ContentLength = dto.ContentLength,
+        CreatedAtUtc = dto.CreatedAtUtc,
     };
 }

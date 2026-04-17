@@ -23,7 +23,7 @@ The backend owns:
 - onboarding and profile state
 - preferences, allergies, availability, privacy, and blocking
 - restaurant catalog and filtering
-- events, participation, and lifecycle enforcement
+- events, participation, lifecycle enforcement, and completed-event feedback
 - groups and ownership rules
 - discovery, swipes, Budz, and safety filters
 - messaging across event, group, support, and feature-flagged direct-chat scopes
@@ -211,6 +211,8 @@ Key responsibilities:
 - edit host-owned event details and notify participants of material changes
 - store optional `GroupId` when the current user is the linked group's owner
 - store selected restaurant from the internal catalog in MVP
+- store and expose completed-event feedback entries authored by joined participants
+- enforce event-feedback visibility for open and closed events
 - manage closed-event invites
 - manage join/leave/accept/decline flows
 - enforce capacity and `DecisionAt`
@@ -226,6 +228,7 @@ Suggested services:
 - `EventParticipationService`
 - `EventInviteService`
 - `EventLifecycleService`
+- `EventFeedbackService`
 - `EventBrowseService`
 
 Architectural note: Events remain the most transaction-sensitive module in the system. Capacity enforcement, invite acceptance, lifecycle evaluation, and automatic completion must stay server-controlled regardless of persistence style.
@@ -272,11 +275,12 @@ Current responsibilities:
 - store image bytes and metadata directly in the relational database
 - support one active profile-avatar asset per user
 - support report-evidence attachments owned by the reporting user
-- enforce context-derived read rules for profile avatars and report evidence
+- support event-feedback photo assets linked to their event and feedback entry
+- enforce context-derived read rules for profile avatars, report evidence, and event-feedback photos
 
 Later responsibilities:
 
-- event and group media
+- broader event and group media beyond feedback photos
 - external object storage abstraction if database-only storage becomes too limiting
 
 Suggested services:
@@ -672,6 +676,7 @@ Recommended MVP pattern:
 Required transaction boundaries include:
 
 - event participation and invite-state updates
+- event feedback photo asset creation plus feedback-photo link creation
 - moderation decision + restriction + audit log
 - auth registration/session rotation/account deletion
 - admin password reset token issue/use
@@ -763,6 +768,7 @@ Build and ship:
 - closed invites by username
 - atomic join/leave and `DecisionAt` lock handling
 - event lifecycle processing
+- completed-event feedback with optional database-backed photos
 - persistent groups with owner/member model
 - basic group management
 - event chat

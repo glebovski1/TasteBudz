@@ -77,7 +77,7 @@ Simulation-only checkout sessions for event participants when enabled.
 
 ### Media Assets
 
-Database-backed image assets linked to one bounded context such as a profile avatar or report evidence.
+Database-backed image assets linked to one bounded context such as a profile avatar, report evidence, or event-feedback photo.
 
 ### Moderation and Safety
 
@@ -131,6 +131,8 @@ Availability is represented as:
 
 The host is automatically represented as an `EventParticipant` in `JOINED` state and counts toward capacity.
 
+Completed-event feedback is also participant-authored. Each joined participant may have at most one editable `EventFeedback` entry for a completed event, and that feedback rates the event experience rather than the restaurant.
+
 ### 5.7 Group-linked events use `GroupId` as context only
 
 `Event.GroupId` is an optional context link.
@@ -177,7 +179,7 @@ For MVP:
 
 - each `MediaAsset` is owned by exactly one user
 - each `MediaAsset` is linked to exactly one bounded context
-- current launched contexts are profile-avatar and moderation-report evidence
+- current launched contexts are profile-avatar, moderation-report evidence, and event-feedback photo
 - image bytes and metadata are stored in the application database
 
 ### 5.14 Blocking prevents new direct interaction, not shared-context history
@@ -247,6 +249,8 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 
 - `Event`
 - `EventParticipant`
+- `EventFeedback`
+- `EventFeedbackPhoto`
 
 ### Groups
 
@@ -585,6 +589,49 @@ Rules:
 - host is always represented as `JOINED`
 - after `DecisionAt`, participant state changes are locked except support/admin override
 
+### EventFeedback
+
+Represents one participant-authored rating and text response for a completed event.
+
+Identity:
+
+- conceptual unique pair `(EventId, AuthorUserId)`
+
+Core data:
+
+- event reference
+- author user reference
+- rating from 1 through 5
+- required feedback text
+- created and updated timestamps
+
+Rules:
+
+- feedback can be created or updated only after the event is `COMPLETED`
+- cancelled and active events do not accept feedback
+- author must be a current or historical `JOINED` participant for the event
+- each author may have at most one feedback entry per event
+- feedback text is trimmed, required, and capped at 1000 characters
+- feedback visibility follows event type: Open event feedback is readable by authenticated event viewers; Closed event feedback is readable by the host, joined participants, and Moderator/Admin roles
+- event feedback does not affect restaurant review state, event lifecycle, capacity, chat, or notifications
+
+### EventFeedbackPhoto
+
+Represents one optional image attachment on an event feedback entry.
+
+Core data:
+
+- feedback reference
+- media asset reference
+- created timestamp
+
+Rules:
+
+- feedback photos are stored as `MediaAsset` records linked to the event and feedback entry
+- each feedback entry may have at most four photos
+- only the feedback author can add or remove their own feedback photos
+- media bytes are served only to callers who can read that event's feedback
+
 ### Group
 
 Represents a persistent social group.
@@ -810,6 +857,7 @@ Rules:
 - `UserAccount` many <-> many `UserAccount` through `BudConnection`
 - `UserAccount` 1 -> many `Event` as host
 - `UserAccount` many <-> many `Event` via `EventParticipant`
+- `UserAccount` 1 -> many `EventFeedback`
 - `UserAccount` many <-> many `Group` via `GroupMember`
 - `Group` 1 -> many `GroupInvite`
 - `Restaurant` 1 -> many `Event`
@@ -823,6 +871,9 @@ Rules:
 - `UserAccount` 1 -> many `CheckoutSession`
 - `Group` 1 -> many `Event` via optional link
 - `Event` 1 -> many `EventParticipant`
+- `Event` 1 -> many `EventFeedback`
+- `EventFeedback` 1 -> many `EventFeedbackPhoto`
+- `MediaAsset` 1 -> 0..1 `EventFeedbackPhoto`
 - `Event` 1 -> 1 event-scoped `ChatThread`
 - `Group` 1 -> 1 group-scoped `ChatThread`
 - `UserAccount` 1 -> 0..1 support-scoped `ChatThread`
@@ -856,9 +907,11 @@ Focus: pair-level discovery behavior and reciprocal-Like transition to mutual Bu
 
 - `Event`
 - `EventParticipant`
+- `EventFeedback`
+- `EventFeedbackPhoto`
 - `EventSlotReservation` for the event-side reservation link when restaurant slots are enabled
 
-Focus: capacity, duplicate-join prevention, invite handling, explicit status transitions, and `DecisionAt` behavior.
+Focus: capacity, duplicate-join prevention, invite handling, explicit status transitions, `DecisionAt` behavior, and completed-event feedback policy.
 
 ### Restaurant Operations Aggregate
 
@@ -926,6 +979,9 @@ Focus: append-only record of sensitive actions.
 - Slot reservation requires the event time and capacity to fit the slot.
 - Discount activation is simulation-only and freezes after cutoff.
 - Checkout simulation is participant-owned, requires a selected restaurant, and has terminal completed/cancelled states.
+- Event feedback is allowed only for completed events and only by joined event participants.
+- Each event participant can have at most one feedback entry per event.
+- Feedback photos are readable only by callers who can read the parent event's feedback.
 - Event chat access is limited to current `JOINED` participants.
 - Group chat access is limited to current active group members.
 - Support chat access is limited to the supported user and admins.
@@ -942,7 +998,7 @@ Focus: append-only record of sensitive actions.
 
 - user/account/profile/preferences/privacy/availability entities
 - restaurant catalog
-- events and event participants
+- events, event participants, and completed-event feedback
 - groups, group members, and group invites
 - chat threads/messages for event, group, and support scope
 - notifications
@@ -975,6 +1031,8 @@ Repositories may map it in multiple ways as long as the business guarantees rema
 Important mapping notes:
 
 - `EventParticipant` acts as both participation record and closed-event invite lifecycle record.
+- `EventFeedback` is unique per `(EventId, AuthorUserId)` and remains separate from restaurant reviews.
+- `EventFeedbackPhoto` links feedback records to database-backed `MediaAsset` bytes for event-feedback images.
 - `BudConnection` is the only required Budz relationship record in MVP.
 - `ChatThread` uses a generic scope model instead of separate event/group/support/direct roots.
 - Support chat uses the same scoped model, with the support subject user id as the scope id.

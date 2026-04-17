@@ -33,7 +33,7 @@ Key DTO families:
 - `PreferenceDto`: cuisine tags, spice tolerance, dietary flags, allergies
 - `RecurringAvailabilityWindowDto` and `OneOffAvailabilityWindowDto`
 - `RestaurantDto`
-- `EventSummaryDto`, `EventDetailDto`, `EventParticipantDto`
+- `EventSummaryDto`, `EventDetailDto`, `EventParticipantDto`, `EventFeedbackDto`, `EventFeedbackPhotoDto`
 - `GroupSummaryDto`, `GroupDetailDto`, `GroupInviteDto`
 - `RestaurantAdminAssignmentDto`, `RestaurantSlotDto`, `EventSlotReservationDto`, `DiscountActivationDto`
 - `DiscoveryProfilePreviewDto`, `BudConnectionDto`, `SwipeDecisionResultDto`
@@ -208,6 +208,10 @@ Contract notes:
 | Remove Participant | POST | `/api/v1/events/{eventId}/participants/{userId}/removal` | Host or moderator removes participant | Yes |
 | Invite Users to Closed Event | POST | `/api/v1/events/{eventId}/invites` | Invite users by username | Yes |
 | Cancel Event | POST | `/api/v1/events/{eventId}/cancellation` | Cancel event | Yes |
+| List Event Feedback | GET | `/api/v1/events/{eventId}/feedback` | List feedback for an event when visible to the caller | Yes |
+| Upsert My Event Feedback | PUT | `/api/v1/events/{eventId}/feedback/me` | Create or update the current user's feedback for a completed event | Yes |
+| Upload My Feedback Photo | POST | `/api/v1/events/{eventId}/feedback/me/photos` | Attach an image to the current user's event feedback | Yes |
+| Delete My Feedback Photo | DELETE | `/api/v1/events/{eventId}/feedback/me/photos/{mediaAssetId}` | Remove one of the current user's feedback photos | Yes |
 
 Representative create/update request shapes:
 
@@ -251,6 +255,44 @@ Representative create/update request shapes:
 }
 ```
 
+```json
+{
+  "rating": 5,
+  "text": "Great group and easy coordination."
+}
+```
+
+Representative event-feedback response shape:
+
+```json
+{
+  "feedbackId": "uuid",
+  "eventId": "uuid",
+  "authorUserId": "uuid",
+  "authorUsername": "sam",
+  "authorDisplayName": "Sam Carter",
+  "rating": 5,
+  "text": "Great group and easy coordination.",
+  "photos": [
+    {
+      "mediaAssetId": "uuid",
+      "originalFileName": "table.jpg",
+      "contentType": "image/jpeg",
+      "contentLength": 12345,
+      "createdAtUtc": "timestamp"
+    }
+  ],
+  "createdAtUtc": "timestamp",
+  "updatedAtUtc": "timestamp"
+}
+```
+
+Multipart feedback-photo upload shape:
+
+- field name: `file`
+- allowed content types: `image/png`, `image/jpeg`, `image/gif`, `image/webp`
+- maximum size: 2 MB
+
 Event contract rules:
 
 - Host is auto-created as a `JOINED` participant and counts toward capacity.
@@ -260,6 +302,12 @@ Event contract rules:
 - Closed-event invites do not reserve seats.
 - `DecisionAt` locks participant state changes except support/moderator override.
 - Material event edits should trigger notifications to affected participants.
+- Event feedback can be created or updated only after the event is `Completed`.
+- Feedback authors must be joined participants and may have only one editable feedback entry per event.
+- Feedback requires a 1-5 rating and non-empty trimmed text up to 1000 characters.
+- Feedback photos are optional and capped at four per feedback entry.
+- Open-event feedback is readable by authenticated event viewers; Closed-event feedback is readable only by the host, joined participants, and Moderator/Admin roles.
+- Event feedback does not change lifecycle, capacity, invites, chat, notifications, or restaurant-review state.
 
 Representative browse query parameters:
 
@@ -412,6 +460,7 @@ Media contract notes:
 - media content is image-only in the current MVP slice
 - profile avatars are readable by authenticated users through the media endpoint
 - report-evidence attachments are readable only by the reporting user and moderator/admin roles
+- event-feedback photos are readable only by callers authorized to read that event's feedback
 
 ### 3.9 Notifications
 
@@ -690,7 +739,7 @@ Keep MVP focused on:
 - auth
 - profile/preferences/privacy/dashboard
 - restaurants
-- events
+- events and completed-event feedback
 - groups
 - discovery/Budz
 - event chat, group chat, and support chat
@@ -702,6 +751,7 @@ Keep MVP focused on:
 - Clients must not directly set `Event.status`.
 - Host is auto-created as a `JOINED` participant and counts toward capacity.
 - Join/leave/invite logic belongs under event participation workflows.
+- Event feedback belongs under the Events module and must not reuse `RestaurantReviews`.
 - Group-linked events must be retrievable through group context.
 - Availability remains split between recurring and one-off windows.
 - Swipe decisions use one effective directional record per actor/subject pair.

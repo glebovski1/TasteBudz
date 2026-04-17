@@ -139,6 +139,38 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         Assert.Equal(1, count);
     }
 
+    [Fact]
+    public async Task SqliteBootstrapper_CreatesEventFeedbackSchema()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "false",
+        });
+
+        await SqliteDatabaseBootstrapper.RecreateDatabaseAsync(customFactory.ConnectionString);
+
+        Assert.True(await TableExistsAsync(customFactory.ConnectionString, "EventFeedbacks"));
+        Assert.True(await TableExistsAsync(customFactory.ConnectionString, "EventFeedbackPhotos"));
+        Assert.Contains("EventId", await ListColumnsAsync(customFactory.ConnectionString, "MediaAssets"));
+        Assert.Contains("Rating", await ListColumnsAsync(customFactory.ConnectionString, "EventFeedbacks"));
+        Assert.Contains("MediaAssetId", await ListColumnsAsync(customFactory.ConnectionString, "EventFeedbackPhotos"));
+    }
+
+    [Fact]
+    public void CanonicalSqlScripts_IncludeEventFeedbackSchemaForBothProviders()
+    {
+        var root = FindRepositoryRoot();
+        var sqliteScript = File.ReadAllText(Path.Combine(root, "src", "TasteBudz.Database", "sqlite", "dbTasteBudz.sqlite.sql"));
+        var sqlServerScript = File.ReadAllText(Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "010_schema.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS EventFeedbacks", sqliteScript);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS EventFeedbackPhotos", sqliteScript);
+        Assert.Contains("IX_MediaAssets_EventId", sqliteScript);
+        Assert.Contains("CREATE TABLE dbo.EventFeedbacks", sqlServerScript);
+        Assert.Contains("CREATE TABLE dbo.EventFeedbackPhotos", sqlServerScript);
+        Assert.Contains("IX_MediaAssets_EventId", sqlServerScript);
+    }
+
     private static async Task DropTableAsync(string connectionString, string tableName)
     {
         await using var connection = new SqliteConnection(connectionString);
@@ -170,6 +202,37 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         await command.ExecuteNonQueryAsync();
     }
 
+    private static async Task<bool> TableExistsAsync(string connectionString, string tableName)
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $tableName;";
+        command.Parameters.AddWithValue("$tableName", tableName);
+
+        return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
+    }
+
+    private static async Task<IReadOnlyCollection<string>> ListColumnsAsync(string connectionString, string tableName)
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({tableName});";
+
+        var columns = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(1));
+        }
+
+        return columns;
+    }
+
     private static async Task InsertUserAsync(string connectionString, string id, string username, string email)
     {
         await using var connection = new SqliteConnection(connectionString);
@@ -190,5 +253,22 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         command.Parameters.AddWithValue("$normalizedEmail", email.ToUpperInvariant());
         command.Parameters.AddWithValue("$passwordHash", "seed-test-hash");
         await command.ExecuteNonQueryAsync();
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "TasteBudz.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate repository root.");
     }
 }

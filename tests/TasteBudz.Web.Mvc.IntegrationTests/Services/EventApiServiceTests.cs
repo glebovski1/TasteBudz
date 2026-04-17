@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
@@ -208,5 +209,88 @@ public sealed class EventApiServiceTests
         Assert.Equal(CheckoutSessionStatus.Cancelled, cancelledCheckout.Status);
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task FeedbackEndpoints_SendExpectedRoutesAndMultipartUpload()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+        var service = context.CreateService(client => new EventApiService(client));
+        var eventId = Guid.NewGuid();
+        var feedbackId = Guid.NewGuid();
+        var mediaAssetId = Guid.NewGuid();
+        var authorId = Guid.NewGuid();
+        var updatedAt = DateTimeOffset.UtcNow;
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventFeedbackDto(feedbackId, eventId, authorId, "alex", "Alex Carter", 5, "Great night.", Array.Empty<EventFeedbackPhotoDto>(), updatedAt, updatedAt),
+                }));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Put,
+            $"/api/v1/events/{eventId}/feedback/me",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventFeedbackDto(feedbackId, eventId, authorId, "alex", "Alex Carter", 4, "Updated feedback.", Array.Empty<EventFeedbackPhotoDto>(), updatedAt, updatedAt)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/events/{eventId}/feedback/me/photos",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventFeedbackPhotoDto(mediaAssetId, "feedback.png", "image/png", 3, updatedAt)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Delete,
+            $"/api/v1/events/{eventId}/feedback/me/photos/{mediaAssetId}",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/media/{mediaAssetId}",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 1, 2, 3 })
+                {
+                    Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") },
+                },
+            });
+
+        var list = await service.ListFeedbackAsync(eventId);
+        var updated = await service.UpsertFeedbackAsync(eventId, new UpsertEventFeedbackRequest
+        {
+            Rating = 4,
+            Text = "Updated feedback.",
+        });
+        var uploaded = await service.UploadFeedbackPhotoAsync(eventId, CreateFormFile("feedback.png", "image/png", new byte[] { 1, 2, 3 }));
+        await service.DeleteFeedbackPhotoAsync(eventId, mediaAssetId);
+        var media = await service.GetMediaAsync(mediaAssetId);
+
+        Assert.Single(list);
+        Assert.Equal(4, updated.Rating);
+        Assert.Equal(mediaAssetId, uploaded.MediaAssetId);
+        Assert.Equal("image/png", media.ContentType);
+        Assert.Equal(new byte[] { 1, 2, 3 }, media.Content);
+        Assert.Contains(
+            "\"text\":\"Updated feedback.\"",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/feedback/me").Body);
+        Assert.Contains(
+            "feedback.png",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/feedback/me/photos").Body);
+        Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
+        context.BackendHandler.AssertDrained();
+    }
+
+    private static IFormFile CreateFormFile(string fileName, string contentType, byte[] content)
+    {
+        var stream = new MemoryStream(content);
+        return new FormFile(stream, 0, content.Length, "file", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType,
+        };
     }
 }

@@ -405,6 +405,23 @@ CREATE TABLE IF NOT EXISTS EventParticipants (
     FOREIGN KEY (UserId) REFERENCES UserAccounts (Id)
 );
 
+CREATE TABLE IF NOT EXISTS EventFeedbacks (
+    Id TEXT NOT NULL PRIMARY KEY,
+    EventId TEXT NOT NULL,
+    AuthorUserId TEXT NOT NULL,
+    Rating INTEGER NOT NULL,
+    Text TEXT NOT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    UpdatedAtUtc TEXT NOT NULL,
+    FOREIGN KEY (EventId) REFERENCES Events (Id),
+    FOREIGN KEY (AuthorUserId) REFERENCES UserAccounts (Id),
+    UNIQUE (EventId, AuthorUserId),
+    CHECK (Rating BETWEEN 1 AND 5),
+    CHECK (trim(Text) <> ''),
+    CHECK (length(Text) <= 1000),
+    CHECK (UpdatedAtUtc >= CreatedAtUtc)
+);
+
 -----------------------------------------------------------------------
 -- 8. CHAT & NOTIFICATIONS
 -----------------------------------------------------------------------
@@ -565,6 +582,16 @@ CREATE TABLE IF NOT EXISTS MediaAssets (
     CHECK (length(Content) = ContentLength)
 );
 
+CREATE TABLE IF NOT EXISTS EventFeedbackPhotos (
+    EventFeedbackId TEXT NOT NULL,
+    MediaAssetId TEXT NOT NULL,
+    CreatedAtUtc TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (EventFeedbackId, MediaAssetId),
+    FOREIGN KEY (EventFeedbackId) REFERENCES EventFeedbacks (Id),
+    FOREIGN KEY (MediaAssetId) REFERENCES MediaAssets (Id),
+    UNIQUE (MediaAssetId)
+);
+
 CREATE TABLE IF NOT EXISTS UserSearchHistory (
     Id TEXT NOT NULL PRIMARY KEY,
     UserId TEXT NOT NULL,
@@ -610,8 +637,10 @@ CREATE INDEX IF NOT EXISTS IX_GroupInvites_InvitedUserId ON GroupInvites (Invite
 CREATE INDEX IF NOT EXISTS IX_Restaurants_ZipCode ON Restaurants (ZipCode);
 CREATE INDEX IF NOT EXISTS IX_Events_GroupId ON Events (GroupId);
 CREATE INDEX IF NOT EXISTS IX_EventParticipants_UserId ON EventParticipants (UserId);
+CREATE INDEX IF NOT EXISTS IX_EventFeedbacks_EventId_CreatedAtUtc ON EventFeedbacks (EventId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_CheckoutSessions_EventId_UserId_CreatedAtUtc ON CheckoutSessions (EventId, UserId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_ChatMessages_ThreadId_CreatedAtUtc_Id ON ChatMessages (ThreadId, CreatedAtUtc, Id);
+CREATE INDEX IF NOT EXISTS IX_MediaAssets_EventId ON MediaAssets (EventId);
 CREATE INDEX IF NOT EXISTS IX_Notifications_RecipientUserId_CreatedAtUtc ON Notifications (RecipientUserId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_ModerationReports_Status_CreatedAtUtc ON ModerationReports (Status, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_UserRestrictions_SubjectUserId_Scope_Status ON UserRestrictions (SubjectUserId, Scope, Status);

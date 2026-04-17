@@ -36,6 +36,8 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
     internal DbSet<CheckoutSessionEntity> CheckoutSessions => Set<CheckoutSessionEntity>();
     internal DbSet<EventEntity> Events => Set<EventEntity>();
     internal DbSet<EventParticipantEntity> EventParticipants => Set<EventParticipantEntity>();
+    internal DbSet<EventFeedbackEntity> EventFeedbacks => Set<EventFeedbackEntity>();
+    internal DbSet<EventFeedbackPhotoEntity> EventFeedbackPhotos => Set<EventFeedbackPhotoEntity>();
     internal DbSet<ChatThreadEntity> ChatThreads => Set<ChatThreadEntity>();
     internal DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
     internal DbSet<MediaAssetEntity> MediaAssets => Set<MediaAssetEntity>();
@@ -281,6 +283,25 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.UserId);
         });
 
+        modelBuilder.Entity<EventFeedbackEntity>(entity =>
+        {
+            entity.ToTable("EventFeedbacks");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.AuthorUserId }).IsUnique();
+            entity.HasIndex(item => new { item.EventId, item.CreatedAtUtc });
+            entity.HasOne<EventEntity>().WithMany().HasForeignKey(item => item.EventId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.AuthorUserId);
+        });
+
+        modelBuilder.Entity<EventFeedbackPhotoEntity>(entity =>
+        {
+            entity.ToTable("EventFeedbackPhotos");
+            entity.HasKey(item => new { item.EventFeedbackId, item.MediaAssetId });
+            entity.HasIndex(item => item.MediaAssetId).IsUnique();
+            entity.HasOne<EventFeedbackEntity>().WithMany().HasForeignKey(item => item.EventFeedbackId);
+            entity.HasOne<MediaAssetEntity>().WithMany().HasForeignKey(item => item.MediaAssetId);
+        });
+
         modelBuilder.Entity<ChatThreadEntity>(entity =>
         {
             entity.ToTable("ChatThreads");
@@ -302,6 +323,7 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.ToTable("MediaAssets");
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => item.ProfileUserId);
+            entity.HasIndex(item => item.EventId);
             entity.HasIndex(item => item.ReportId);
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.OwnerUserId);
             entity.HasOne<UserProfileEntity>().WithMany().HasForeignKey(item => item.ProfileUserId);

@@ -1,5 +1,6 @@
 // Integration tests for the public event HTTP workflow.
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -239,6 +240,101 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task EventFeedbackEndpoints_SupportUpsertPhotosAndClosedEventPrivacy()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+        using var outsiderClient = factory.CreateClient();
+        using var moderatorClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        var outsiderSession = await ApiTestHelpers.RegisterAsync(outsiderClient, username: "outsider", email: "outsider@example.com");
+        var moderatorSession = await ApiTestHelpers.RegisterAsync(moderatorClient, username: "moderator", email: "moderator@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, moderatorSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Moderator });
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+        ApiTestHelpers.SetBearer(outsiderClient, outsiderSession.AccessToken);
+        ApiTestHelpers.SetBearer(moderatorClient, moderatorSession.AccessToken);
+
+        var eventId = await SeedEventAsync(
+            factory.Services,
+            hostSession.CurrentUser.UserId,
+            EventType.Closed,
+            EventStatus.Completed,
+            new[] { guestSession.CurrentUser.UserId });
+
+        var upsertResponse = await guestClient.PutAsJsonAsync($"/api/v1/events/{eventId}/feedback/me", new UpsertEventFeedbackRequest
+        {
+            Rating = 5,
+            Text = "  Great conversation and host.  ",
+        });
+        var feedback = await upsertResponse.Content.ReadFromJsonAsync<EventFeedbackDto>(ApiTestHelpers.JsonOptions);
+
+        using var photoContent = CreateImageUpload("table.png", "image/png", new byte[] { 1, 2, 3, 4 });
+        var uploadResponse = await guestClient.PostAsync($"/api/v1/events/{eventId}/feedback/me/photos", photoContent);
+        var photo = await uploadResponse.Content.ReadFromJsonAsync<EventFeedbackPhotoDto>(ApiTestHelpers.JsonOptions);
+
+        var guestListResponse = await guestClient.GetAsync($"/api/v1/events/{eventId}/feedback");
+        var guestFeedback = await guestListResponse.Content.ReadFromJsonAsync<EventFeedbackDto[]>(ApiTestHelpers.JsonOptions);
+        var hostListResponse = await hostClient.GetAsync($"/api/v1/events/{eventId}/feedback");
+        var moderatorListResponse = await moderatorClient.GetAsync($"/api/v1/events/{eventId}/feedback");
+        var outsiderListResponse = await outsiderClient.GetAsync($"/api/v1/events/{eventId}/feedback");
+        var hostMediaResponse = await hostClient.GetAsync($"/api/v1/media/{photo!.MediaAssetId}");
+        var hostBytes = await hostMediaResponse.Content.ReadAsByteArrayAsync();
+        var outsiderMediaResponse = await outsiderClient.GetAsync($"/api/v1/media/{photo.MediaAssetId}");
+        var deleteResponse = await guestClient.DeleteAsync($"/api/v1/events/{eventId}/feedback/me/photos/{photo.MediaAssetId}");
+        var deletedMediaResponse = await guestClient.GetAsync($"/api/v1/media/{photo.MediaAssetId}");
+
+        Assert.Equal(HttpStatusCode.OK, upsertResponse.StatusCode);
+        Assert.Equal(feedback!.AuthorUserId, guestSession.CurrentUser.UserId);
+        Assert.Equal("Great conversation and host.", feedback.Text);
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, guestListResponse.StatusCode);
+        Assert.Single(guestFeedback!);
+        Assert.Equal(photo.MediaAssetId, Assert.Single(guestFeedback![0].Photos).MediaAssetId);
+        Assert.Equal(HttpStatusCode.OK, hostListResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, moderatorListResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, outsiderListResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, hostMediaResponse.StatusCode);
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, hostBytes);
+        Assert.Equal(HttpStatusCode.Forbidden, outsiderMediaResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deletedMediaResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task EventFeedbackEndpoints_RejectActiveEventsAndInvalidPayloads()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        var activeEventId = await SeedEventAsync(factory.Services, hostSession.CurrentUser.UserId, EventType.Open, EventStatus.Open, Array.Empty<Guid>());
+        var completedEventId = await SeedEventAsync(factory.Services, hostSession.CurrentUser.UserId, EventType.Open, EventStatus.Completed, Array.Empty<Guid>());
+
+        var activeResponse = await hostClient.PutAsJsonAsync($"/api/v1/events/{activeEventId}/feedback/me", new UpsertEventFeedbackRequest
+        {
+            Rating = 5,
+            Text = "Too early.",
+        });
+        var invalidResponse = await hostClient.PutAsJsonAsync($"/api/v1/events/{completedEventId}/feedback/me", new
+        {
+            rating = 6,
+            text = "Invalid rating.",
+        });
+        var activeProblem = await activeResponse.Content.ReadFromJsonAsync<ProblemDetails>(ApiTestHelpers.JsonOptions);
+        var invalidProblem = await invalidResponse.Content.ReadFromJsonAsync<ProblemDetails>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Conflict, activeResponse.StatusCode);
+        Assert.Equal(409, activeProblem!.Status);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
+        Assert.Equal(400, invalidProblem!.Status);
+    }
+
+    [Fact]
     public async Task BrowseEvents_WithCombinedFilters_ReturnsExpectedListEnvelope()
     {
         factory.ResetState();
@@ -415,5 +511,54 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
         Assert.Single(participants);
         Assert.Equal(hostSession.CurrentUser.UserId, participants[0].UserId);
+    }
+
+    private static async Task<Guid> SeedEventAsync(
+        IServiceProvider serviceProvider,
+        Guid hostUserId,
+        EventType eventType,
+        EventStatus status,
+        IReadOnlyCollection<Guid> additionalJoinedUserIds)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var eventRepository = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+        var now = DateTimeOffset.UtcNow;
+        var eventId = Guid.NewGuid();
+
+        await eventRepository.SaveAsync(new Event(
+            eventId,
+            hostUserId,
+            "Seeded feedback dinner",
+            eventType,
+            status,
+            status == EventStatus.Completed ? now.AddHours(-2) : now.AddHours(2),
+            status == EventStatus.Completed ? now.AddHours(-3) : now.AddHours(1),
+            6,
+            2,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            null,
+            null,
+            null,
+            now.AddDays(-1),
+            now,
+            null,
+            status == EventStatus.Completed ? now : null));
+        await eventRepository.SaveParticipantAsync(new EventParticipant(eventId, hostUserId, EventParticipantState.Joined, null, now.AddDays(-1), now.AddDays(-1), null, null));
+
+        foreach (var userId in additionalJoinedUserIds)
+        {
+            await eventRepository.SaveParticipantAsync(new EventParticipant(eventId, userId, EventParticipantState.Joined, null, now.AddDays(-1), now.AddDays(-1), null, null));
+        }
+
+        return eventId;
+    }
+
+    private static MultipartFormDataContent CreateImageUpload(string fileName, string contentType, byte[] bytes)
+    {
+        var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(bytes);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        content.Add(file, "file", fileName);
+        return content;
     }
 }

@@ -494,6 +494,31 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_EventParticipants_Use
     CREATE INDEX IX_EventParticipants_UserId ON dbo.EventParticipants (UserId);
 GO
 
+IF OBJECT_ID(N'dbo.EventFeedbacks', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.EventFeedbacks (
+        Id UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_EventFeedbacks PRIMARY KEY,
+        EventId UNIQUEIDENTIFIER NOT NULL,
+        AuthorUserId UNIQUEIDENTIFIER NOT NULL,
+        Rating INT NOT NULL,
+        Text NVARCHAR(1000) NOT NULL,
+        CreatedAtUtc DATETIMEOFFSET NOT NULL,
+        UpdatedAtUtc DATETIMEOFFSET NOT NULL,
+        CONSTRAINT FK_EventFeedbacks_Events_EventId FOREIGN KEY (EventId) REFERENCES dbo.Events (Id),
+        CONSTRAINT FK_EventFeedbacks_UserAccounts_AuthorUserId FOREIGN KEY (AuthorUserId) REFERENCES dbo.UserAccounts (Id),
+        CONSTRAINT CK_EventFeedbacks_Rating CHECK (Rating BETWEEN 1 AND 5),
+        CONSTRAINT CK_EventFeedbacks_Text_NotBlank CHECK (LEN(LTRIM(RTRIM(Text))) > 0),
+        CONSTRAINT CK_EventFeedbacks_UpdatedAt CHECK (UpdatedAtUtc >= CreatedAtUtc)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_EventFeedbacks_Event_Author' AND object_id = OBJECT_ID(N'dbo.EventFeedbacks'))
+    CREATE UNIQUE INDEX UX_EventFeedbacks_Event_Author ON dbo.EventFeedbacks (EventId, AuthorUserId);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_EventFeedbacks_EventId_CreatedAtUtc' AND object_id = OBJECT_ID(N'dbo.EventFeedbacks'))
+    CREATE INDEX IX_EventFeedbacks_EventId_CreatedAtUtc ON dbo.EventFeedbacks (EventId, CreatedAtUtc);
+GO
+
 IF OBJECT_ID(N'dbo.ChatThreads', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.ChatThreads (
@@ -679,8 +704,27 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_MediaAssets_ProfileUserId' AND object_id = OBJECT_ID(N'dbo.MediaAssets'))
     CREATE INDEX IX_MediaAssets_ProfileUserId ON dbo.MediaAssets (ProfileUserId);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_MediaAssets_EventId' AND object_id = OBJECT_ID(N'dbo.MediaAssets'))
+    CREATE INDEX IX_MediaAssets_EventId ON dbo.MediaAssets (EventId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_MediaAssets_ReportId' AND object_id = OBJECT_ID(N'dbo.MediaAssets'))
     CREATE INDEX IX_MediaAssets_ReportId ON dbo.MediaAssets (ReportId);
+GO
+
+IF OBJECT_ID(N'dbo.EventFeedbackPhotos', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.EventFeedbackPhotos (
+        EventFeedbackId UNIQUEIDENTIFIER NOT NULL,
+        MediaAssetId UNIQUEIDENTIFIER NOT NULL,
+        CreatedAtUtc DATETIMEOFFSET NOT NULL CONSTRAINT DF_EventFeedbackPhotos_CreatedAtUtc DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_EventFeedbackPhotos PRIMARY KEY (EventFeedbackId, MediaAssetId),
+        CONSTRAINT FK_EventFeedbackPhotos_EventFeedbacks_EventFeedbackId FOREIGN KEY (EventFeedbackId) REFERENCES dbo.EventFeedbacks (Id),
+        CONSTRAINT FK_EventFeedbackPhotos_MediaAssets_MediaAssetId FOREIGN KEY (MediaAssetId) REFERENCES dbo.MediaAssets (Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_EventFeedbackPhotos_MediaAssetId' AND object_id = OBJECT_ID(N'dbo.EventFeedbackPhotos'))
+    CREATE UNIQUE INDEX UX_EventFeedbackPhotos_MediaAssetId ON dbo.EventFeedbackPhotos (MediaAssetId);
 GO
 
 IF OBJECT_ID(N'dbo.UserSearchHistory', N'U') IS NULL
