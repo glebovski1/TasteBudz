@@ -20,6 +20,7 @@ public sealed class ChatViewModel
         ChatScopeType.Event => "Event Chat",
         ChatScopeType.Group => "Group Chat",
         ChatScopeType.Direct => "Direct Chat",
+        ChatScopeType.Support => "Support Chat",
         _ => "Chat",
     };
 
@@ -48,6 +49,16 @@ public sealed class ChatViewModel
         {
             ScopeType = ChatScopeType.Direct,
             ScopeId = directChatId,
+            History = history.ToList(),
+            HubUrl = hubUrl,
+            AccessToken = accessToken,
+        };
+
+    public static ChatViewModel ForSupport(Guid userId, IEnumerable<ChatMessageDto> history, string hubUrl, string accessToken) =>
+        new()
+        {
+            ScopeType = ChatScopeType.Support,
+            ScopeId = userId,
             History = history.ToList(),
             HubUrl = hubUrl,
             AccessToken = accessToken,

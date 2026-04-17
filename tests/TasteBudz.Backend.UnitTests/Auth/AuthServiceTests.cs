@@ -1,5 +1,6 @@
 // Unit tests for account registration defaults and session creation.
 using TasteBudz.Backend.Infrastructure.Auth;
+using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
@@ -110,14 +111,97 @@ public sealed class AuthServiceTests
         Assert.NotEqual(session.AccessToken, refreshed.AccessToken);
     }
 
-    private static (AuthService Service, InMemoryAuthRepository AuthRepository, InMemoryProfileRepository ProfileRepository) CreateService()
+    [Fact]
+    public async Task ResetPasswordAsync_WithAdminToken_UpdatesPasswordAndRevokesSessions()
+    {
+        var (service, authRepository, _) = CreateService();
+        var user = await service.RegisterAsync(new RegisterUserRequest
+        {
+            Username = "alex",
+            Email = "alex@example.com",
+            Password = "Pa$$w0rd123",
+            ZipCode = "45220",
+        });
+        var admin = new CurrentUser(Guid.NewGuid(), "admin", new[] { UserRole.Admin });
+
+        var token = await service.CreatePasswordResetTokenAsync(admin, new CreatePasswordResetTokenRequest
+        {
+            UsernameOrEmail = "alex@example.com",
+        });
+        await service.ResetPasswordAsync(new ResetPasswordRequest
+        {
+            Token = token.ResetToken,
+            NewPassword = "N3wPa$$w0rd",
+        });
+
+        var login = await service.LoginAsync(new LoginRequest
+        {
+            UsernameOrEmail = "alex",
+            Password = "N3wPa$$w0rd",
+        });
+        var oldSession = await authRepository.GetSessionByAccessTokenAsync(user.AccessToken);
+        var storedTokens = await authRepository.ListPasswordResetTokensForUserAsync(user.CurrentUser.UserId);
+
+        Assert.Equal(user.CurrentUser.UserId, token.UserId);
+        Assert.Equal(user.CurrentUser.UserId, login.CurrentUser.UserId);
+        Assert.NotNull(oldSession!.RevokedAtUtc);
+        Assert.NotNull(storedTokens.Single().UsedAtUtc);
+    }
+
+    [Fact]
+    public async Task CreatePasswordResetTokenAsync_WhenCurrentUserIsNotAdmin_ReturnsForbidden()
+    {
+        var (service, _, _) = CreateService();
+        await service.RegisterAsync(new RegisterUserRequest
+        {
+            Username = "alex",
+            Email = "alex@example.com",
+            Password = "Pa$$w0rd123",
+            ZipCode = "45220",
+        });
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            service.CreatePasswordResetTokenAsync(
+                new CurrentUser(Guid.NewGuid(), "notadmin", new[] { UserRole.User }),
+                new CreatePasswordResetTokenRequest { UsernameOrEmail = "alex" }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenTokenIsExpired_ReturnsBadRequest()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var (service, _, _) = CreateService(clock);
+        await service.RegisterAsync(new RegisterUserRequest
+        {
+            Username = "alex",
+            Email = "alex@example.com",
+            Password = "Pa$$w0rd123",
+            ZipCode = "45220",
+        });
+        var token = await service.CreatePasswordResetTokenAsync(
+            new CurrentUser(Guid.NewGuid(), "admin", new[] { UserRole.Admin }),
+            new CreatePasswordResetTokenRequest { UsernameOrEmail = "alex" });
+
+        clock.Advance(TimeSpan.FromHours(25));
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            service.ResetPasswordAsync(new ResetPasswordRequest
+            {
+                Token = token.ResetToken,
+                NewPassword = "N3wPa$$w0rd",
+            }));
+
+        Assert.Equal(400, exception.StatusCode);
+    }
+
+    private static (AuthService Service, InMemoryAuthRepository AuthRepository, InMemoryProfileRepository ProfileRepository) CreateService(TestClock? clock = null)
     {
         var store = new InMemoryTasteBudzStore();
         store.Reset();
         var authRepository = new InMemoryAuthRepository(store);
         var profileRepository = new InMemoryProfileRepository(store);
-        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
-        var service = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock);
+        var service = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock ?? new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero)));
         return (service, authRepository, profileRepository);
     }
 }

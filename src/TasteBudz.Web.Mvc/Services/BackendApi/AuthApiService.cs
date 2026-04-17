@@ -41,6 +41,23 @@ public sealed class AuthApiService
             requiresAuth: false,
             cancellationToken);
 
+    public Task<PasswordResetTokenDto> CreatePasswordResetTokenAsync(
+        CreatePasswordResetTokenRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CreatePasswordResetTokenRequest, PasswordResetTokenDto>(
+            "/api/v1/admin/users/password-reset-tokens",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task ResetPasswordAsync(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            "/api/v1/auth/password-reset",
+            request,
+            requiresAuth: false,
+            cancellationToken);
+
     /// <summary>
     /// Tells the backend to invalidate the current session token pair.
     /// The local MVC sign-out still happens separately in UserSessionService.

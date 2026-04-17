@@ -33,4 +33,12 @@ public interface IAuthRepository
     Task RevokeSessionAsync(Guid sessionId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken = default);
 
     Task RevokeAllSessionsForUserAsync(Guid userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken = default);
+
+    Task<PasswordResetToken?> GetPasswordResetTokenByHashAsync(string tokenHash, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<PasswordResetToken>> ListPasswordResetTokensForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task SavePasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken = default);
+
+    Task RevokeUnusedPasswordResetTokensForUserAsync(Guid userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken = default);
 }

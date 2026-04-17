@@ -12,13 +12,56 @@
             <h1 class="admin-title">Admin Panel</h1>
             <p class="admin-subtitle">Review reports, manage user restrictions, and maintain catalog data.</p>
         </div>
-        <a asp-action="Reports" class="button button--secondary">
-            All Reports
-        </a>
+        <div class="button-row">
+            <a asp-action="Reports" class="button button--secondary">
+                All Reports
+            </a>
+            @if (User.IsInRole("Admin"))
+            {
+                <a asp-action="SupportThreads" class="button button--secondary">
+                    Support Chats
+                </a>
+            }
+        </div>
     </div>
 
     @if (User.IsInRole("Admin"))
     {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Password Reset</h2>
+            </div>
+            <p class="muted-note" style="margin-bottom:0.75rem;">
+                Generate a one-time reset link for an active user. The user must choose a new password before signing in again.
+            </p>
+            <form asp-action="GeneratePasswordResetToken" method="post" class="stack" style="max-width: 620px;">
+                @Html.AntiForgeryToken()
+                <div class="field">
+                    <label for="usernameOrEmail">Username or email</label>
+                    <input id="usernameOrEmail" name="usernameOrEmail" maxlength="256" placeholder="alex or alex@example.com" required />
+                </div>
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Generate Reset Link</button>
+                </div>
+            </form>
+
+            @if (Model.GeneratedPasswordResetToken is not null)
+            {
+                <div class="summary-card" style="margin-top:1rem;">
+                    <strong>Reset link for @Model.GeneratedPasswordResetToken.Username</strong>
+                    <p class="muted-note">Expires @Model.GeneratedPasswordResetToken.ExpiresAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt").</p>
+                    <div class="field" style="margin-top:0.75rem;">
+                        <label for="resetUrl">Reset URL</label>
+                        <input id="resetUrl" value="@Model.GeneratedPasswordResetToken.ResetUrl" readonly />
+                    </div>
+                    <div class="field" style="margin-top:0.75rem;">
+                        <label for="resetToken">Token</label>
+                        <input id="resetToken" value="@Model.GeneratedPasswordResetToken.ResetToken" readonly />
+                    </div>
+                </div>
+            }
+        </section>
+
         <!-- Restaurant Data -->
         <section class="admin-section">
             <div class="admin-section__header">

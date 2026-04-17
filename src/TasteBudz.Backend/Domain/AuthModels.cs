@@ -29,3 +29,16 @@ public sealed record UserSession(
     DateTimeOffset RefreshExpiresAtUtc,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? RevokedAtUtc);
+
+/// <summary>
+/// One-time credential reset token issued by an admin.
+/// </summary>
+public sealed record PasswordResetToken(
+    Guid Id,
+    Guid UserId,
+    string TokenHash,
+    Guid CreatedByUserId,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset ExpiresAtUtc,
+    DateTimeOffset? UsedAtUtc,
+    DateTimeOffset? RevokedAtUtc);

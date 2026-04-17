@@ -10,6 +10,7 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
     internal DbSet<UserAccountEntity> UserAccounts => Set<UserAccountEntity>();
     internal DbSet<UserRoleEntity> UserRoles => Set<UserRoleEntity>();
     internal DbSet<UserSessionEntity> UserSessions => Set<UserSessionEntity>();
+    internal DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
     internal DbSet<CuisineEntity> Cuisines => Set<CuisineEntity>();
     internal DbSet<ZipCoordinateEntity> ZipCoordinates => Set<ZipCoordinateEntity>();
     internal DbSet<UserProfileEntity> UserProfiles => Set<UserProfileEntity>();
@@ -70,6 +71,16 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.HasIndex(item => item.AccessToken).IsUnique();
             entity.HasIndex(item => item.RefreshToken).IsUnique();
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.UserId);
+        });
+
+        modelBuilder.Entity<PasswordResetTokenEntity>(entity =>
+        {
+            entity.ToTable("PasswordResetTokens");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.TokenHash).IsUnique();
+            entity.HasIndex(item => new { item.UserId, item.CreatedAtUtc });
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.UserId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.CreatedByUserId);
         });
 
         modelBuilder.Entity<CuisineEntity>(entity =>

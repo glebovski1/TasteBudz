@@ -1,10 +1,13 @@
 // Business rules for registration, login, token refresh, logout, and account deletion.
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.Modules.Auth;
@@ -18,11 +21,13 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     ITokenGenerator tokenGenerator,
     IClock clock,
+    AuditLogService? auditLogService = null,
     IPersistenceTransactionRunner? transactionRunner = null)
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromHours(8);
     private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
+    private static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromHours(24);
     private static readonly Regex ZipCodePattern = new("^[0-9]{5}$", RegexOptions.Compiled);
 
     public async Task<SessionDto> RegisterAsync(RegisterUserRequest request, CancellationToken cancellationToken = default)
@@ -149,6 +154,107 @@ public sealed class AuthService(
             cancellationToken);
     }
 
+    public async Task<PasswordResetTokenDto> CreatePasswordResetTokenAsync(
+        CurrentUser admin,
+        CreatePasswordResetTokenRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!admin.Roles.Contains(UserRole.Admin))
+        {
+            throw ApiException.Forbidden("Only admins can create password reset tokens.");
+        }
+
+        var usernameOrEmail = string.IsNullOrWhiteSpace(request.UsernameOrEmail)
+            ? throw ApiException.BadRequest("usernameOrEmail is required.")
+            : request.UsernameOrEmail.Trim();
+        var account = await authRepository.FindByUsernameOrEmailAsync(usernameOrEmail, cancellationToken)
+            ?? throw ApiException.NotFound("The requested user could not be found.");
+
+        var now = clock.UtcNow;
+        var rawToken = tokenGenerator.GenerateToken();
+        var resetToken = new PasswordResetToken(
+            Guid.NewGuid(),
+            account.Id,
+            HashToken(rawToken),
+            admin.UserId,
+            now,
+            now.Add(PasswordResetTokenLifetime),
+            null,
+            null);
+
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.RevokeUnusedPasswordResetTokensForUserAsync(account.Id, now, cancellationToken);
+                await authRepository.SavePasswordResetTokenAsync(resetToken, cancellationToken);
+
+                if (auditLogService is not null)
+                {
+                    await auditLogService.WriteAsync(
+                        new AuditLogEntry(Guid.NewGuid(), "PasswordResetTokenIssued", admin.UserId, nameof(UserAccount), account.Id, now, "Admin issued a one-time password reset token."),
+                        cancellationToken);
+                }
+            },
+            cancellationToken);
+
+        return new PasswordResetTokenDto(
+            account.Id,
+            account.Username,
+            rawToken,
+            $"/Account/ResetPassword?token={Uri.EscapeDataString(rawToken)}",
+            resetToken.ExpiresAtUtc);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        var rawToken = string.IsNullOrWhiteSpace(request.Token)
+            ? throw ApiException.BadRequest("token is required.")
+            : request.Token.Trim();
+        ValidatePassword(request.NewPassword);
+
+        var tokenHash = HashToken(rawToken);
+        var resetToken = await authRepository.GetPasswordResetTokenByHashAsync(tokenHash, cancellationToken)
+            ?? throw ApiException.BadRequest("The password reset token is invalid or expired.");
+        var now = clock.UtcNow;
+
+        if (resetToken.UsedAtUtc.HasValue ||
+            resetToken.RevokedAtUtc.HasValue ||
+            resetToken.ExpiresAtUtc <= now)
+        {
+            throw ApiException.BadRequest("The password reset token is invalid or expired.");
+        }
+
+        var account = await authRepository.GetByIdAsync(resetToken.UserId, cancellationToken)
+            ?? throw ApiException.BadRequest("The password reset token is invalid or expired.");
+
+        if (account.Status != AccountStatus.Active)
+        {
+            throw ApiException.BadRequest("The password reset token is invalid or expired.");
+        }
+
+        var updated = account with
+        {
+            PasswordHash = passwordHasher.HashPassword(request.NewPassword),
+            UpdatedAtUtc = now,
+        };
+
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.UpdateAccountAsync(updated, cancellationToken);
+                await authRepository.SavePasswordResetTokenAsync(resetToken with { UsedAtUtc = now }, cancellationToken);
+                await authRepository.RevokeAllSessionsForUserAsync(account.Id, now, cancellationToken);
+
+                if (auditLogService is not null)
+                {
+                    await auditLogService.WriteAsync(
+                        new AuditLogEntry(Guid.NewGuid(), "PasswordResetCompleted", account.Id, nameof(UserAccount), account.Id, now, "User completed password reset with an admin-issued token."),
+                        cancellationToken);
+                }
+            },
+            cancellationToken);
+    }
+
     private async Task<SessionDto> CreateSessionAsync(UserAccount account, CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
@@ -172,6 +278,20 @@ public sealed class AuthService(
     }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
+
+    private static string HashToken(string token)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(bytes);
+    }
+
+    private static void ValidatePassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+        {
+            throw ApiException.BadRequest("Password must be at least 8 characters long.");
+        }
+    }
 
     private static void ValidateZipCode(string zipCode)
     {

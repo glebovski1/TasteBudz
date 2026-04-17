@@ -170,6 +170,47 @@ public sealed class MessagingServiceTests
         Assert.Equal(404, exception.StatusCode);
     }
 
+    [Fact]
+    public async Task SupportChat_UserCanMessageAndAdminCanReply()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var user = await RegisterAsync(services.AuthService, "alex", "alex@example.com");
+        var admin = await RegisterAsync(services.AuthService, "admin", "admin@example.com");
+        var adminUser = new CurrentUser(admin.CurrentUser.UserId, admin.CurrentUser.Username, new[] { UserRole.Admin });
+
+        var userMessage = await services.MessagingService.SendMySupportMessageAsync(ToCurrentUser(user), new SendSupportMessageRequest
+        {
+            Body = "I need help with my account",
+        });
+        var threads = await services.MessagingService.ListSupportThreadsAsync(adminUser);
+        var adminMessage = await services.MessagingService.SendSupportMessageForUserAsync(adminUser, user.CurrentUser.UserId, new SendSupportMessageRequest
+        {
+            Body = "We can help with that",
+        });
+        var history = await services.MessagingService.ListSupportMessagesForUserAsync(adminUser, user.CurrentUser.UserId, new ChatHistoryQuery());
+
+        Assert.Equal("I need help with my account", userMessage.Body);
+        var thread = Assert.Single(threads);
+        Assert.Equal(user.CurrentUser.UserId, thread.UserId);
+        Assert.Equal("We can help with that", adminMessage.Body);
+        Assert.Equal(2, history.Items.Count);
+    }
+
+    [Fact]
+    public async Task ListSupportMessagesForUserAsync_WhenUserIsNotAdmin_ReturnsNotFound()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var alex = await RegisterAsync(services.AuthService, "alex", "alex@example.com");
+        var sam = await RegisterAsync(services.AuthService, "sam", "sam@example.com");
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.MessagingService.ListSupportMessagesForUserAsync(ToCurrentUser(sam), alex.CurrentUser.UserId, new ChatHistoryQuery()));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
     private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
         await authService.RegisterAsync(new RegisterUserRequest
         {

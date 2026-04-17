@@ -48,9 +48,10 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
             .Where(account => account.Status == AccountStatus.Active)
             .OrderBy(account => account.Username)
             .ToListAsync(cancellationToken);
+        var accountIds = entities.Select(account => account.Id).ToArray();
         var roles = await dbContext.UserRoles
             .AsNoTracking()
-            .Where(role => entities.Select(account => account.Id).Contains(role.UserId))
+            .Where(role => accountIds.Contains(role.UserId))
             .ToListAsync(cancellationToken);
 
         return entities
@@ -180,6 +181,63 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
         }
     }
 
+    public async Task<PasswordResetToken?> GetPasswordResetTokenByHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    {
+        var entity = await dbContext.PasswordResetTokens
+            .AsNoTracking()
+            .FirstOrDefaultAsync(token => token.TokenHash == tokenHash, cancellationToken);
+
+        return entity is null ? null : MapPasswordResetToken(entity);
+    }
+
+    public async Task<IReadOnlyCollection<PasswordResetToken>> ListPasswordResetTokensForUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        (await dbContext.PasswordResetTokens
+            .AsNoTracking()
+            .Where(token => token.UserId == userId)
+            .OrderByDescending(token => token.CreatedAtUtc)
+            .ToListAsync(cancellationToken))
+        .Select(MapPasswordResetToken)
+        .ToArray();
+
+    public async Task SavePasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken = default)
+    {
+        var entity = await dbContext.PasswordResetTokens.FirstOrDefaultAsync(item => item.Id == token.Id, cancellationToken);
+
+        if (entity is null)
+        {
+            dbContext.PasswordResetTokens.Add(ToEntity(token));
+        }
+        else
+        {
+            entity.UserId = token.UserId;
+            entity.TokenHash = token.TokenHash;
+            entity.CreatedByUserId = token.CreatedByUserId;
+            entity.CreatedAtUtc = token.CreatedAtUtc;
+            entity.ExpiresAtUtc = token.ExpiresAtUtc;
+            entity.UsedAtUtc = token.UsedAtUtc;
+            entity.RevokedAtUtc = token.RevokedAtUtc;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task RevokeUnusedPasswordResetTokensForUserAsync(Guid userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken = default)
+    {
+        var tokens = await dbContext.PasswordResetTokens
+            .Where(token => token.UserId == userId && token.UsedAtUtc == null && token.RevokedAtUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var token in tokens)
+        {
+            token.RevokedAtUtc = revokedAtUtc;
+        }
+
+        if (tokens.Count > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private async Task<UserAccount> MapAccountAsync(UserAccountEntity entity, CancellationToken cancellationToken)
     {
         var roles = await dbContext.UserRoles
@@ -214,6 +272,17 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
             entity.CreatedAtUtc,
             entity.RevokedAtUtc);
 
+    private static PasswordResetToken MapPasswordResetToken(PasswordResetTokenEntity entity) =>
+        new(
+            entity.Id,
+            entity.UserId,
+            entity.TokenHash,
+            entity.CreatedByUserId,
+            entity.CreatedAtUtc,
+            entity.ExpiresAtUtc,
+            entity.UsedAtUtc,
+            entity.RevokedAtUtc);
+
     private static UserAccountEntity ToEntity(UserAccount account) =>
         new()
         {
@@ -240,6 +309,19 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
             RefreshExpiresAtUtc = session.RefreshExpiresAtUtc,
             CreatedAtUtc = session.CreatedAtUtc,
             RevokedAtUtc = session.RevokedAtUtc,
+        };
+
+    private static PasswordResetTokenEntity ToEntity(PasswordResetToken token) =>
+        new()
+        {
+            Id = token.Id,
+            UserId = token.UserId,
+            TokenHash = token.TokenHash,
+            CreatedByUserId = token.CreatedByUserId,
+            CreatedAtUtc = token.CreatedAtUtc,
+            ExpiresAtUtc = token.ExpiresAtUtc,
+            UsedAtUtc = token.UsedAtUtc,
+            RevokedAtUtc = token.RevokedAtUtc,
         };
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();

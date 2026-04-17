@@ -109,6 +109,49 @@ public sealed class MessagingController : Controller
         }
     }
 
+    // GET /Messaging/Support
+    [HttpGet]
+    public async Task<IActionResult> Support(CancellationToken cancellationToken)
+    {
+        var session = userSessionService.GetRequiredSession();
+
+        try
+        {
+            var history = await messagingApiService.ListSupportMessagesAsync(cancellationToken: cancellationToken);
+            return View("Chat", ChatViewModel.ForSupport(session.CurrentUser.UserId, history.Items, BuildHubUrl(), GetAccessToken()));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch
+        {
+            TempData["StatusMessage"] = "Could not load support messages.";
+            return View("Chat", ChatViewModel.ForSupport(session.CurrentUser.UserId, [], BuildHubUrl(), GetAccessToken()));
+        }
+    }
+
+    // GET /Messaging/AdminSupportThread/{userId}
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> AdminSupportThread(Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var history = await messagingApiService.ListAdminSupportMessagesAsync(userId, cancellationToken: cancellationToken);
+            return View("Chat", ChatViewModel.ForSupport(userId, history.Items, BuildHubUrl(), GetAccessToken()));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch
+        {
+            TempData["StatusMessage"] = "Could not load support messages.";
+            return View("Chat", ChatViewModel.ForSupport(userId, [], BuildHubUrl(), GetAccessToken()));
+        }
+    }
+
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)
     {
         await userSessionService.SignOutAsync(cancellationToken);

@@ -17,6 +17,8 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<Guid, UserSession> Sessions { get; } = new();
 
+    public Dictionary<Guid, PasswordResetToken> PasswordResetTokens { get; } = new();
+
     public Dictionary<Guid, UserProfile> Profiles { get; } = new();
 
     public Dictionary<Guid, UserPreferences> Preferences { get; } = new();
@@ -86,6 +88,7 @@ public sealed class InMemoryTasteBudzStore
             // Tests reuse the same host and store instance, so reset must clear every mutable bucket.
             UserAccounts.Clear();
             Sessions.Clear();
+            PasswordResetTokens.Clear();
             Profiles.Clear();
             Preferences.Clear();
             RecurringAvailability.Clear();

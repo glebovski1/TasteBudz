@@ -1057,6 +1057,14 @@ main {
     text-decoration: none;
 }
 
+.floating-btn--support {
+    right: 88px;
+    width: 64px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
     .floating-btn svg {
         width: 24px;
         height: 24px;

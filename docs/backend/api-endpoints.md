@@ -11,7 +11,7 @@ This document defines the recommended public backend surface for TasteBudz. It i
 - Controllers remain thin; business rules stay in services/domain logic
 - Clients must not directly set server-owned lifecycle state such as `Event.status`
 - DTOs are explicit contracts; persistence entities are not exposed directly
-- Event chat and group chat use SignalR for real-time delivery plus HTTP history retrieval
+- Event chat, group chat, and support chat use SignalR for real-time delivery plus HTTP history retrieval
 - Availability is modeled with separate recurring and one-off resources
 - Hidden or not-launched feature-flagged endpoints should generally return `404 Not Found`
 - Launched features with insufficient permission should return `403 Forbidden`
@@ -38,7 +38,8 @@ Key DTO families:
 - `RestaurantAdminAssignmentDto`, `RestaurantSlotDto`, `EventSlotReservationDto`, `DiscountActivationDto`
 - `DiscoveryProfilePreviewDto`, `BudConnectionDto`, `SwipeDecisionResultDto`
 - `MediaAssetDto`
-- `ChatMessageDto`
+- `ChatMessageDto`, `SupportThreadDto`
+- `PasswordResetTokenDto`
 - `NotificationDto`
 - `ReportDto`, `RestrictionDto`, `AuditLogEntryDto`
 
@@ -51,7 +52,9 @@ Key DTO families:
 | Register User | POST | `/api/v1/auth/register` | Create a new user account | No |
 | Login | POST | `/api/v1/auth/login` | Authenticate and issue access/refresh tokens | No |
 | Refresh Session | POST | `/api/v1/auth/refresh` | Exchange refresh token for a new session/token pair | No |
+| Reset Password | POST | `/api/v1/auth/password-reset` | Complete an admin-issued password reset token by setting a new password | No |
 | Logout | POST | `/api/v1/auth/logout` | Revoke the current refresh token/session | Yes |
+| Create Password Reset Token | POST | `/api/v1/admin/users/password-reset-tokens` | Issue a one-time password reset link for an active user | Admin |
 
 Representative request shapes:
 
@@ -76,6 +79,21 @@ Representative request shapes:
   "refreshToken": "string"
 }
 ```
+
+```json
+{
+  "token": "string",
+  "newPassword": "string"
+}
+```
+
+```json
+{
+  "usernameOrEmail": "string"
+}
+```
+
+Password reset token responses include `userId`, `username`, `resetToken`, `resetUrl`, and `expiresAtUtc`. Reset tokens are one-time use, expire, and successful reset revokes the user's existing sessions.
 
 ### 3.2 Profiles, Preferences, Availability, Privacy
 
@@ -335,17 +353,23 @@ Contract notes:
 
 - Search respects privacy settings, blocks, and moderation restrictions such as `DiscoveryVisibility`.
 - One effective directional swipe decision exists per actor/subject pair.
+- People search hides an actor's one-sided outbound Like/Pass target until that subject records a reciprocal swipe decision about the actor.
 - Reciprocal effective Like decisions create Budz.
 - MVP does not expose pending Bud-request state.
 - Repeating the swipe endpoint may update the effective decision before a Budz connection exists.
 
-### 3.7 Messaging (Event + Group Chat)
+### 3.7 Messaging (Event + Group + Support Chat)
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
-| Connect Chat Hub | SIGNALR | `/hubs/chat` | Realtime event/group chat connection | Yes |
+| Connect Chat Hub | SIGNALR | `/hubs/chat` | Realtime event/group/support chat connection | Yes |
 | List Event Messages | GET | `/api/v1/events/{eventId}/messages` | Return paged event-chat history | Yes |
 | List Group Messages | GET | `/api/v1/groups/{groupId}/messages` | Return paged group-chat history | Yes |
+| List My Support Messages | GET | `/api/v1/support/messages` | Return paged current-user support-chat history | Yes |
+| Post My Support Message | POST | `/api/v1/support/messages` | Send a support message as the current user | Yes |
+| List Support Threads | GET | `/api/v1/admin/support/threads` | List user support conversations | Admin |
+| List User Support Messages | GET | `/api/v1/admin/support/threads/{userId}/messages` | Return paged support history for a user | Admin |
+| Post User Support Message | POST | `/api/v1/admin/support/threads/{userId}/messages` | Send an admin reply in a user's support thread | Admin |
 
 Representative history response shape:
 
@@ -358,11 +382,13 @@ Representative history response shape:
 
 MVP messaging rules:
 
-- SignalR is the primary transport for sending and receiving event/group chat messages.
+- SignalR is the primary transport for sending and receiving event/group/support chat messages.
 - Event chat access is derived from current event participation state.
 - Group chat access is derived from current active group membership.
+- Support chat access is derived from the support subject user id: the subject user and admins may access that support thread.
 - Event chat: only current `JOINED` participants may read/write.
 - Group chat: only current active group members may read/write.
+- Support chat: only the supported user and admins may read/write.
 - Leaving/removal revokes access immediately.
 - Blocking alone does not split a shared event/group chat if both users remain authorized in the same shared context.
 - Message model is text-only.
@@ -370,8 +396,8 @@ MVP messaging rules:
 SignalR hub expectations:
 
 - authenticate before connection
-- `JoinScope(scopeType, scopeId)` joins callers only to authorized event/group channels, or authorized direct-chat channels when direct chat is enabled
-- `SendMessage({ scopeType, scopeId, body })` sends text messages into authorized event/group/direct threads
+- `JoinScope(scopeType, scopeId)` joins callers only to authorized event/group/support channels, or authorized direct-chat channels when direct chat is enabled
+- `SendMessage({ scopeType, scopeId, body })` sends text messages into authorized event/group/support/direct threads
 - `MessageReceived` is the server event name for broadcast delivery
 - use REST history endpoints for initial backfill and reconnection
 
@@ -667,7 +693,7 @@ Keep MVP focused on:
 - events
 - groups
 - discovery/Budz
-- event chat and group chat
+- event chat, group chat, and support chat
 - notifications
 - moderation and audit
 
@@ -679,7 +705,9 @@ Keep MVP focused on:
 - Group-linked events must be retrievable through group context.
 - Availability remains split between recurring and one-off windows.
 - Swipe decisions use one effective directional record per actor/subject pair.
-- Event chat and group chat access are derived from current participation/membership state.
+- One-sided outbound swipe decisions hide the subject from the actor's people search until the subject decides back.
+- Event chat, group chat, and support chat access are derived from current participation, membership, or support-subject state.
+- Support chat access is limited to the supported user and admins.
 - Material host edits to events should produce participant notifications.
 - Hidden/not-launched features stay behind feature flags and normally return `404`.
 

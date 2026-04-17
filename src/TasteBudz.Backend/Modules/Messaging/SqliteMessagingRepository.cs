@@ -20,6 +20,16 @@ public sealed class SqliteMessagingRepository(
         return entity is null ? null : new ChatThread(entity.Id, entity.ScopeType, entity.ScopeId, entity.CreatedAtUtc);
     }
 
+    public async Task<IReadOnlyCollection<ChatThread>> ListThreadsByScopeTypeAsync(ChatScopeType scopeType, CancellationToken cancellationToken = default) =>
+        (await dbContext.ChatThreads
+            .AsNoTracking()
+            .Where(thread => thread.ScopeType == scopeType)
+            .ToListAsync(cancellationToken))
+        .Select(thread => new ChatThread(thread.Id, thread.ScopeType, thread.ScopeId, thread.CreatedAtUtc))
+        .OrderBy(thread => thread.CreatedAtUtc)
+        .ThenBy(thread => thread.ScopeId)
+        .ToArray();
+
     public async Task SaveThreadAsync(ChatThread thread, CancellationToken cancellationToken = default)
     {
         var existing = await dbContext.ChatThreads.FirstOrDefaultAsync(item => item.ScopeType == thread.ScopeType && item.ScopeId == thread.ScopeId, cancellationToken);

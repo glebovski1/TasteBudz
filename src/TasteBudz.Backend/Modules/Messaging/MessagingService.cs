@@ -32,7 +32,7 @@ public sealed class MessagingService(
 
     public async Task<string> JoinScopeAsync(CurrentUser currentUser, ChatScopeType scopeType, Guid scopeId, CancellationToken cancellationToken = default)
     {
-        await EnsureCanAccessScopeAsync(currentUser.UserId, scopeType, scopeId, forSend: false, cancellationToken);
+        await EnsureCanAccessScopeAsync(currentUser, scopeType, scopeId, forSend: false, cancellationToken);
         await GetOrCreateThreadAsync(scopeType, scopeId, cancellationToken);
         return GetChannelName(scopeType, scopeId);
     }
@@ -45,6 +45,50 @@ public sealed class MessagingService(
 
     public Task<CursorPageResponse<ChatMessageDto>> ListDirectMessagesAsync(Guid currentUserId, Guid directChatId, ChatHistoryQuery query, CancellationToken cancellationToken = default) =>
         ListMessagesAsync(currentUserId, ChatScopeType.Direct, directChatId, query, cancellationToken);
+
+    public Task<CursorPageResponse<ChatMessageDto>> ListMySupportMessagesAsync(CurrentUser currentUser, ChatHistoryQuery query, CancellationToken cancellationToken = default) =>
+        ListMessagesAsync(currentUser, ChatScopeType.Support, currentUser.UserId, query, cancellationToken);
+
+    public Task<CursorPageResponse<ChatMessageDto>> ListSupportMessagesForUserAsync(CurrentUser admin, Guid userId, ChatHistoryQuery query, CancellationToken cancellationToken = default) =>
+        ListMessagesAsync(admin, ChatScopeType.Support, userId, query, cancellationToken);
+
+    public async Task<IReadOnlyCollection<SupportThreadDto>> ListSupportThreadsAsync(CurrentUser admin, CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(admin);
+
+        var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
+        var profiles = (await profileRepository.ListProfilesAsync(cancellationToken)).ToDictionary(profile => profile.UserId);
+        var threads = await messagingRepository.ListThreadsByScopeTypeAsync(ChatScopeType.Support, cancellationToken);
+        var results = new List<SupportThreadDto>(threads.Count);
+
+        foreach (var thread in threads)
+        {
+            if (!accounts.TryGetValue(thread.ScopeId, out var account))
+            {
+                continue;
+            }
+
+            var messages = (await messagingRepository.ListMessagesAsync(thread.Id, cancellationToken))
+                .OrderBy(message => message.CreatedAtUtc)
+                .ThenBy(message => message.Id)
+                .ToArray();
+            var lastMessage = messages.LastOrDefault();
+
+            results.Add(new SupportThreadDto(
+                account.Id,
+                account.Username,
+                profiles.GetValueOrDefault(account.Id)?.DisplayName ?? account.Username,
+                thread.CreatedAtUtc,
+                lastMessage?.CreatedAtUtc,
+                lastMessage?.Body,
+                messages.Length));
+        }
+
+        return results
+            .OrderByDescending(thread => thread.LastMessageAtUtc ?? thread.CreatedAtUtc)
+            .ThenBy(thread => thread.Username, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 
     public async Task<DirectChatDto> CreateDirectChatAsync(CurrentUser currentUser, CreateDirectChatRequest request, CancellationToken cancellationToken = default)
     {
@@ -79,7 +123,7 @@ public sealed class MessagingService(
             ? throw ApiException.BadRequest("body is required.")
             : request.Body.Trim();
 
-        await EnsureCanAccessScopeAsync(currentUser.UserId, scopeType, scopeId, forSend: true, cancellationToken);
+        await EnsureCanAccessScopeAsync(currentUser, scopeType, scopeId, forSend: true, cancellationToken);
 
         var thread = await GetOrCreateThreadAsync(scopeType, scopeId, cancellationToken);
         var message = new ChatMessage(Guid.NewGuid(), thread.Id, currentUser.UserId, body, clock.UtcNow);
@@ -87,6 +131,28 @@ public sealed class MessagingService(
 
         return await MapMessageAsync(message, cancellationToken);
     }
+
+    public Task<ChatMessageDto> SendMySupportMessageAsync(CurrentUser currentUser, SendSupportMessageRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync(
+            currentUser,
+            new SendChatMessageRequest
+            {
+                ScopeType = ChatScopeType.Support,
+                ScopeId = currentUser.UserId,
+                Body = request.Body,
+            },
+            cancellationToken);
+
+    public Task<ChatMessageDto> SendSupportMessageForUserAsync(CurrentUser admin, Guid userId, SendSupportMessageRequest request, CancellationToken cancellationToken = default) =>
+        SendAsync(
+            admin,
+            new SendChatMessageRequest
+            {
+                ScopeType = ChatScopeType.Support,
+                ScopeId = userId,
+                Body = request.Body,
+            },
+            cancellationToken);
 
     public Task<ChatMessageDto> SendDirectMessageAsync(CurrentUser currentUser, Guid directChatId, SendDirectChatMessageRequest request, CancellationToken cancellationToken = default) =>
         SendAsync(
@@ -104,9 +170,17 @@ public sealed class MessagingService(
         ChatScopeType scopeType,
         Guid scopeId,
         ChatHistoryQuery query,
+        CancellationToken cancellationToken) =>
+        await ListMessagesAsync(new CurrentUser(currentUserId, string.Empty, Array.Empty<UserRole>()), scopeType, scopeId, query, cancellationToken);
+
+    private async Task<CursorPageResponse<ChatMessageDto>> ListMessagesAsync(
+        CurrentUser currentUser,
+        ChatScopeType scopeType,
+        Guid scopeId,
+        ChatHistoryQuery query,
         CancellationToken cancellationToken)
     {
-        await EnsureCanAccessScopeAsync(currentUserId, scopeType, scopeId, forSend: false, cancellationToken);
+        await EnsureCanAccessScopeAsync(currentUser, scopeType, scopeId, forSend: false, cancellationToken);
         var thread = await GetOrCreateThreadAsync(scopeType, scopeId, cancellationToken);
         var messages = await messagingRepository.ListMessagesAsync(thread.Id, cancellationToken);
         var ordered = messages
@@ -166,9 +240,10 @@ public sealed class MessagingService(
         return await messagingRepository.GetThreadByScopeAsync(scopeType, scopeId, cancellationToken) ?? created;
     }
 
-    private async Task EnsureCanAccessScopeAsync(Guid currentUserId, ChatScopeType scopeType, Guid scopeId, bool forSend, CancellationToken cancellationToken)
+    private async Task EnsureCanAccessScopeAsync(CurrentUser currentUser, ChatScopeType scopeType, Guid scopeId, bool forSend, CancellationToken cancellationToken)
     {
         EnsureScopeIsLaunched(scopeType);
+        var currentUserId = currentUser.UserId;
 
         switch (scopeType)
         {
@@ -209,11 +284,27 @@ public sealed class MessagingService(
                 await EnsureDirectChatIsVisibleAsync(currentUserId, connection, cancellationToken);
                 break;
 
+            case ChatScopeType.Support:
+                var supportedAccount = await authRepository.GetByIdAsync(scopeId, cancellationToken)
+                    ?? throw ApiException.NotFound("The requested chat scope could not be found.");
+
+                if (supportedAccount.Status != AccountStatus.Active)
+                {
+                    throw ApiException.NotFound("The requested chat scope could not be found.");
+                }
+
+                if (currentUserId != scopeId && !currentUser.Roles.Contains(UserRole.Admin))
+                {
+                    throw ApiException.NotFound("The requested chat scope could not be found.");
+                }
+
+                break;
+
             default:
                 throw ApiException.NotFound("The requested chat scope could not be found.");
         }
 
-        if (forSend)
+        if (forSend && !(scopeType == ChatScopeType.Support && currentUser.Roles.Contains(UserRole.Admin)))
         {
             await restrictionService.EnsureNotRestrictedAsync(currentUserId, RestrictionScope.ChatSend, "You are currently restricted from sending chat messages.", cancellationToken);
         }
@@ -229,6 +320,14 @@ public sealed class MessagingService(
         if (scopeType == ChatScopeType.Group && !featureFlagService.IsMessagingGroupChatEnabled())
         {
             throw ApiException.NotFound("The requested chat scope could not be found.");
+        }
+    }
+
+    private static void EnsureAdmin(CurrentUser currentUser)
+    {
+        if (!currentUser.Roles.Contains(UserRole.Admin))
+        {
+            throw ApiException.Forbidden("Only admins can access support threads.");
         }
     }
 

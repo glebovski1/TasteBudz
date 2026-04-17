@@ -127,6 +127,43 @@ public sealed class AccountController : Controller
         }
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult ResetPassword(string? token)
+    {
+        return View(new ResetPasswordViewModel { Token = token?.Trim() ?? string.Empty });
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await authApiService.ResetPasswordAsync(
+                new ResetPasswordRequest
+                {
+                    Token = model.Token.Trim(),
+                    NewPassword = model.NewPassword,
+                },
+                cancellationToken);
+
+            TempData["StatusMessage"] = "Password updated. Sign in with your new password.";
+            return RedirectToAction(nameof(Login));
+        }
+        catch (BackendApiException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+            return View(model);
+        }
+    }
+
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]

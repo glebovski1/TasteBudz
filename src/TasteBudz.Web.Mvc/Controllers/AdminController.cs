@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.Services;
@@ -18,17 +19,23 @@ public sealed class AdminController : Controller
     private readonly ModerationApiService moderationApiService;
     private readonly ProfileApiService profileApiService;
     private readonly RestaurantApiService restaurantApiService;
+    private readonly AuthApiService authApiService;
+    private readonly MessagingApiService messagingApiService;
     private readonly UserSessionService userSessionService;
 
     public AdminController(
         ModerationApiService moderationApiService,
         ProfileApiService profileApiService,
         RestaurantApiService restaurantApiService,
+        AuthApiService authApiService,
+        MessagingApiService messagingApiService,
         UserSessionService userSessionService)
     {
         this.moderationApiService = moderationApiService;
         this.profileApiService = profileApiService;
         this.restaurantApiService = restaurantApiService;
+        this.authApiService = authApiService;
+        this.messagingApiService = messagingApiService;
         this.userSessionService = userSessionService;
     }
 
@@ -37,17 +44,7 @@ public sealed class AdminController : Controller
     {
         try
         {
-            var reports = await moderationApiService.ListReportsAsync(
-                new BrowseModerationReportsQuery { Status = ModerationReportStatus.Pending, PageSize = 50 },
-                cancellationToken);
-            var (restaurantOperationsAvailable, restaurantAssignments) = await BuildRestaurantAssignmentPanelAsync(cancellationToken);
-
-            return View(new AdminIndexViewModel
-            {
-                PendingReports = reports.Items,
-                RestaurantOperationsAvailable = restaurantOperationsAvailable,
-                RestaurantAssignments = restaurantAssignments,
-            });
+            return View(await BuildIndexViewModelAsync(cancellationToken));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -132,6 +129,61 @@ public sealed class AdminController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GeneratePasswordResetToken(string usernameOrEmail, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(usernameOrEmail))
+        {
+            TempData["StatusMessage"] = "Username or email is required.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            var resetToken = await authApiService.CreatePasswordResetTokenAsync(
+                new CreatePasswordResetTokenRequest { UsernameOrEmail = usernameOrEmail.Trim() },
+                cancellationToken);
+            var model = (await BuildIndexViewModelAsync(cancellationToken)) with
+            {
+                GeneratedPasswordResetToken = resetToken,
+            };
+
+            TempData["StatusMessage"] = "Password reset link generated.";
+            return View("Index", model);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Reset token failed: {ex.Message}";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SupportThreads(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var threads = await messagingApiService.ListSupportThreadsAsync(cancellationToken);
+            return View(new AdminSupportThreadsViewModel { Threads = threads });
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not load support threads: {ex.Message}";
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ImportRestaurants(CancellationToken cancellationToken)
     {
         try
@@ -206,6 +258,21 @@ public sealed class AdminController : Controller
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    private async Task<AdminIndexViewModel> BuildIndexViewModelAsync(CancellationToken cancellationToken)
+    {
+        var reports = await moderationApiService.ListReportsAsync(
+            new BrowseModerationReportsQuery { Status = ModerationReportStatus.Pending, PageSize = 50 },
+            cancellationToken);
+        var (restaurantOperationsAvailable, restaurantAssignments) = await BuildRestaurantAssignmentPanelAsync(cancellationToken);
+
+        return new AdminIndexViewModel
+        {
+            PendingReports = reports.Items,
+            RestaurantOperationsAvailable = restaurantOperationsAvailable,
+            RestaurantAssignments = restaurantAssignments,
+        };
     }
 
     private async Task<(bool Available, IReadOnlyCollection<RestaurantAssignmentPanelItem> Items)> BuildRestaurantAssignmentPanelAsync(CancellationToken cancellationToken)

@@ -128,6 +128,38 @@ public sealed class DiscoveryServiceTests
         Assert.Equal(3, result.TotalCount);
     }
 
+    [Fact]
+    public async Task SearchAsync_ExcludesOneSidedOutboundSwipeUntilReciprocalDecisionExists()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var caller = await RegisterAsync(services.AuthService, "caller", "caller@example.com");
+        var pending = await RegisterAsync(services.AuthService, "pending", "pending@example.com");
+        var visible = await RegisterAsync(services.AuthService, "visible", "visible@example.com");
+
+        await services.DiscoveryService.RecordSwipeAsync(ToCurrentUser(caller), new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = pending.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Pass,
+        });
+
+        var afterCallerDecision = await services.DiscoveryService.SearchAsync(caller.CurrentUser.UserId, new SearchPeopleQuery { PageSize = 10 });
+
+        Assert.Single(afterCallerDecision.Items);
+        Assert.Equal(visible.CurrentUser.UserId, afterCallerDecision.Items.Single().UserId);
+
+        await services.DiscoveryService.RecordSwipeAsync(ToCurrentUser(pending), new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = caller.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Pass,
+        });
+
+        var afterReciprocalDecision = await services.DiscoveryService.SearchAsync(caller.CurrentUser.UserId, new SearchPeopleQuery { PageSize = 10 });
+
+        Assert.Contains(afterReciprocalDecision.Items, item => item.UserId == pending.CurrentUser.UserId);
+        Assert.Contains(afterReciprocalDecision.Items, item => item.UserId == visible.CurrentUser.UserId);
+    }
+
     private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
         await authService.RegisterAsync(new RegisterUserRequest
         {

@@ -173,4 +173,43 @@ public sealed class DiscoveryApiTests(TasteBudzApiFactory factory) : IClassFixtu
         Assert.Equal(alphaSession.CurrentUser.UserId, candidate.UserId);
         Assert.Equal(2, result.TotalCount);
     }
+
+    [Fact]
+    public async Task DiscoverySearch_ExcludesOutboundOneSidedSwipeUntilSubjectDecidesBack()
+    {
+        factory.ResetState();
+        using var callerClient = factory.CreateClient();
+        using var pendingClient = factory.CreateClient();
+        using var visibleClient = factory.CreateClient();
+
+        var callerSession = await ApiTestHelpers.RegisterAsync(callerClient, username: "caller", email: "caller@example.com");
+        var pendingSession = await ApiTestHelpers.RegisterAsync(pendingClient, username: "pending", email: "pending@example.com");
+        var visibleSession = await ApiTestHelpers.RegisterAsync(visibleClient, username: "visible", email: "visible@example.com");
+        ApiTestHelpers.SetBearer(callerClient, callerSession.AccessToken);
+        ApiTestHelpers.SetBearer(pendingClient, pendingSession.AccessToken);
+
+        var swipeResponse = await callerClient.PostAsJsonAsync("/api/v1/discovery/swipes", new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = pendingSession.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Pass,
+        });
+        var afterCallerDecisionResponse = await callerClient.GetAsync("/api/v1/discovery/people?pageSize=10");
+        var afterCallerDecision = await afterCallerDecisionResponse.Content.ReadFromJsonAsync<ListResponse<DiscoveryProfilePreviewDto>>(ApiTestHelpers.JsonOptions);
+
+        var reciprocalSwipeResponse = await pendingClient.PostAsJsonAsync("/api/v1/discovery/swipes", new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = callerSession.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Pass,
+        });
+        var afterReciprocalDecisionResponse = await callerClient.GetAsync("/api/v1/discovery/people?pageSize=10");
+        var afterReciprocalDecision = await afterReciprocalDecisionResponse.Content.ReadFromJsonAsync<ListResponse<DiscoveryProfilePreviewDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, swipeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, afterCallerDecisionResponse.StatusCode);
+        Assert.Contains(afterCallerDecision!.Items, item => item.UserId == visibleSession.CurrentUser.UserId);
+        Assert.DoesNotContain(afterCallerDecision.Items, item => item.UserId == pendingSession.CurrentUser.UserId);
+        Assert.Equal(HttpStatusCode.OK, reciprocalSwipeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, afterReciprocalDecisionResponse.StatusCode);
+        Assert.Contains(afterReciprocalDecision!.Items, item => item.UserId == pendingSession.CurrentUser.UserId);
+    }
 }

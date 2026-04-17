@@ -532,3 +532,56 @@ Keep `TasteBudzDbContext` and module repository boundaries as the runtime persis
 - Azure production can use Azure SQL by configuration without changing application code.
 - Database deployment is a manual release step, not application startup behavior.
 - Repository and service boundaries remain unchanged; persistence entities still must not be exposed as API contracts.
+
+## [ADR-028] Admin Password Reset Uses One-Time Tokens
+
+- Date: 2026-04-16
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+Admins need a support-safe way to help users recover account access without learning, setting, or transmitting the user's final password directly. The flow must keep password creation user-owned while still giving admins a bounded recovery tool.
+
+### Decision
+Admins may issue one-time password reset tokens for active users. The raw token is returned only when created, stored only as a hash, expires after a short window, and revokes any previous unused reset tokens for the same user. The user completes the reset through an anonymous password-reset endpoint that validates the token, writes the new password hash, marks the token used, and revokes existing sessions.
+
+### Consequences
+- Admins can start recovery but cannot choose the user's new password.
+- Password reset completion is still user-entered and token-bound.
+- Existing sessions are invalidated after a successful reset.
+- Reset token issue/use is a transaction-sensitive auth workflow and should be tested at service and API levels.
+
+## [ADR-029] Support Chat Uses a Messaging Support Scope
+
+- Date: 2026-04-16
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+Users need a simple Help/Support entry point to message admins. The project already has scoped chat infrastructure for event, group, and direct chat, so a separate support messaging subsystem would add avoidable complexity.
+
+### Decision
+Represent user-to-admin support chat as `ChatScopeType.Support` in the existing messaging core. The support scope id is the supported user's account id. The supported user and admins may read the thread. The supported user may send support messages subject to normal active-account and `ChatSend` restrictions; admins may reply through admin support endpoints.
+
+### Consequences
+- Support chat reuses existing `ChatThread`, `ChatMessage`, history, and SignalR behavior.
+- Support authorization remains explicit and service-owned.
+- Admin support thread listing is an admin-only view over support-scoped threads.
+- Support chat is MVP scope and not feature-flagged as later direct chat is.
+
+## [ADR-030] People Search Hides One-Sided Outbound Swipe Decisions
+
+- Date: 2026-04-16
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+After a user makes a swipe decision about another user, showing that same person again in people search creates repeated-decision noise until the other person has had a chance to decide back.
+
+### Decision
+People search excludes users for whom the current actor has an effective outbound swipe decision and the subject has not yet recorded a reciprocal effective decision about the actor. Once the subject decides back, the pair may be governed by the normal reciprocal Like/Budz result or by the latest directional decisions.
+
+### Consequences
+- Search results avoid one-sided repeat exposure after a swipe.
+- The rule remains query-time discovery behavior and does not introduce a pending Bud-request state.
+- Reciprocal effective Like decisions still create Budz directly in MVP.

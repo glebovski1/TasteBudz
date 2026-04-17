@@ -10,6 +10,8 @@ public interface IMessagingRepository
 {
     Task<ChatThread?> GetThreadByScopeAsync(ChatScopeType scopeType, Guid scopeId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<ChatThread>> ListThreadsByScopeTypeAsync(ChatScopeType scopeType, CancellationToken cancellationToken = default);
+
     Task SaveThreadAsync(ChatThread thread, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<ChatMessage>> ListMessagesAsync(Guid threadId, CancellationToken cancellationToken = default);

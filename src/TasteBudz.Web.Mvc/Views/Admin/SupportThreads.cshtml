@@ -1,0 +1,52 @@
+@model AdminSupportThreadsViewModel
+
+@{
+    ViewData["Title"] = "Support Chats";
+}
+
+<section class="admin-shell">
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">Support</span>
+            <h1 class="admin-title">Support Chats</h1>
+            <p class="admin-subtitle">Open conversations between users and the admin team.</p>
+        </div>
+        <a asp-action="Index" class="button button--secondary">Admin Panel</a>
+    </div>
+
+    @if (!Model.Threads.Any())
+    {
+        <div class="admin-empty">
+            <p>No support conversations yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="report-list">
+            @foreach (var thread in Model.Threads)
+            {
+                var lastMessageAt = thread.LastMessageAtUtc ?? thread.CreatedAtUtc;
+                <article class="report-card card">
+                    <div class="report-card__header">
+                        <div>
+                            <strong>@thread.DisplayName</strong>
+                            <p class="muted-note">@thread.Username</p>
+                        </div>
+                        <time class="report-card__time" datetime="@lastMessageAt.ToString("o")">
+                            @lastMessageAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                        </time>
+                    </div>
+                    <p class="report-card__reason">@(thread.LastMessagePreview ?? "No messages yet.")</p>
+                    <div class="button-row">
+                        <a asp-controller="Messaging"
+                           asp-action="AdminSupportThread"
+                           asp-route-userId="@thread.UserId"
+                           class="button button--primary">
+                            Open Chat
+                        </a>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>

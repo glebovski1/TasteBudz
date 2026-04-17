@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 using TasteBudz.Web.Mvc.Services;
@@ -182,6 +183,38 @@ public sealed class AccountAndProfileMvcTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Invalid username/email or password.", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task ResetPassword_PostsTokenAndNewPasswordToBackendThenRedirectsToLogin()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Account/ResetPassword?token=reset-token");
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/auth/password-reset",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+
+        using var response = await client.PostAsync(
+            "/Account/ResetPassword",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Token"] = "reset-token",
+                ["NewPassword"] = "N3wPa$$w0rd",
+                ["ConfirmPassword"] = "N3wPa$$w0rd",
+            }));
+
+        var request = Assert.Single(factory.BackendHandler.Requests);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/Login", response.Headers.Location?.ToString());
+        Assert.Null(request.AuthorizationParameter);
+        Assert.Contains("\"token\":\"reset-token\"", request.Body);
+        Assert.Contains("\"newPassword\":\"N3wPa$$w0rd\"", request.Body);
         factory.BackendHandler.AssertDrained();
     }
 

@@ -35,6 +35,14 @@ public sealed class AuthController(AuthService authService, ICurrentUserAccessor
         return Ok(session);
     }
 
+    [AllowAnonymous]
+    [HttpPost("password-reset")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ResetPasswordAsync(request, cancellationToken);
+        return NoContent();
+    }
+
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)

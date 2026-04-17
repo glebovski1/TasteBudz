@@ -54,12 +54,49 @@ public sealed class MessagingApiService
             BuildDirectMessagesPath(directChatId, query ?? new ChatHistoryQuery()),
             cancellationToken);
 
+    public Task<CursorPageResponse<ChatMessageDto>> ListSupportMessagesAsync(
+        ChatHistoryQuery? query = null,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<CursorPageResponse<ChatMessageDto>>(
+            BuildSupportMessagesPath(query ?? new ChatHistoryQuery()),
+            cancellationToken);
+
+    public Task<IReadOnlyCollection<SupportThreadDto>> ListSupportThreadsAsync(CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<SupportThreadDto>>(
+            "/api/v1/admin/support/threads",
+            cancellationToken);
+
+    public Task<CursorPageResponse<ChatMessageDto>> ListAdminSupportMessagesAsync(
+        Guid userId,
+        ChatHistoryQuery? query = null,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<CursorPageResponse<ChatMessageDto>>(
+            BuildAdminSupportMessagesPath(userId, query ?? new ChatHistoryQuery()),
+            cancellationToken);
+
     public Task<ChatMessageDto> SendDirectMessageAsync(
         Guid directChatId,
         SendDirectChatMessageRequest request,
         CancellationToken cancellationToken = default) =>
         backendHttpClient.PostAsync<SendDirectChatMessageRequest, ChatMessageDto>(
             $"/api/v1/direct-chats/{directChatId}/messages",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task<ChatMessageDto> SendSupportMessageAsync(
+        SendSupportMessageRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<SendSupportMessageRequest, ChatMessageDto>(
+            "/api/v1/support/messages",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task<ChatMessageDto> SendAdminSupportMessageAsync(
+        Guid userId,
+        SendSupportMessageRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<SendSupportMessageRequest, ChatMessageDto>(
+            $"/api/v1/admin/support/threads/{userId}/messages",
             request,
             cancellationToken: cancellationToken);
 
@@ -71,6 +108,12 @@ public sealed class MessagingApiService
 
     private static string BuildDirectMessagesPath(Guid directChatId, ChatHistoryQuery query) =>
         $"/api/v1/direct-chats/{directChatId}/messages{BuildHistoryQueryString(query)}";
+
+    private static string BuildSupportMessagesPath(ChatHistoryQuery query) =>
+        $"/api/v1/support/messages{BuildHistoryQueryString(query)}";
+
+    private static string BuildAdminSupportMessagesPath(Guid userId, ChatHistoryQuery query) =>
+        $"/api/v1/admin/support/threads/{userId}/messages{BuildHistoryQueryString(query)}";
 
     private static string BuildHistoryQueryString(ChatHistoryQuery query)
     {

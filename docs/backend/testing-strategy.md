@@ -139,6 +139,7 @@ The following areas are the highest priority for backend testing.
 ### P0 - Authorization, privacy, and blocking
 
 - only authorized actors can edit, remove, moderate, or access protected resources
+- only admins can issue password reset tokens, and reset completion revokes existing sessions
 - discovery-disabled users are excluded where required
 - `DiscoveryVisibility` restrictions hide users from discovery/search where required
 - blocking prevents new disallowed interaction paths
@@ -152,6 +153,7 @@ The following areas are the highest priority for backend testing.
 - only the current group owner can associate an event with that group's `GroupId`
 - only active group members can access group chat
 - only joined event participants can access event chat
+- only the supported user and admins can access support chat
 - leaving or removal revokes access immediately
 - direct chat remains hidden when disabled
 - enabled direct chat is limited to connected Budz, current block state, and active `ChatSend` restrictions
@@ -185,6 +187,7 @@ The following areas are the highest priority for backend testing.
 ### P2 - Browse and support workflows
 
 - restaurant and event filters return the correct result set
+- discovery search hides one-sided outbound swipe targets until the target user decides back
 - notifications are created for important workflow changes with expected type and required context fields
 - paging and query contracts stay stable
 
@@ -286,19 +289,22 @@ These scenarios should anchor early backend testing work.
 | BT-18 | Discount threshold crosses before and after cutoff | Medium | Simulation state recalculates before cutoff and freezes after cutoff |
 | BT-19 | Direct chat between Budz is enabled behind flag | High | Budz-only access, block checks, history retrieval, and hub delivery are correct |
 | BT-20 | Joined participant creates and completes simulated checkout | High | Feature flag, selected-restaurant requirement, simulated totals, and terminal status transitions are correct |
+| BT-21 | Admin issues a password reset token and user completes reset | High | Admin-only issue, one-time token use, password update, and session revocation are correct |
+| BT-22 | User and admin exchange support messages | High | Support-scope access is limited to the supported user and admins across REST and hub behavior |
+| BT-23 | User swipes another user before reciprocal decision | Medium | The swiped user is hidden from that actor's people search until deciding back |
 
 ## 14. Module-Specific Test Emphasis
 
 | Module | Main proof to prioritize |
 |---|---|
-| Auth and Access | login, logout, auth boundaries, protected endpoint access |
+| Auth and Access | login, logout, auth boundaries, protected endpoint access, admin-issued password reset |
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
 | Restaurant Operations | feature-flag behavior, assignments, slot lifecycle, reservation invariants, discount simulation |
 | Events | create, update, cancel, join, leave, invites, lifecycle, concurrency |
 | Groups | create, join, leave, private invites, owner-only actions, group-owner-only later admin flows |
-| Discovery and Budz | search, privacy/block/restriction filters, swipe replacement, reciprocal-like connection creation |
-| Messaging | membership-derived access, Budz-only direct chat, history retrieval, restriction-aware send behavior |
+| Discovery and Budz | search, privacy/block/restriction filters, one-sided outbound swipe search filtering, swipe replacement, reciprocal-like connection creation |
+| Messaging | membership-derived access, support-scope access, Budz-only direct chat, history retrieval, restriction-aware send behavior |
 | Payments | feature-flag behavior, participant-owned checkout creation, simulated totals, completion/cancellation state rules |
 | Notifications | workflow-triggered notifications, type contract, required context payload, read-state updates |
 | Moderation and Audit | reports, restrictions, scope validation, role enforcement, audit entries |

@@ -30,6 +30,7 @@ public sealed class DiscoveryService(
     public async Task<ListResponse<DiscoveryProfilePreviewDto>> SearchAsync(Guid currentUserId, SearchPeopleQuery query, CancellationToken cancellationToken = default)
     {
         var candidates = await GetDiscoverableUsersAsync(currentUserId, cancellationToken);
+        candidates = await ExcludeOneSidedOutboundSwipesAsync(currentUserId, candidates, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -173,6 +174,31 @@ public sealed class DiscoveryService(
         return results
             .OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Username, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private async Task<DiscoveryProfilePreviewDto[]> ExcludeOneSidedOutboundSwipesAsync(
+        Guid currentUserId,
+        IReadOnlyCollection<DiscoveryProfilePreviewDto> candidates,
+        CancellationToken cancellationToken)
+    {
+        var swipes = await discoveryRepository.ListSwipeDecisionsAsync(cancellationToken);
+        var reciprocalActorIds = swipes
+            .Where(swipe => swipe.SubjectUserId == currentUserId)
+            .Select(swipe => swipe.ActorUserId)
+            .ToHashSet();
+        var oneSidedSubjectIds = swipes
+            .Where(swipe => swipe.ActorUserId == currentUserId && !reciprocalActorIds.Contains(swipe.SubjectUserId))
+            .Select(swipe => swipe.SubjectUserId)
+            .ToHashSet();
+
+        if (oneSidedSubjectIds.Count == 0)
+        {
+            return candidates.ToArray();
+        }
+
+        return candidates
+            .Where(candidate => !oneSidedSubjectIds.Contains(candidate.UserId))
             .ToArray();
     }
 

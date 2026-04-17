@@ -16,11 +16,12 @@ TasteBudz allows users to:
 - form mutual Budz connections through reciprocal Like decisions in MVP
 - create and join events
 - create and participate in groups
-- chat in event, group, and feature-flagged direct scopes
+- chat in event, group, support, and feature-flagged direct scopes
 - run simulation-only checkout when enabled
 - receive in-app notifications
 - report users or content
 - support moderation, scoped restrictions, and audit logging
+- support admin-issued password reset links
 
 Architecture assumptions:
 
@@ -95,6 +96,7 @@ Reports, moderation actions, temporary restrictions, and append-only audit loggi
 For MVP:
 
 - one effective directional `SwipeDecision` exists per `(ActorUserId, SubjectUserId)` pair
+- a one-sided outbound swipe decision hides the subject from the actor's people search until the subject records a reciprocal decision
 - reciprocal effective `Like` decisions create a `BudConnection`
 - `BudConnection` never has a `Pending` state in MVP
 - `BudRequest` is extension-ready only and not part of MVP behavior
@@ -147,6 +149,7 @@ For MVP:
 
 - event chat is available only to current `JOINED` event participants
 - group chat is available only to current active group members
+- support chat is available only to the supported user and admins
 - direct chat is available only to current connected Budz when enabled and unblocked
 - leaving/removal revokes access immediately
 - chat access is derived from current state, not cached independently
@@ -217,6 +220,7 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 ### Identity / Profile Aggregate
 
 - `UserAccount`
+- `PasswordResetToken`
 - `UserProfile`
 - `UserPreferences`
 - `UserCuisinePreference`
@@ -317,6 +321,24 @@ Rules:
 - one account has at most one active profile bundle
 - account status is not used for temporary scoped moderation
 - deleted accounts leave historical references intact
+
+### PasswordResetToken
+
+Represents a one-time admin-issued credential reset token for an active user.
+
+Core data:
+
+- target user account
+- hashed token value
+- admin actor that created the token
+- created, expiry, used, and revoked timestamps
+
+Rules:
+
+- only admins may create reset tokens
+- raw reset tokens are returned only at creation time and stored hashed
+- issuing a new reset token revokes previous unused tokens for the user
+- successful reset marks the token used, updates the password hash, and revokes existing user sessions
 
 ### UserProfile
 
@@ -621,9 +643,11 @@ Rules:
 
 - one event-scoped thread exists per event in MVP
 - one group-scoped thread exists per group in MVP
+- one support-scoped thread can exist per user account
 - one direct-scoped thread can exist per connected Budz pair when direct chat is enabled
 - event chat access derives from current participant state
 - group chat access derives from current group membership
+- support chat access derives from the support subject user id and admin role
 - direct chat access derives from Budz connection state plus current block state
 
 ### ChatMessage
@@ -774,6 +798,7 @@ Rules:
 
 - `UserAccount` 1 -> 1 `UserProfile`
 - `UserAccount` 1 -> 1 `UserPreferences`
+- `UserAccount` 1 -> many `PasswordResetToken`
 - `UserPreferences` 1 -> many `UserCuisinePreference`
 - `UserPreferences` 1 -> many `UserDietaryFlag`
 - `UserPreferences` 1 -> many `UserAllergy`
@@ -800,6 +825,7 @@ Rules:
 - `Event` 1 -> many `EventParticipant`
 - `Event` 1 -> 1 event-scoped `ChatThread`
 - `Group` 1 -> 1 group-scoped `ChatThread`
+- `UserAccount` 1 -> 0..1 support-scoped `ChatThread`
 - `ChatThread` 1 -> many `ChatMessage`
 - `ModerationReport` 1 -> many `ModerationAction`
 - `ModerationAction` 0..many -> `UserRestriction`
@@ -812,6 +838,7 @@ Rules:
 - `UserAccount`
 - `UserProfile`
 - `UserPreferences`
+- `PasswordResetToken`
 - preference substructures
 - availability windows
 - `PrivacySettings`
@@ -862,7 +889,7 @@ Focus: ownership, membership, private invite handling, and later ownership trans
 - `ChatThread`
 - `ChatMessage`
 
-Focus: scope-based access rules across event, group, and enabled direct chat.
+Focus: scope-based access rules across event, group, support, and enabled direct chat.
 
 ### Moderation Module
 
@@ -883,6 +910,7 @@ Focus: append-only record of sensitive actions.
 - Only authenticated users can create events or send messages.
 - Exact home addresses must never be exposed.
 - Discovery respects privacy settings and active user blocks.
+- Discovery search hides one-sided outbound swipe targets until the target user decides back.
 - Reciprocal effective Like decisions create Budz directly in MVP.
 - `BudConnection` never uses a pending state in MVP.
 - Private groups require accepted `GroupInvite` before membership creation.
@@ -900,10 +928,12 @@ Focus: append-only record of sensitive actions.
 - Checkout simulation is participant-owned, requires a selected restaurant, and has terminal completed/cancelled states.
 - Event chat access is limited to current `JOINED` participants.
 - Group chat access is limited to current active group members.
+- Support chat access is limited to the supported user and admins.
 - Direct chat access is limited to connected Budz when enabled and unblocked.
 - Blocking prevents new direct interaction but does not automatically remove shared-context participation.
 - Each `UserRestriction` applies to exactly one scope.
 - `UserAccount.Status` is not used for temporary scoped moderation.
+- Password reset tokens are admin-created, one-time use, stored hashed, and revoke existing user sessions on success.
 - Audit entries are append-only.
 
 ## 12. MVP vs Extension Readiness
@@ -914,7 +944,7 @@ Focus: append-only record of sensitive actions.
 - restaurant catalog
 - events and event participants
 - groups, group members, and group invites
-- chat threads/messages for event + group scope
+- chat threads/messages for event, group, and support scope
 - notifications
 - swipe decisions and Budz connections
 - moderation reports/actions/restrictions
@@ -946,7 +976,8 @@ Important mapping notes:
 
 - `EventParticipant` acts as both participation record and closed-event invite lifecycle record.
 - `BudConnection` is the only required Budz relationship record in MVP.
-- `ChatThread` uses a generic scope model instead of separate event/group/direct roots.
+- `ChatThread` uses a generic scope model instead of separate event/group/support/direct roots.
+- Support chat uses the same scoped model, with the support subject user id as the scope id.
 - Restaurant-operation entities are present in the canonical SQLite schema but their endpoints remain disabled by default unless the restaurant operation flags are enabled.
 - Search indexes, feed caches, and denormalized browse views are read models, not primary domain entities.
 

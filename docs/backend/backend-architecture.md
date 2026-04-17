@@ -19,13 +19,14 @@ TasteBudz should remain a single deployable modular monolith with a frontend-agn
 The backend owns:
 
 - auth and authorization
+- admin-issued password reset-token workflows
 - onboarding and profile state
 - preferences, allergies, availability, privacy, and blocking
 - restaurant catalog and filtering
 - events, participation, and lifecycle enforcement
 - groups and ownership rules
 - discovery, swipes, Budz, and safety filters
-- messaging across event, group, and feature-flagged direct-chat scopes
+- messaging across event, group, support, and feature-flagged direct-chat scopes
 - database-backed media assets and context-based access control
 - notifications
 - moderation, reports, restrictions, and audit logging
@@ -94,6 +95,7 @@ Feature-gated capabilities should grow inside existing modules where the boundar
 - Restaurants.Operations: feature-flagged restaurant admin accounts, assignments, slots, slot reservations, discount rules, and operational actions
 - Messaging.EventChat: MVP event chat
 - Messaging.GroupChat: MVP group chat
+- Messaging.SupportChat: MVP user-to-admin support chat
 - Messaging.DirectChat: 1-on-1 messaging behind flags
 - Payments.Checkout: simulation-only checkout sessions behind flags
 
@@ -133,6 +135,7 @@ Key responsibilities:
 - token/session issuance
 - logout behavior
 - password hashing
+- admin-issued one-time password reset tokens
 - role/claim loading
 - current-user access for other modules
 
@@ -293,6 +296,7 @@ Key responsibilities:
 - mutual Budz creation
 - list current Budz
 - respect privacy, blocking, and moderation restrictions such as `DiscoveryVisibility`
+- hide one-sided outbound swipe targets from the actor's search results until the subject decides back
 
 Suggested services:
 
@@ -305,27 +309,29 @@ Canonical MVP rule: one effective directional swipe decision exists per actor/su
 
 ### 5.8 Messaging
 
-Own chat threads, messages, and access control across event chat, group chat, and feature-flagged direct-chat scopes.
+Own chat threads, messages, and access control across event chat, group chat, support chat, and feature-flagged direct-chat scopes.
 
 Key responsibilities:
 
 - event-linked chat threads
 - group-linked chat threads for current members
+- support chat threads between a user and admins
 - direct 1-on-1 threads for connected Budz when enabled
 - text-only message persistence
-- message pagination and history retrieval
-- SignalR-based real-time delivery for event, group, and enabled direct chat
+- message pagination, history retrieval, and admin support-thread listing
+- SignalR-based real-time delivery for event, group, support, and enabled direct chat
 - scope-specific access enforcement
 
 Rollout priority:
 
-- event chat and group chat are both part of MVP and should share one messaging core
+- event chat, group chat, and support chat are part of MVP and should share one messaging core
 - direct chat is implemented behind `FeatureFlags:MessagingDirectChatEnabled` and remains disabled by default until launch approval
 
 MVP shared-chat rule:
 
 - event chat access is derived from current event participation state
 - group chat access is derived from current active group membership
+- support chat access is derived from the supported user id and admin role
 - blocking alone does not split or hide a shared event/group chat if both users remain authorized in that shared context
 - separation in shared chat requires host/owner/moderator action
 
@@ -333,7 +339,7 @@ Suggested model:
 
 - `ChatThread`
 - `ChatMessage`
-- `ChatScopeType` = `Event`, `Group`, `Direct`
+- `ChatScopeType` = `Event`, `Group`, `Support`, `Direct`
 - `ChatScopeId`
 
 Suggested services:
@@ -345,7 +351,7 @@ Suggested services:
 MVP hub contract:
 
 - one shared `ChatHub`
-- `JoinScope(scopeType, scopeId)` authorizes and subscribes the caller to an event/group/direct channel
+- `JoinScope(scopeType, scopeId)` authorizes and subscribes the caller to an event/group/support/direct channel
 - `SendMessage(request)` persists and broadcasts one text message
 - `MessageReceived` is the broadcast event name for new chat messages
 
@@ -557,6 +563,7 @@ Lives in `MessagingService` and the SignalR hub plumbing.
 
 - event chat access derives from current joined event participation
 - group chat access derives from current active group membership
+- support chat access is limited to the supported user and admins; the support scope id is the supported account id
 - direct chat access derives from current connected Budz, current block state, and `FeatureFlags:MessagingDirectChatEnabled`
 - real-time transport hub: `ChatHub`
 
@@ -667,6 +674,7 @@ Required transaction boundaries include:
 - event participation and invite-state updates
 - moderation decision + restriction + audit log
 - auth registration/session rotation/account deletion
+- admin password reset token issue/use
 - Bud connection creation from reciprocal swipe decisions
 - later group ownership changes
 - enabled slot reservations
@@ -712,7 +720,7 @@ Use integration tests for:
 - event create/join/leave/invite flows
 - group create/join/leave flows
 - discovery and blocking behavior
-- event chat and group chat endpoints/hub auth
+- event chat, group chat, and support chat endpoints/hub auth
 - direct chat and checkout endpoint behavior when flags are enabled
 - moderation endpoints and policy enforcement
 
@@ -759,6 +767,7 @@ Build and ship:
 - basic group management
 - event chat
 - group chat
+- support chat
 - in-app notifications for state changes and event updates
 - reports, moderation queue, restrictions, and audit logging
 
@@ -824,23 +833,24 @@ Priority rule: if time is tight, do not cut correctness in event participation a
 21. messaging core
 22. event chat
 23. group chat (SignalR + history retrieval)
-24. notifications center
-25. report creation
-26. moderation queue and resolution
-27. restrictions
-28. audit logging
+24. support chat
+25. notifications center
+26. report creation
+27. moderation queue and resolution
+28. restrictions
+29. audit logging
 
 ### Phase 6 - Hardening
 
-29. integration tests across main flows
-30. concurrency tests for event participation
-31. authorization and blocked-user policy review
-32. disabled-feature behavior review
-33. architecture cleanup and documentation refresh
+30. integration tests across main flows
+31. concurrency tests for event participation
+32. authorization and blocked-user policy review
+33. disabled-feature behavior review
+34. architecture cleanup and documentation refresh
 
 ### Phase 7 - Feature-Flagged and Later Extensions
 
-34. group ownership transfer and dissolution
+35. group ownership transfer and dissolution
 35. direct chat behind flag
 36. restaurant-admin operations behind flags
 37. slots / reservations / discount simulation behind flags

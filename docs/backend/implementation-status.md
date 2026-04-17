@@ -5,7 +5,7 @@ This document tracks the current backend implementation state.
 It is a progress tracker, not a source of product or architecture truth.
 Use the primary backend documents for requirements, architecture, domain rules, API contracts, and testing policy.
 
-Last verified: 2026-04-12
+Last verified: 2026-04-16
 
 ## 1. Overall State
 
@@ -33,7 +33,7 @@ Current practical assessment:
 - Discovery / Budz: `Backend-complete`
 - Media: `Backend-complete`
 - Notifications: `Backend-complete`
-- Messaging: `Backend-complete`, with direct chat implemented as a disabled-by-default feature-flagged slice
+- Messaging: `Backend-complete`, with support chat implemented and direct chat implemented as a disabled-by-default feature-flagged slice
 - Payments / Checkout: feature-flagged implemented slice, disabled by default, simulation-only
 - Moderation and Audit: `Backend-complete`
 - Real SQLite persistence: implemented for the current MVP slice surface
@@ -63,24 +63,25 @@ Current runtime persistence note:
 
 | Module | Current state | Notes |
 |---|---|---|
-| Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion |
+| Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion, admin-issued password reset tokens |
 | Profiles | Implemented slice | Onboarding status, profile update/read, preferences, availability, privacy, blocks, dashboard summaries |
 | Restaurants | Implemented slice | Browse, detail, deterministic suggestions, seeded catalog |
 | Restaurant Operations | Feature-flagged implemented slice | Admin-managed restaurant admin assignments, managed restaurant profile edits, slot CRUD/cancel, event-host slot reservations, discount simulation; disabled by default |
 | Events | Implemented slice | Browse, create, detail, update, participants, join, leave/accept/decline, invite, cancel, lifecycle sync, owner-only group link, restriction checks |
 | Groups | Implemented slice | Browse/search, create/detail/update, join/leave, owner removal, private invites, linked-event listing |
-| Discovery / Budz | Implemented slice | Search, swipe candidates, Like/Pass decisions, reciprocal Budz creation, privacy/block/restriction filtering |
+| Discovery / Budz | Implemented slice | Search, swipe candidates, Like/Pass decisions, one-sided outbound swipe search filtering, reciprocal Budz creation, privacy/block/restriction filtering |
 | Media | Implemented slice | Database-backed image storage, profile-avatar upload/replacement, report-evidence attachments, context-based media access |
 | Notifications | Implemented slice | In-app notification center list/read API over existing workflow notifications |
-| Messaging | Implemented slice | Shared SignalR chat hub plus paged event/group message history with scope-derived auth; feature-flagged direct chat for Budz-only 1-on-1 messages |
+| Messaging | Implemented slice | Shared SignalR chat hub plus paged event/group/support message history with scope-derived auth; feature-flagged direct chat for Budz-only 1-on-1 messages |
 | Payments / Checkout | Feature-flagged implemented slice | Simulation-only checkout sessions for joined event participants; disabled by default |
 | Moderation and Audit | Implemented slice | Report submission, moderation queue/detail/resolve, scoped restrictions, admin audit-log query |
 
 ## 4. Implemented Endpoint Surface
 
-Implemented controller surface as of 2026-04-12:
+Implemented controller surface as of 2026-04-16:
 
 - `/api/v1/auth/*`
+- `/api/v1/auth/password-reset`
 - `/api/v1/onboarding/status`
 - `/api/v1/profiles/me`
 - `/api/v1/profiles/me/avatar`
@@ -118,6 +119,9 @@ Implemented controller surface as of 2026-04-12:
 - `/api/v1/groups/{groupId}/invites`
 - `/api/v1/groups/invites/{inviteId}`
 - `/api/v1/groups/{groupId}/messages`
+- `/api/v1/support/messages`
+- `/api/v1/admin/support/threads`
+- `/api/v1/admin/support/threads/{userId}/messages`
 - `/api/v1/direct-chats` (feature-flagged)
 - `/api/v1/direct-chats/{directChatId}/messages` (feature-flagged)
 - `/api/v1/checkout-sessions/{checkoutSessionId}/completion` (feature-flagged)
@@ -136,6 +140,7 @@ Implemented controller surface as of 2026-04-12:
 - `/api/v1/moderation/restrictions`
 - `/api/v1/moderation/restrictions/{restrictionId}`
 - `/api/v1/audit-logs`
+- `/api/v1/admin/users/password-reset-tokens`
 - `/api/v1/restaurant-admin/restaurants` (feature-flagged)
 - `/api/v1/restaurant-admin/restaurants/{restaurantId}` (feature-flagged)
 - `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` (feature-flagged)
@@ -150,17 +155,17 @@ Not yet implemented from later/feature-flagged API shape:
 
 ## 5. Test Status
 
-Current automated test status as of 2026-04-12:
+Current automated test status as of 2026-04-16:
 
-- 71 backend unit tests
-- 59 backend integration tests
-- 36 MVC integration tests
-- 166 passing solution tests total
+- 77 backend unit tests
+- 64 backend integration tests
+- 39 MVC integration tests
+- 180 passing solution tests total
 
 Current covered areas:
 
 - password hashing
-- auth registration, login, refresh, logout, duplicate-credential handling, and protected endpoint access
+- auth registration, login, refresh, logout, duplicate-credential handling, admin-issued password reset, and protected endpoint access
 - profile update workflows
 - profile-avatar upload/replacement and media retrieval behavior
 - recurring and one-off availability edge cases
@@ -177,9 +182,9 @@ Current covered areas:
 - event group-link authorization
 - moderator participant removal after `DecisionAt`
 - group create/join/invite/detail workflows
-- discovery search/swipe/Budz workflows
+- discovery search/swipe/Budz workflows, including one-sided outbound swipe search filtering
 - notification-center read/update behavior
-- event chat, group chat, and feature-flagged direct chat authorization plus hub delivery
+- event chat, group chat, support chat, and feature-flagged direct chat authorization plus hub delivery
 - direct chat service, block enforcement, and MVC route behavior
 - report, restriction, role-enforcement, and audit-log workflows
 - report-evidence attachment upload/list/download authorization

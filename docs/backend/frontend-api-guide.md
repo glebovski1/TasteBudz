@@ -42,7 +42,7 @@ Important contract rules:
 
 - clients must not set server-owned lifecycle values such as event status
 - event host is automatically created as a joined participant
-- event and group chat access is derived from current participation or membership state
+- event, group, and support chat access is derived from current participation, membership, or support-subject state
 - direct chat and checkout simulation should be treated as unavailable when their disabled endpoints return `404`
 
 ## 3. Auth Flow
@@ -54,6 +54,12 @@ Typical login flow:
 3. send `Authorization: Bearer <access-token>` on protected requests
 4. use `POST /api/v1/auth/refresh` when the access token expires
 5. use `POST /api/v1/auth/logout` to end the current session
+
+Password reset flow:
+
+- admins issue reset links with `POST /api/v1/admin/users/password-reset-tokens`
+- users complete the reset with `POST /api/v1/auth/password-reset`
+- successful reset revokes the user's existing sessions
 
 ## 4. Endpoints Ready for Frontend Use
 
@@ -179,6 +185,20 @@ Frontend notes:
 - block state and active chat-send restrictions are enforced by the backend
 - direct chat uses the same text-only SignalR plus REST history pattern as event and group chat
 
+### Support chat
+
+- `GET /api/v1/support/messages`
+- `POST /api/v1/support/messages`
+- `GET /api/v1/admin/support/threads` (Admin only)
+- `GET /api/v1/admin/support/threads/{userId}/messages` (Admin only)
+- `POST /api/v1/admin/support/threads/{userId}/messages` (Admin only)
+
+Frontend notes:
+
+- authenticated users open their own support thread from Help/Support
+- admins can list support conversations and reply to a selected user's thread
+- normal users cannot access another user's support thread
+
 ### Checkout simulation
 
 These flows are feature-flagged and disabled by default.
@@ -224,6 +244,7 @@ Frontend notes:
 Frontend notes:
 
 - discovery respects privacy settings, blocks, and discovery restrictions
+- after the current user swipes another person, that person is hidden from people search until they decide back
 - MVP does not expose pending Bud request state
 
 ### Notifications
@@ -274,7 +295,7 @@ Note:
 
 ## 5. Realtime Chat
 
-The backend supports event chat and group chat in MVP, and direct chat when the direct-chat feature flag is enabled.
+The backend supports event chat, group chat, and support chat in MVP, and direct chat when the direct-chat feature flag is enabled.
 
 Use:
 
@@ -282,6 +303,8 @@ Use:
 - REST history:
   - `GET /api/v1/events/{eventId}/messages`
   - `GET /api/v1/groups/{groupId}/messages`
+  - `GET /api/v1/support/messages`
+  - `GET /api/v1/admin/support/threads/{userId}/messages` for admins
   - `GET /api/v1/direct-chats/{directChatId}/messages` when direct chat is enabled
 
 Recommended frontend flow:
@@ -297,6 +320,7 @@ Chat constraints:
 - text-only
 - event chat is only for current joined participants
 - group chat is only for current active group members
+- support chat is only for the supported user and admins
 - direct chat is only for connected Budz when enabled and unblocked
 - leaving or removal revokes access immediately
 

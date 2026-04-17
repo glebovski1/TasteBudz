@@ -166,6 +166,7 @@ public enum ChatScopeType
     Event,
     Group,
     Direct,
+    Support,
 }
 
 /// <summary>

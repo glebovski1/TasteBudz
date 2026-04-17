@@ -113,7 +113,7 @@ function Invoke-ArmJsonRequest {
         "`nHTTP_STATUS:%{http_code}"
     )
 
-    if ($null -ne $Body) {
+    if (-not [string]::IsNullOrEmpty($Body)) {
         $arguments += @("--data", $Body)
     }
 
@@ -197,6 +197,38 @@ function Wait-ForHttpStatus {
     throw "$Name did not return expected HTTP $ExpectedStatus."
 }
 
+function New-ZipPackage {
+    param(
+        [string]$SourceDirectory,
+        [string]$DestinationPath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    if (Test-Path -LiteralPath $DestinationPath) {
+        Remove-Item -LiteralPath $DestinationPath -Force
+    }
+
+    $sourcePath = (Resolve-Path -LiteralPath $SourceDirectory).Path
+    $basePath = $sourcePath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $archive = [System.IO.Compression.ZipFile]::Open($DestinationPath, [System.IO.Compression.ZipArchiveMode]::Create)
+
+    try {
+        foreach ($file in [System.IO.Directory]::EnumerateFiles($sourcePath, "*", [System.IO.SearchOption]::AllDirectories)) {
+            $entryName = $file.Substring($basePath.Length).Replace("\", "/")
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive,
+                $file,
+                $entryName,
+                [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+}
+
 function Invoke-AzWebAppDeploy {
     param(
         [string]$ResourceGroupName,
@@ -272,7 +304,7 @@ function Invoke-KuduZipDeploy {
             throw "Azure returned redacted publishing credentials after temporary policy changes."
         }
 
-        $deployUri = "https://$AppName.scm.azurewebsites.net/api/zipdeploy?isAsync=true"
+        $deployUri = "https://$AppName.scm.azurewebsites.net/api/zipdeploy?isAsync=true&clean=true"
         $arguments = @(
             "--ipv4",
             "--silent",
@@ -346,7 +378,7 @@ try {
     Write-Step "Publishing MVC host"
     New-Item -ItemType Directory -Path $publishRootPath -Force | Out-Null
     Invoke-RequiredCommand "dotnet" @("publish", $mvcProjectPath, "-c", "Release", "-o", $publishDir, "--no-build")
-    Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Force
+    New-ZipPackage $publishDir $zipPath
     Write-Host "Created package: $zipPath"
 
     Write-Step "Deploying package"

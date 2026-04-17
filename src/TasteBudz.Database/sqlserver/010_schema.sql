@@ -62,6 +62,29 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_UserSessions_RefreshT
     CREATE UNIQUE INDEX IX_UserSessions_RefreshToken ON dbo.UserSessions (RefreshToken);
 GO
 
+IF OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.PasswordResetTokens (
+        Id UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_PasswordResetTokens PRIMARY KEY,
+        UserId UNIQUEIDENTIFIER NOT NULL,
+        TokenHash NVARCHAR(128) NOT NULL,
+        CreatedByUserId UNIQUEIDENTIFIER NOT NULL,
+        CreatedAtUtc DATETIMEOFFSET NOT NULL,
+        ExpiresAtUtc DATETIMEOFFSET NOT NULL,
+        UsedAtUtc DATETIMEOFFSET NULL,
+        RevokedAtUtc DATETIMEOFFSET NULL,
+        CONSTRAINT FK_PasswordResetTokens_UserAccounts_UserId FOREIGN KEY (UserId) REFERENCES dbo.UserAccounts (Id),
+        CONSTRAINT FK_PasswordResetTokens_UserAccounts_CreatedByUserId FOREIGN KEY (CreatedByUserId) REFERENCES dbo.UserAccounts (Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_PasswordResetTokens_TokenHash' AND object_id = OBJECT_ID(N'dbo.PasswordResetTokens'))
+    CREATE UNIQUE INDEX UX_PasswordResetTokens_TokenHash ON dbo.PasswordResetTokens (TokenHash);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PasswordResetTokens_UserId_CreatedAtUtc' AND object_id = OBJECT_ID(N'dbo.PasswordResetTokens'))
+    CREATE INDEX IX_PasswordResetTokens_UserId_CreatedAtUtc ON dbo.PasswordResetTokens (UserId, CreatedAtUtc);
+GO
+
 IF OBJECT_ID(N'dbo.Cuisines', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Cuisines (
@@ -703,5 +726,13 @@ IF NOT EXISTS (SELECT 1 FROM dbo.SchemaVersions WHERE Version = N'20260412-010-s
 BEGIN
     INSERT INTO dbo.SchemaVersions (Version, Description)
     VALUES (N'20260412-010-schema', N'Initial Azure SQL schema aligned to the current TasteBudz SQLite schema.');
+END;
+GO
+
+IF OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM dbo.SchemaVersions WHERE Version = N'20260416-password-reset-tokens')
+BEGIN
+    INSERT INTO dbo.SchemaVersions (Version, Description)
+    VALUES (N'20260416-password-reset-tokens', N'Add admin-issued password reset token storage.');
 END;
 GO

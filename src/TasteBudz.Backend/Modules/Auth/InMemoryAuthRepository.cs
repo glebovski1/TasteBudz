@@ -161,5 +161,53 @@ public sealed class InMemoryAuthRepository(InMemoryTasteBudzStore store) : IAuth
         }
     }
 
+    public Task<PasswordResetToken?> GetPasswordResetTokenByHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var token = store.PasswordResetTokens.Values.FirstOrDefault(existing =>
+                string.Equals(existing.TokenHash, tokenHash, StringComparison.Ordinal));
+
+            return Task.FromResult(token);
+        }
+    }
+
+    public Task<IReadOnlyCollection<PasswordResetToken>> ListPasswordResetTokensForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var tokens = store.PasswordResetTokens.Values
+                .Where(token => token.UserId == userId)
+                .OrderByDescending(token => token.CreatedAtUtc)
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyCollection<PasswordResetToken>>(tokens);
+        }
+    }
+
+    public Task SavePasswordResetTokenAsync(PasswordResetToken token, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            store.PasswordResetTokens[token.Id] = token;
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task RevokeUnusedPasswordResetTokensForUserAsync(Guid userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            foreach (var token in store.PasswordResetTokens.Values
+                         .Where(existing => existing.UserId == userId && existing.UsedAtUtc is null && existing.RevokedAtUtc is null)
+                         .ToArray())
+            {
+                store.PasswordResetTokens[token.Id] = token with { RevokedAtUtc = revokedAtUtc };
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 }

@@ -37,6 +37,24 @@ CREATE TABLE IF NOT EXISTS UserSessions (
     CHECK (RevokedAtUtc IS NULL OR RevokedAtUtc >= CreatedAtUtc)
 );
 
+CREATE TABLE IF NOT EXISTS PasswordResetTokens (
+    Id TEXT NOT NULL PRIMARY KEY,
+    UserId TEXT NOT NULL,
+    TokenHash TEXT NOT NULL,
+    CreatedByUserId TEXT NOT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    ExpiresAtUtc TEXT NOT NULL,
+    UsedAtUtc TEXT NULL,
+    RevokedAtUtc TEXT NULL,
+    FOREIGN KEY (UserId) REFERENCES UserAccounts (Id),
+    FOREIGN KEY (CreatedByUserId) REFERENCES UserAccounts (Id),
+    UNIQUE (TokenHash),
+    CHECK (trim(TokenHash) <> ''),
+    CHECK (ExpiresAtUtc > CreatedAtUtc),
+    CHECK (UsedAtUtc IS NULL OR UsedAtUtc >= CreatedAtUtc),
+    CHECK (RevokedAtUtc IS NULL OR RevokedAtUtc >= CreatedAtUtc)
+);
+
 -----------------------------------------------------------------------
 -- 2. SHARED REFERENCE DATA
 -----------------------------------------------------------------------
@@ -586,6 +604,7 @@ CREATE TABLE IF NOT EXISTS UserFollows (
 -----------------------------------------------------------------------
 CREATE UNIQUE INDEX IF NOT EXISTS IX_UserSessions_AccessToken ON UserSessions (AccessToken);
 CREATE UNIQUE INDEX IF NOT EXISTS IX_UserSessions_RefreshToken ON UserSessions (RefreshToken);
+CREATE INDEX IF NOT EXISTS IX_PasswordResetTokens_UserId_CreatedAtUtc ON PasswordResetTokens (UserId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_GroupMembers_UserId ON GroupMembers (UserId);
 CREATE INDEX IF NOT EXISTS IX_GroupInvites_InvitedUserId ON GroupInvites (InvitedUserId);
 CREATE INDEX IF NOT EXISTS IX_Restaurants_ZipCode ON Restaurants (ZipCode);

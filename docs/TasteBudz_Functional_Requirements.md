@@ -18,7 +18,7 @@ Implement the following MVP items first. Each item references the owning require
 - Groups: create/join/leave + owner management (FR-011, FR-012, FR-013)
 - Event status lifecycle + DecisionAt evaluation (FR-014)
 - In-app notifications for state changes and material event updates (FR-016)
-- Event + group chat, real-time and text-only (FR-017, FR-017A)
+- Event + group + support chat, real-time and text-only (FR-017, FR-017A, FR-017B)
 - Safety stack: report -> moderation queue -> scoped soft bans -> audit log (FR-025, FR-026, FR-027, FR-028)
 
 > MVP decisions locked for the capstone:
@@ -26,7 +26,7 @@ Implement the following MVP items first. Each item references the owning require
 > - Notifications are in-app only in MVP; no scheduled reminder jobs are required.
 > - People discovery in MVP includes search + swipe + mutual Budz; direct 1-on-1 messaging is feature-flagged and remains outside the default MVP UI.
 > - Basic query-based browse/search for open events and public groups is in scope; richer feed/caching is later.
-> - Event chat and group chat are both in scope for MVP and share the same basic messaging core.
+> - Event chat, group chat, and user-to-admin support chat are in scope for MVP and share the same basic messaging core.
 
 ## 1. System Overview
 
@@ -46,11 +46,11 @@ User wants food -> discovers Budz, a group, or an event -> restaurant is selecte
 
 | Role | Allowed actions (MVP, non-exhaustive) |
 |---|---|
-| User | Register/login/logout (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline Closed invites (FR-008 to FR-009), use event chat when participating and group chat when a current member (FR-017 to FR-017A), block/report users (FR-024 to FR-025) |
+| User | Register/login/logout and complete admin-issued password reset (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline Closed invites (FR-008 to FR-009), use event chat when participating, group chat when a current member, and support chat with admins (FR-017 to FR-017B), block/report users (FR-024 to FR-025) |
 | Host | Create Open/Closed events (FR-008), invite users to Closed events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
 | Group Owner | Create group, manage name/description/visibility (FR-011 to FR-012), remove group members (FR-012), transfer ownership or dissolve group later (FR-012A), create/view group-linked events (FR-013), use group chat (FR-017A) |
 | Moderator | View report queue, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
-| Admin | All Moderator actions plus support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-014, FR-026 to FR-028) |
+| Admin | All Moderator actions plus support chat replies, password reset-token issuance, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-014, FR-017B, FR-026 to FR-028) |
 
 ## 2. Functional Requirements Catalogue
 
@@ -92,6 +92,8 @@ Priority legend:
 - US-027: As a user, I want mutual Like to create a Budz connection.
 - US-029: As a user, I want to browse and search events and groups.
 - US-036: As a user, I want my profile page to show active events, groups, and Budz.
+- US-037: As a user, I want to message admins through Help/Support.
+- US-038: As an admin, I want to issue a password reset link so a user can choose a new password.
 
 #### MVP+ User Stories
 
@@ -120,6 +122,9 @@ Priority legend:
 - Users can log in with valid credentials.
 - Users can log out and invalidate the active client session/token.
 - Invalid credentials return an error without revealing whether the account exists.
+- Admins can generate a one-time password reset link for an active user.
+- A user who opens a valid reset link must create a new password before signing in again.
+- Successful password reset invalidates existing sessions for that user.
 
 ### FR-002 Account and Profile Management
 
@@ -399,6 +404,20 @@ Priority legend:
 - Leaving or removal revokes group-chat access immediately.
 - MVP group chat is text-only and uses the same basic SignalR plus history-retrieval model as event chat.
 
+### FR-017B Support Chat
+
+**Priority:** MVP
+
+**Description:** Users shall be able to message admins from a Help/Support entry point.
+
+**Acceptance Criteria**
+
+- Authenticated users can open support chat from the application shell.
+- A user's support chat is scoped to that user's account and is visible to that user and admins only.
+- Admins can list support conversations and reply in the selected user's support thread.
+- Support chat is text-only and uses the same SignalR plus history-retrieval model as event and group chat.
+- Normal users cannot read or write another user's support thread.
+
 ### FR-018 People Discovery (Search)
 
 **Priority:** MVP
@@ -410,6 +429,7 @@ Priority legend:
 - Users can search by username/display name.
 - Discovery exposes only a limited public profile preview.
 - Search respects privacy settings, blocks, and active discovery-visibility moderation restrictions.
+- After a user Likes or Passes another user in the swipe flow, that subject is hidden from the actor's people search until the subject makes a reciprocal swipe decision about the actor.
 - Users can block/report from discovery.
 
 ### FR-019 People Discovery (Swipe / Like / Pass)
@@ -686,7 +706,7 @@ Priority legend:
 
 1. Groups and events both exist; events may optionally link to a group.
 2. People discovery includes search + swipe + mutual Budz in MVP, while direct 1-on-1 messaging is feature-flagged and remains out of default MVP UI.
-3. Event chat and group chat are both part of MVP.
+3. Event chat, group chat, and user-to-admin support chat are part of MVP.
 4. Event status lifecycle is server-controlled and includes cancellation plus automatic time-based completion.
 5. Restaurants are stored internally with optional external PlaceId.
 6. Basic query-based browse/search exists for open events and public groups in MVP.
@@ -769,6 +789,7 @@ This appendix defines safe fallback variants for higher-risk features.
 - ChatThread
 - ChatMessage
 - Notification
+- PasswordResetToken
 - SwipeDecision
 - BudConnection
 - ModerationReport
@@ -801,3 +822,4 @@ This appendix defines safe fallback variants for higher-risk features.
 - Added explicit host event-edit and automatic event-completion rules so the requirements match the backend architecture and decision log.
 - Refreshed the data model checklist so it matches the standalone backend domain model.
 - Promoted direct chat and simulation-only checkout to feature-flagged MVP++ backend behavior.
+- Added support chat, admin-issued password reset links, and search filtering for one-sided outbound swipe decisions.

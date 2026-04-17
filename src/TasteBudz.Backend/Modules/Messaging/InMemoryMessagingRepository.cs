@@ -18,6 +18,20 @@ public sealed class InMemoryMessagingRepository(InMemoryTasteBudzStore store) : 
         }
     }
 
+    public Task<IReadOnlyCollection<ChatThread>> ListThreadsByScopeTypeAsync(ChatScopeType scopeType, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var threads = store.ChatThreads.Values
+                .Where(thread => thread.ScopeType == scopeType)
+                .OrderBy(thread => thread.CreatedAtUtc)
+                .ThenBy(thread => thread.ScopeId)
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyCollection<ChatThread>>(threads);
+        }
+    }
+
     public Task SaveThreadAsync(ChatThread thread, CancellationToken cancellationToken = default)
     {
         lock (store.SyncRoot)

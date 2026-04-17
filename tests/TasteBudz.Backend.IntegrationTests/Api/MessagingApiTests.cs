@@ -386,6 +386,69 @@ public sealed class MessagingApiTests(TasteBudzApiFactory factory) : IClassFixtu
         Assert.Contains("could not be found", sendException.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task SupportChat_SupportsUserMessagesAdminThreadsAndHubDelivery()
+    {
+        factory.ResetState();
+        using var userClient = factory.CreateClient();
+        using var adminClient = factory.CreateClient();
+
+        var userSession = await ApiTestHelpers.RegisterAsync(userClient, username: "alex", email: "alex@example.com");
+        var adminSession = await ApiTestHelpers.RegisterAsync(adminClient, username: "admin", email: "admin@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, adminSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(userClient, userSession.AccessToken);
+        ApiTestHelpers.SetBearer(adminClient, adminSession.AccessToken);
+
+        await using var userConnection = CreateConnection(userSession.AccessToken);
+        await using var adminConnection = CreateConnection(adminSession.AccessToken);
+        var received = new TaskCompletionSource<ChatMessageDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        adminConnection.On<ChatMessageDto>("MessageReceived", message => received.TrySetResult(message));
+        await userConnection.StartAsync();
+        await adminConnection.StartAsync();
+        await userConnection.InvokeAsync("JoinScope", ChatScopeType.Support, userSession.CurrentUser.UserId);
+        await adminConnection.InvokeAsync("JoinScope", ChatScopeType.Support, userSession.CurrentUser.UserId);
+
+        var sent = await userConnection.InvokeAsync<ChatMessageDto>("SendMessage", new SendChatMessageRequest
+        {
+            ScopeType = ChatScopeType.Support,
+            ScopeId = userSession.CurrentUser.UserId,
+            Body = "I need help",
+        });
+        var receivedMessage = await received.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var threadsResponse = await adminClient.GetAsync("/api/v1/admin/support/threads");
+        var threadsBody = await threadsResponse.Content.ReadAsStringAsync();
+        Assert.True(threadsResponse.StatusCode == HttpStatusCode.OK, threadsBody);
+        var threads = await threadsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<SupportThreadDto>>(ApiTestHelpers.JsonOptions);
+        var replyResponse = await adminClient.PostAsJsonAsync($"/api/v1/admin/support/threads/{userSession.CurrentUser.UserId}/messages", new SendSupportMessageRequest
+        {
+            Body = "We can help",
+        });
+        var userHistoryResponse = await userClient.GetAsync("/api/v1/support/messages");
+        var userHistory = await userHistoryResponse.Content.ReadFromJsonAsync<CursorPageResponse<ChatMessageDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal("I need help", sent.Body);
+        Assert.Equal(sent.MessageId, receivedMessage.MessageId);
+        var thread = Assert.Single(threads!);
+        Assert.Equal(userSession.CurrentUser.UserId, thread.UserId);
+        Assert.Equal(HttpStatusCode.OK, replyResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, userHistoryResponse.StatusCode);
+        Assert.Equal(2, userHistory!.Items.Count);
+    }
+
+    [Fact]
+    public async Task AdminSupportEndpoints_WhenCallerIsNotAdmin_ReturnForbidden()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+
+        var session = await ApiTestHelpers.RegisterAsync(client, username: "alex", email: "alex@example.com");
+        ApiTestHelpers.SetBearer(client, session.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/admin/support/threads");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private HubConnection CreateConnection(string accessToken) =>
         CreateConnection(factory, accessToken);
 
