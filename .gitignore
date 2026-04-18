@@ -11,3 +11,6 @@ obj/
 *.log
 *.DS_Store
 artifacts/coverage/
+artifacts/publish/
+tests/**/TestResults/
+src/TasteBudz.Web.Mvc/appsettings.Production.json

@@ -12,6 +12,8 @@
     <Compile Remove="artifacts\\**\\*.cs" />
     <Content Remove="artifacts\\**" />
     <None Remove="artifacts\\**" />
+    <Content Update="appsettings.Development.json;appsettings.Production.json" CopyToPublishDirectory="Never" />
+    <None Update="appsettings.Development.json;appsettings.Production.json" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>
