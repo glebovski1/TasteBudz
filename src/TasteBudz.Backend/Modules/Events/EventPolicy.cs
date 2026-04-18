@@ -26,9 +26,14 @@ internal static class EventPolicy
         var hasRestaurant = selectedRestaurantId.HasValue;
         var hasCuisine = !string.IsNullOrWhiteSpace(cuisineTarget);
 
-        if (hasRestaurant == hasCuisine)
+        if (!hasRestaurant && !hasCuisine)
         {
-            throw ApiException.BadRequest("Exactly one of selectedRestaurantId or cuisineTarget must be set.");
+            throw ApiException.BadRequest("Please select a restaurant or enter a cuisine target.");
+        }
+
+        if (hasRestaurant && hasCuisine)
+        {
+            throw ApiException.BadRequest("Provide either a restaurant or a cuisine target, not both.");
         }
     }
 

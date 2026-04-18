@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
@@ -84,16 +86,23 @@ public sealed record EventCreateViewModel
 
     public static IReadOnlyList<string> AvailableCuisineTags => CuisineData.AvailableCuisineTags;
 
-    public CreateEventRequest ToRequest() => new()
+    public CreateEventRequest ToRequest()
     {
-        EventType = EventType!.Value,
-        EventStartAtUtc = new DateTimeOffset(EventStartAt!.Value, TimeSpan.Zero),
-        Capacity = Capacity!.Value,
-        Title = string.IsNullOrWhiteSpace(Title) ? null : Title.Trim(),
-        CuisineTarget = string.IsNullOrWhiteSpace(CuisineTarget) ? null : CuisineTarget.Trim(),
-        SelectedRestaurantId = SelectedRestaurantId,
-        GroupId = GroupId,
-    };
+        var cuisineTarget = SelectedRestaurantId.HasValue
+            ? null
+            : string.IsNullOrWhiteSpace(CuisineTarget) ? null : CuisineTarget.Trim();
+
+        return new()
+        {
+            EventType = EventType!.Value,
+            EventStartAtUtc = new DateTimeOffset(EventStartAt!.Value, TimeSpan.Zero),
+            Capacity = Capacity!.Value,
+            Title = string.IsNullOrWhiteSpace(Title) ? null : Title.Trim(),
+            CuisineTarget = cuisineTarget,
+            SelectedRestaurantId = SelectedRestaurantId,
+            GroupId = GroupId,
+        };
+    }
 }
 
 public sealed class RestaurantPickerItem
@@ -134,6 +143,7 @@ public sealed class EventDetailViewModel
     public string? CuisineTarget { get; init; }
     public bool IsHost { get; init; }
     public bool IsParticipant { get; init; }
+    public bool IsInvited { get; init; }
     public Guid? GroupId { get; init; }
     public SelectedRestaurantItem? SelectedRestaurant { get; init; }
     public EventSlotReservationDto? SlotReservation { get; init; }
@@ -144,6 +154,8 @@ public sealed class EventDetailViewModel
     public bool CanSubmitFeedback { get; init; }
     public EventFeedbackFormViewModel FeedbackForm { get; init; } = new();
     public double? AverageRating { get; init; }
+    public IReadOnlyList<BudConnectionDto> Budz { get; init; } = [];
+    public IReadOnlyList<InvitableGroup> InvitableGroups { get; init; } = [];
 
     public static EventDetailViewModel FromDto(
         EventDetailDto dto,
@@ -151,7 +163,9 @@ public sealed class EventDetailViewModel
         Guid currentUserId,
         RestaurantDto? selectedRestaurant = null,
         IReadOnlyCollection<RestaurantSlotDto>? reservableSlots = null,
-        IReadOnlyCollection<EventFeedbackDto>? feedback = null)
+        IReadOnlyCollection<EventFeedbackDto>? feedback = null,
+        IReadOnlyList<BudConnectionDto>? budz = null,
+        IReadOnlyList<InvitableGroup>? invitableGroups = null)
     {
         var feedbackItems = (feedback ?? Array.Empty<EventFeedbackDto>())
             .Select(item => EventFeedbackItem.FromDto(item, currentUserId))
@@ -184,6 +198,9 @@ public sealed class EventDetailViewModel
                 .Select(p => EventParticipantItem.FromDto(p, dto.HostUserId))
                 .ToList(),
             IsParticipant = isJoinedParticipant,
+            IsInvited = participants.Any(p =>
+                p.UserId == currentUserId &&
+                p.State == EventParticipantState.Invited),
             Feedback = feedbackItems,
             CanSubmitFeedback = dto.Status == EventStatus.Completed && isJoinedParticipant,
             FeedbackForm = new EventFeedbackFormViewModel
@@ -193,6 +210,8 @@ public sealed class EventDetailViewModel
                 Text = existingFeedback?.Text ?? string.Empty,
             },
             AverageRating = feedbackItems.Count == 0 ? null : feedbackItems.Average(item => item.Rating),
+            Budz = budz ?? [],
+            InvitableGroups = invitableGroups ?? [],
         };
     }
 }
@@ -248,6 +267,13 @@ internal static class RestaurantMapsLinkBuilder
 
         return $"{url}&query_place_id={Uri.EscapeDataString(externalPlaceId)}";
     }
+}
+
+public sealed class InvitableGroup
+{
+    public Guid GroupId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public IReadOnlyList<GroupMemberDto> Members { get; init; } = [];
 }
 
 public sealed class EventParticipantItem

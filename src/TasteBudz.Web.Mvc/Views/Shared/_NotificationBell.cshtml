@@ -47,6 +47,12 @@
             }
         });
 
+        // Stop clicks inside the dropdown from bubbling to the nav's outside-click handler,
+        // which would close the mobile menu when the user interacts with notifications.
+        dropdown.addEventListener("click", function (e) {
+            e.stopPropagation();
+        });
+
         document.addEventListener("click", function (e) {
             if (!document.getElementById("notifBell").contains(e.target)) {
                 closeDropdown();

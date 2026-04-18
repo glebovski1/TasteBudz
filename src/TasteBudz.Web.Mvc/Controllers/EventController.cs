@@ -2,6 +2,7 @@
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -19,6 +20,7 @@ public sealed class EventController : Controller
     private readonly EventApiService eventApiService;
     private readonly GroupApiService groupApiService;
     private readonly RestaurantApiService restaurantApiService;
+    private readonly ProfileApiService profileApiService;
     private readonly ModerationApiService moderationApiService;
     private readonly UserSessionService userSessionService;
 
@@ -26,12 +28,14 @@ public sealed class EventController : Controller
         EventApiService eventApiService,
         GroupApiService groupApiService,
         RestaurantApiService restaurantApiService,
+        ProfileApiService profileApiService,
         ModerationApiService moderationApiService,
         UserSessionService userSessionService)
     {
         this.eventApiService = eventApiService;
         this.groupApiService = groupApiService;
         this.restaurantApiService = restaurantApiService;
+        this.profileApiService = profileApiService;
         this.moderationApiService = moderationApiService;
         this.userSessionService = userSessionService;
     }
@@ -43,10 +47,16 @@ public sealed class EventController : Controller
         try
         {
             var result = await eventApiService.BrowseAsync(
-                new BrowseEventsQuery { Q = q, PageSize = 20 },
+                new BrowseEventsQuery { Q = q, PageSize = 100 },
                 cancellationToken);
 
-            return View(EventIndexViewModel.FromDto(result.Items, q));
+            var completedCutoff = DateTimeOffset.UtcNow.AddDays(-7);
+            var visibleEvents = result.Items
+                .Where(e => e.Status != EventStatus.Cancelled)
+                .Where(e => e.Status != EventStatus.Completed || e.EventStartAtUtc >= completedCutoff)
+                .ToList();
+
+            return View(EventIndexViewModel.FromDto(visibleEvents, q));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -138,8 +148,65 @@ public sealed class EventController : Controller
             var reservableSlots = detail.HostUserId == currentUserId
                 ? await TryGetReservableSlotsAsync(detail, selectedRestaurant, cancellationToken)
                 : [];
+            var isHostOfClosedEvent = detail.HostUserId == currentUserId &&
+                                      detail.EventType == EventType.Closed &&
+                                      detail.Status is not EventStatus.Cancelled and not EventStatus.Completed;
+            IReadOnlyList<BudConnectionDto> budz = [];
+            IReadOnlyList<InvitableGroup> invitableGroups = [];
 
-            return View(EventDetailViewModel.FromDto(detail, participants, currentUserId, selectedRestaurant, reservableSlots, feedback));
+            if (isHostOfClosedEvent)
+            {
+                try
+                {
+                    budz = (await profileApiService.ListBudzAsync(cancellationToken)).ToList();
+                }
+                catch (BackendApiException)
+                {
+                    budz = [];
+                }
+
+                try
+                {
+                    var myGroups = await profileApiService.ListMyGroupsAsync(cancellationToken);
+                    var groupDetails = new List<InvitableGroup>();
+
+                    foreach (var group in myGroups)
+                    {
+                        try
+                        {
+                            var groupDetail = await groupApiService.GetAsync(group.GroupId, cancellationToken);
+                            groupDetails.Add(new InvitableGroup
+                            {
+                                GroupId = groupDetail.GroupId,
+                                Name = groupDetail.Name,
+                                Members = groupDetail.Members
+                                    .Where(member => member.State == GroupMemberState.Active && member.UserId != currentUserId)
+                                    .ToList(),
+                            });
+                        }
+                        catch (BackendApiException)
+                        {
+                            // Skip groups that cannot be loaded for invite suggestions.
+                        }
+                    }
+
+                    invitableGroups = groupDetails;
+                }
+                catch (BackendApiException)
+                {
+                    invitableGroups = [];
+                }
+            }
+
+            return View(EventDetailViewModel.FromDto(
+                detail,
+                participants,
+                currentUserId,
+                selectedRestaurant,
+                reservableSlots,
+                feedback,
+                budz,
+                invitableGroups));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -149,6 +216,90 @@ public sealed class EventController : Controller
         {
             TempData["StatusMessage"] = "That event could not be found.";
             return RedirectToAction(nameof(Index));
+        }
+    }
+
+    // POST /Event/Invite
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Invite(Guid eventId, List<string> usernames, CancellationToken cancellationToken)
+    {
+        if (usernames is null || usernames.Count == 0)
+        {
+            TempData["StatusMessage"] = "Please select at least one person to invite.";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
+        }
+
+        try
+        {
+            await eventApiService.InviteAsync(
+                eventId,
+                new InviteUsersRequest { Usernames = usernames },
+                cancellationToken);
+
+            TempData["StatusMessage"] = $"{usernames.Count} invitation(s) sent.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not send invites: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    // POST /Event/Accept
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Accept(Guid eventId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await eventApiService.UpdateMyParticipationAsync(
+                eventId,
+                new UpdateMyParticipationRequest { State = EventParticipantState.Joined },
+                cancellationToken);
+
+            TempData["StatusMessage"] = "You have accepted the invitation.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not accept invite: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(EventDetails), new { eventId });
+    }
+
+    // POST /Event/Decline
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Decline(Guid eventId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await eventApiService.UpdateMyParticipationAsync(
+                eventId,
+                new UpdateMyParticipationRequest { State = EventParticipantState.Declined },
+                cancellationToken);
+
+            TempData["StatusMessage"] = "Invitation declined.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not decline invite: {ex.Message}";
+            return RedirectToAction(nameof(EventDetails), new { eventId });
         }
     }
 
