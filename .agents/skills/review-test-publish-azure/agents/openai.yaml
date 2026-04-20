@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Test Publish Azure"
+  short_description: "Review, test, and publish TasteBudz"
+  default_prompt: "Use $review-test-publish-azure to review recent changes, run tests, check regressions, and publish TasteBudz on Azure."
