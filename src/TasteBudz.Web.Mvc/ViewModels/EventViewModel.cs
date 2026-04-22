@@ -15,12 +15,14 @@ public sealed class EventIndexViewModel
     public static IReadOnlyList<int> AvailableRadiusMiles { get; } = [5, 10, 25];
 
     public IReadOnlyList<EventSummaryItem> Events { get; init; } = [];
+    public bool IsQuickSearch { get; init; }
     public string? SearchQuery { get; init; }
     public bool UseMyZip { get; init; }
     public int RadiusMiles { get; init; } = DefaultRadiusMiles;
     public bool AvailabilityOnly { get; init; }
     public string? HomeAreaZipCode { get; init; }
     public bool ShowAvailabilitySetupCta { get; init; }
+    public string? RecommendationSummary { get; init; }
 
     public static EventIndexViewModel Empty => new();
 
@@ -30,15 +32,19 @@ public sealed class EventIndexViewModel
         int radiusMiles,
         bool availabilityOnly,
         string? homeAreaZipCode,
-        bool showAvailabilitySetupCta = false) =>
+        bool showAvailabilitySetupCta = false,
+        bool isQuickSearch = false,
+        string? recommendationSummary = null) =>
         new()
         {
+            IsQuickSearch = isQuickSearch,
             SearchQuery = searchQuery,
             UseMyZip = useMyZip,
             RadiusMiles = radiusMiles,
             AvailabilityOnly = availabilityOnly,
             HomeAreaZipCode = homeAreaZipCode,
             ShowAvailabilitySetupCta = showAvailabilitySetupCta,
+            RecommendationSummary = recommendationSummary,
         };
 
     public static EventIndexViewModel FromDto(
@@ -48,15 +54,19 @@ public sealed class EventIndexViewModel
         int radiusMiles = DefaultRadiusMiles,
         bool availabilityOnly = false,
         string? homeAreaZipCode = null,
-        bool showAvailabilitySetupCta = false) => new()
+        bool showAvailabilitySetupCta = false,
+        bool isQuickSearch = false,
+        string? recommendationSummary = null) => new()
         {
             Events = events.Select(EventSummaryItem.FromDto).ToList(),
+            IsQuickSearch = isQuickSearch,
             SearchQuery = searchQuery,
             UseMyZip = useMyZip,
             RadiusMiles = radiusMiles,
             AvailabilityOnly = availabilityOnly,
             HomeAreaZipCode = homeAreaZipCode,
             ShowAvailabilitySetupCta = showAvailabilitySetupCta,
+            RecommendationSummary = recommendationSummary,
         };
 }
 
@@ -70,6 +80,38 @@ public sealed class EventSummaryItem
     public int Capacity { get; init; }
     public int ActiveParticipants { get; init; }
     public string? CuisineTarget { get; init; }
+    public double? DistanceMiles { get; init; }
+    public int MatchingCuisineCount { get; init; }
+    public int MatchingBudzCount { get; init; }
+
+    public IReadOnlyList<string> RecommendationReasons
+    {
+        get
+        {
+            var reasons = new List<string>();
+
+            if (DistanceMiles.HasValue)
+            {
+                reasons.Add($"{DistanceMiles.Value:0.#} mi away");
+            }
+
+            if (MatchingCuisineCount > 0)
+            {
+                reasons.Add(MatchingCuisineCount == 1
+                    ? "Matches 1 food preference"
+                    : $"Matches {MatchingCuisineCount} food preferences");
+            }
+
+            if (MatchingBudzCount > 0)
+            {
+                reasons.Add(MatchingBudzCount == 1
+                    ? "1 Bud already joined"
+                    : $"{MatchingBudzCount} Budz already joined");
+            }
+
+            return reasons;
+        }
+    }
 
     public static EventSummaryItem FromDto(EventSummaryDto dto) => new()
     {
@@ -81,6 +123,9 @@ public sealed class EventSummaryItem
         Capacity = dto.Capacity,
         ActiveParticipants = dto.ActiveParticipants,
         CuisineTarget = dto.CuisineTarget,
+        DistanceMiles = dto.DistanceMiles,
+        MatchingCuisineCount = dto.MatchingCuisineCount,
+        MatchingBudzCount = dto.MatchingBudzCount,
     };
 }
 

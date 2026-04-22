@@ -74,6 +74,43 @@ public sealed class RestaurantApiServiceTests
     }
 
     [Fact]
+    public async Task BrowseAllAsync_PaginatesUntilAllRestaurantsAreLoaded()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+        var service = context.CreateService(client => new RestaurantApiService(client));
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    Enumerable.Range(1, 2000)
+                        .Select(index => new RestaurantDto(Guid.NewGuid(), $"Restaurant {index}", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Thai" }, null, null, null, null))
+                        .ToArray(),
+                    2001)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=2&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(Guid.NewGuid(), "Restaurant 2001", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Thai" }, null, null, null, null),
+                    },
+                    2001)));
+
+        var restaurants = await service.BrowseAllAsync();
+
+        Assert.Equal(2001, restaurants.Count);
+        Assert.Contains(restaurants, restaurant => restaurant.Name == "Restaurant 2001");
+        Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
+        context.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task ImportFromOverpassAsync_SendsExpectedRoute()
     {
         var context = new BackendApiServiceTestContext();
@@ -177,6 +214,12 @@ public sealed class RestaurantApiServiceTests
                 HttpStatusCode.OK,
                 new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(2), 4, DateTimeOffset.UtcNow, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
         context.BackendHandler.Enqueue(
+            HttpMethod.Patch,
+            $"/api/v1/restaurant-admin/slots/{slotId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(3), 6, DateTimeOffset.UtcNow, 4, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
+        context.BackendHandler.Enqueue(
             HttpMethod.Post,
             $"/api/v1/restaurant-admin/slots/{slotId}/cancellation",
             (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
@@ -218,6 +261,11 @@ public sealed class RestaurantApiServiceTests
             Capacity = 4,
             CutoffAtUtc = DateTimeOffset.UtcNow,
         });
+        await service.UpdateManagedSlotAsync(slotId, new UpdateRestaurantSlotRequest
+        {
+            Capacity = 6,
+            MinThresholdForDiscount = 4,
+        });
         await service.CancelManagedSlotAsync(slotId, new CancelRestaurantSlotRequest { Reason = "Closed." });
 
         Assert.Contains(
@@ -232,6 +280,9 @@ public sealed class RestaurantApiServiceTests
         Assert.Contains(
             "\"name\":\"Updated\"",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/restaurants/{restaurantId}" && request.Method == HttpMethod.Patch).Body);
+        Assert.Contains(
+            "\"capacity\":6",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/slots/{slotId}" && request.Method == HttpMethod.Patch).Body);
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();
     }

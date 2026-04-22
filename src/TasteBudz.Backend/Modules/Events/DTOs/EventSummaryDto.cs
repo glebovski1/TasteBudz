@@ -14,4 +14,7 @@ public sealed record EventSummaryDto(
     Guid HostUserId,
     Guid? SelectedRestaurantId,
     string? CuisineTarget,
-    Guid? GroupId);
+    Guid? GroupId,
+    double? DistanceMiles = null,
+    int MatchingCuisineCount = 0,
+    int MatchingBudzCount = 0);

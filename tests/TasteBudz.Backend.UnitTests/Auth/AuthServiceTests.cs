@@ -1,4 +1,5 @@
 // Unit tests for account registration defaults and session creation.
+using Microsoft.AspNetCore.Http;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
@@ -143,6 +144,9 @@ public sealed class AuthServiceTests
         var storedTokens = await authRepository.ListPasswordResetTokensForUserAsync(user.CurrentUser.UserId);
 
         Assert.Equal(user.CurrentUser.UserId, token.UserId);
+        Assert.True(Uri.TryCreate(token.ResetUrl, UriKind.Absolute, out var resetUrl));
+        Assert.Equal("/Account/ResetPassword", resetUrl!.AbsolutePath);
+        Assert.Contains($"token={Uri.EscapeDataString(token.ResetToken)}", resetUrl.Query);
         Assert.Equal(user.CurrentUser.UserId, login.CurrentUser.UserId);
         Assert.NotNull(oldSession!.RevokedAtUtc);
         Assert.NotNull(storedTokens.Single().UsedAtUtc);
@@ -267,7 +271,20 @@ public sealed class AuthServiceTests
         store.Reset();
         var authRepository = new InMemoryAuthRepository(store);
         var profileRepository = new InMemoryProfileRepository(store);
-        var service = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock ?? new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero)));
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Scheme = "https";
+        httpContext.Request.Host = new HostString("tastebudz.test");
+        var httpContextAccessor = new HttpContextAccessor
+        {
+            HttpContext = httpContext,
+        };
+        var service = new AuthService(
+            authRepository,
+            profileRepository,
+            new Pbkdf2PasswordHasher(),
+            new SecureTokenGenerator(),
+            clock ?? new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero)),
+            httpContextAccessor: httpContextAccessor);
         return (service, authRepository, profileRepository);
     }
 }

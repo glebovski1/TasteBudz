@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
@@ -256,6 +257,75 @@ public sealed class EventBrowseServiceTests
         Assert.Equal(1, result.TotalCount);
     }
 
+    [Fact]
+    public async Task BrowseAsync_RecommendedModeRanksByDistancePreferencesAndBudz()
+    {
+        var services = CreateServices();
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var buddyUserId = Guid.NewGuid();
+
+        await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, hostUserId, "45220", "host", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, buddyUserId, "45220", "buddy", services.Clock);
+        await services.ProfileRepository.SavePreferencesAsync(new UserPreferences(
+            currentUserId,
+            new[] { "Sushi" },
+            SpiceTolerance.Medium,
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            services.Clock.UtcNow));
+        await services.DiscoveryRepository.SaveBudConnectionAsync(new BudConnection(
+            Guid.NewGuid(),
+            currentUserId,
+            buddyUserId,
+            BudConnectionState.Connected,
+            services.Clock.UtcNow,
+            null));
+
+        var bestMatch = CreateOpenEvent(
+            hostUserId,
+            "Best match",
+            services.Clock.UtcNow.AddDays(2),
+            selectedRestaurantId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        var nearbyOnly = CreateOpenEvent(
+            hostUserId,
+            "Nearby only",
+            services.Clock.UtcNow.AddDays(2).AddHours(1),
+            selectedRestaurantId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        var farOnly = CreateOpenEvent(
+            hostUserId,
+            "Far only",
+            services.Clock.UtcNow.AddDays(2).AddHours(2),
+            selectedRestaurantId: Guid.Parse("55555555-5555-5555-5555-555555555555"));
+
+        await SaveEventAsync(services.EventRepository, bestMatch, hostUserId, services.Clock);
+        await SaveEventAsync(services.EventRepository, nearbyOnly, hostUserId, services.Clock);
+        await SaveEventAsync(services.EventRepository, farOnly, hostUserId, services.Clock);
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(
+            bestMatch.Id,
+            buddyUserId,
+            EventParticipantState.Joined,
+            null,
+            services.Clock.UtcNow,
+            services.Clock.UtcNow,
+            null,
+            null));
+
+        var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
+        {
+            Recommended = true,
+            PageSize = 10,
+        });
+        var items = result.Items.ToArray();
+
+        Assert.Equal(new[] { "Best match", "Nearby only", "Far only" }, items.Select(item => item.Title));
+        Assert.Equal(1, items[0].MatchingBudzCount);
+        Assert.True(items[0].MatchingCuisineCount > 0);
+        Assert.True(items[0].DistanceMiles.HasValue);
+        Assert.Equal(0, items[2].MatchingCuisineCount);
+    }
+
     private static Event CreateOpenEvent(
         Guid hostUserId,
         string title,
@@ -306,17 +376,19 @@ public sealed class EventBrowseServiceTests
         store.Reset();
         var eventRepository = new InMemoryEventRepository(store);
         var profileRepository = new InMemoryProfileRepository(store);
+        var discoveryRepository = new InMemoryDiscoveryRepository(store);
         var restaurantRepository = new InMemoryRestaurantRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var browseService = new EventBrowseService(eventRepository, restaurantRepository, profileRepository, lifecycleService);
+        var browseService = new EventBrowseService(eventRepository, restaurantRepository, profileRepository, discoveryRepository, lifecycleService);
 
-        return new TestServices(clock, eventRepository, profileRepository, browseService);
+        return new TestServices(clock, eventRepository, profileRepository, discoveryRepository, browseService);
     }
 
     private sealed record TestServices(
         TestClock Clock,
         IEventRepository EventRepository,
         IProfileRepository ProfileRepository,
+        IDiscoveryRepository DiscoveryRepository,
         EventBrowseService BrowseService);
 }

@@ -1,4 +1,6 @@
 // Business rules for registration, login, token refresh, logout, and account deletion.
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -21,6 +23,7 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     ITokenGenerator tokenGenerator,
     IClock clock,
+    IHttpContextAccessor? httpContextAccessor = null,
     AuditLogService? auditLogService = null,
     IPersistenceTransactionRunner? transactionRunner = null)
 {
@@ -218,7 +221,7 @@ public sealed class AuthService(
             account.Id,
             account.Username,
             rawToken,
-            $"/Account/ResetPassword?token={Uri.EscapeDataString(rawToken)}",
+            BuildPasswordResetUrl(rawToken),
             resetToken.ExpiresAtUtc);
     }
 
@@ -401,6 +404,19 @@ public sealed class AuthService(
         {
             throw ApiException.Forbidden("Only admins can manage password reset requests.");
         }
+    }
+
+    private string BuildPasswordResetUrl(string rawToken)
+    {
+        var request = httpContextAccessor?.HttpContext?.Request
+            ?? throw new InvalidOperationException("Password reset URLs require an active HTTP request context.");
+
+        return UriHelper.BuildAbsolute(
+            request.Scheme,
+            request.Host,
+            request.PathBase,
+            "/Account/ResetPassword",
+            QueryString.Create("token", rawToken));
     }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();

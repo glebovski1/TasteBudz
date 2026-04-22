@@ -126,6 +126,33 @@ public sealed class RestaurantAdminController(
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateSlot(RestaurantSlotEditForm form, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Slot changes are invalid.";
+            return RedirectToAction(nameof(Manage), new { restaurantId = form.RestaurantId });
+        }
+
+        try
+        {
+            await restaurantApiService.UpdateManagedSlotAsync(form.SlotId, form.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "Restaurant slot updated.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Slot update failed: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Manage), new { restaurantId = form.RestaurantId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelSlot(Guid restaurantId, Guid slotId, string reason, CancellationToken cancellationToken)
     {
         try

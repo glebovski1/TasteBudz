@@ -78,6 +78,7 @@
                     <label asp-for="SlotForm.MinThresholdForDiscount"></label>
                     <input asp-for="SlotForm.MinThresholdForDiscount" type="number" min="2" max="8" />
                 </div>
+                <p class="muted-note">Optional discount threshold turns on simulation once enough joined guests confirm before cutoff.</p>
                 <div class="button-row">
                     <button type="submit" class="button button--primary">Create Slot</button>
                 </div>
@@ -96,7 +97,7 @@
             <div class="panel__items">
                 @foreach (var slot in Model.Slots)
                 {
-                    <article class="summary-card">
+                    <article class="summary-card summary-card--split">
                         <div>
                             <strong>@slot.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</strong>
                             <p class="muted-note">
@@ -115,23 +116,74 @@
                             }
                         </div>
 
-                        @if (slot.Status == TasteBudz.Backend.Domain.RestaurantSlotStatus.Open)
-                        {
-                            <form asp-action="CancelSlot" method="post" class="stack" style="margin-left:auto; min-width:220px;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="restaurantId" value="@Model.Restaurant.RestaurantId" />
-                                <input type="hidden" name="slotId" value="@slot.SlotId" />
-                                <div class="field">
-                                    <label for="reason-@slot.SlotId">Cancel reason</label>
-                                    <input id="reason-@slot.SlotId" name="reason" maxlength="250" placeholder="Reason" />
-                                </div>
-                                <button type="submit"
-                                        class="button button--danger"
-                                        onclick="return confirm('Cancel this slot and any linked event?')">
-                                    Cancel Slot
-                                </button>
-                            </form>
-                        }
+                        <div class="summary-card__actions">
+                            @if (slot.Status == TasteBudz.Backend.Domain.RestaurantSlotStatus.Open)
+                            {
+                                <form asp-action="UpdateSlot" method="post" class="stack">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="RestaurantId" value="@Model.Restaurant.RestaurantId" />
+                                    <input type="hidden" name="SlotId" value="@slot.SlotId" />
+                                    <div class="slot-form-grid">
+                                        <div class="field">
+                                            <label for="slot-start-@slot.SlotId">Starts</label>
+                                            <input id="slot-start-@slot.SlotId"
+                                                   name="StartsAt"
+                                                   type="datetime-local"
+                                                   value="@slot.StartsAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
+                                        </div>
+                                        <div class="field">
+                                            <label for="slot-end-@slot.SlotId">Ends</label>
+                                            <input id="slot-end-@slot.SlotId"
+                                                   name="EndsAt"
+                                                   type="datetime-local"
+                                                   value="@slot.EndsAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
+                                        </div>
+                                        <div class="field">
+                                            <label for="slot-capacity-@slot.SlotId">Capacity</label>
+                                            <input id="slot-capacity-@slot.SlotId"
+                                                   name="Capacity"
+                                                   type="number"
+                                                   min="2"
+                                                   max="8"
+                                                   value="@slot.Capacity" />
+                                        </div>
+                                        <div class="field">
+                                            <label for="slot-cutoff-@slot.SlotId">Cutoff</label>
+                                            <input id="slot-cutoff-@slot.SlotId"
+                                                   name="CutoffAt"
+                                                   type="datetime-local"
+                                                   value="@slot.CutoffAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
+                                        </div>
+                                        <div class="field field--full">
+                                            <label for="slot-threshold-@slot.SlotId">Discount Threshold</label>
+                                            <input id="slot-threshold-@slot.SlotId"
+                                                   name="MinThresholdForDiscount"
+                                                   type="number"
+                                                   min="2"
+                                                   max="8"
+                                                   value="@slot.MinThresholdForDiscount" />
+                                        </div>
+                                    </div>
+                                    <p class="muted-note">Open slots can be edited until a host reserves them or you cancel them.</p>
+                                    <button type="submit" class="button button--secondary">Update Slot</button>
+                                </form>
+
+                                <form asp-action="CancelSlot" method="post" class="stack">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="restaurantId" value="@Model.Restaurant.RestaurantId" />
+                                    <input type="hidden" name="slotId" value="@slot.SlotId" />
+                                    <div class="field">
+                                        <label for="reason-@slot.SlotId">Cancel reason</label>
+                                        <input id="reason-@slot.SlotId" name="reason" maxlength="250" placeholder="Reason" />
+                                    </div>
+                                    <button type="submit"
+                                            class="button button--danger"
+                                            onclick="return confirm('Cancel this slot and any linked event?')">
+                                        Cancel Slot
+                                    </button>
+                                </form>
+                            }
+                        </div>
                     </article>
                 }
             </div>

@@ -212,6 +212,11 @@ public sealed class EventApiService
             builder.Add("availabilityOnly", bool.TrueString.ToLowerInvariant());
         }
 
+        if (query.Recommended)
+        {
+            builder.Add("recommended", bool.TrueString.ToLowerInvariant());
+        }
+
         if (query.GroupId.HasValue)
         {
             builder.Add("groupId", query.GroupId.Value.ToString());

@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using System.Net;
 using Microsoft.AspNetCore.Mvc;
+using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Moderation;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
@@ -72,7 +74,8 @@ public sealed class EventController : Controller
                         selectedRadiusMiles,
                         availabilityOnly,
                         profile.HomeAreaZipCode,
-                        showAvailabilitySetupCta: true));
+                        showAvailabilitySetupCta: true,
+                        isQuickSearch: false));
                 }
             }
 
@@ -86,12 +89,7 @@ public sealed class EventController : Controller
                     PageSize = 100,
                 },
                 cancellationToken);
-
-            var completedCutoff = DateTimeOffset.UtcNow.AddDays(-7);
-            var visibleEvents = result.Items
-                .Where(e => e.Status != EventStatus.Cancelled)
-                .Where(e => e.Status != EventStatus.Completed || e.EventStartAtUtc >= completedCutoff)
-                .ToList();
+            var visibleEvents = FilterVisibleEvents(result);
 
             return View(EventIndexViewModel.FromDto(
                 visibleEvents,
@@ -99,7 +97,8 @@ public sealed class EventController : Controller
                 useMyZip,
                 selectedRadiusMiles,
                 availabilityOnly,
-                profile.HomeAreaZipCode));
+                profile.HomeAreaZipCode,
+                isQuickSearch: false));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -112,7 +111,47 @@ public sealed class EventController : Controller
                 useMyZip,
                 selectedRadiusMiles,
                 availabilityOnly,
-                null));
+                null,
+                isQuickSearch: false));
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> QuickSearch(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profile = await profileApiService.GetMyProfileAsync(cancellationToken);
+            var result = await eventApiService.BrowseAsync(
+                new BrowseEventsQuery
+                {
+                    Recommended = true,
+                    PageSize = 100,
+                },
+                cancellationToken);
+            var visibleEvents = FilterVisibleEvents(result);
+            var recommendationSummary = await BuildQuickSearchSummaryAsync(profile, cancellationToken);
+
+            return View("Index", EventIndexViewModel.FromDto(
+                visibleEvents,
+                homeAreaZipCode: profile.HomeAreaZipCode,
+                isQuickSearch: true,
+                recommendationSummary: recommendationSummary));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch
+        {
+            return View("Index", EventIndexViewModel.EmptyWithFilters(
+                null,
+                false,
+                EventIndexViewModel.DefaultRadiusMiles,
+                false,
+                null,
+                isQuickSearch: true,
+                recommendationSummary: "Automatic quick search is temporarily unavailable."));
         }
     }
 
@@ -607,14 +646,12 @@ public sealed class EventController : Controller
 
         try
         {
-            var restaurants = await restaurantApiService.BrowseAsync(
-                new BrowseRestaurantsQuery { PageSize = 2000 },
-                cancellationToken);
+            var restaurants = await restaurantApiService.BrowseAllAsync(cancellationToken: cancellationToken);
 
             return model with
             {
                 GroupName = groupName,
-                Restaurants = restaurants.Items
+                Restaurants = restaurants
                     .Select(RestaurantPickerItem.FromDto)
                     .ToList(),
             };
@@ -623,6 +660,67 @@ public sealed class EventController : Controller
         {
             return model with { GroupName = groupName, Restaurants = [] };
         }
+    }
+
+    private static List<EventSummaryDto> FilterVisibleEvents(ListResponse<EventSummaryDto> result)
+    {
+        var completedCutoff = DateTimeOffset.UtcNow.AddDays(-7);
+        return result.Items
+            .Where(item => item.Status != EventStatus.Cancelled)
+            .Where(item => item.Status != EventStatus.Completed || item.EventStartAtUtc >= completedCutoff)
+            .ToList();
+    }
+
+    private async Task<string> BuildQuickSearchSummaryAsync(ProfileDto profile, CancellationToken cancellationToken)
+    {
+        var signals = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(profile.HomeAreaZipCode))
+        {
+            signals.Add($"your ZIP {profile.HomeAreaZipCode}");
+        }
+
+        try
+        {
+            var preferences = await profileApiService.GetMyPreferencesAsync(cancellationToken);
+
+            if (preferences.CuisineTags.Count > 0)
+            {
+                signals.Add(preferences.CuisineTags.Count == 1
+                    ? "1 saved cuisine preference"
+                    : $"{preferences.CuisineTags.Count} saved cuisine preferences");
+            }
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            // Quick search still works if the optional summary metadata cannot be loaded.
+        }
+
+        try
+        {
+            var budz = await profileApiService.ListBudzAsync(cancellationToken);
+
+            if (budz.Count > 0)
+            {
+                signals.Add(budz.Count == 1 ? "1 Bud connection" : $"{budz.Count} Bud connections");
+            }
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            // Quick search still works if the optional summary metadata cannot be loaded.
+        }
+
+        return signals.Count == 0
+            ? "Auto-ranking open events using your saved profile signals."
+            : $"Auto-ranking open events using {string.Join(", ", signals)}.";
     }
 
     [HttpPost]

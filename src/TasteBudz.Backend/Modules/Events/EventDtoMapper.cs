@@ -9,7 +9,12 @@ namespace TasteBudz.Backend.Modules.Events;
 /// </summary>
 internal static class EventDtoMapper
 {
-    internal static EventSummaryDto ToSummary(Event eventRecord, int activeParticipants) =>
+    internal static EventSummaryDto ToSummary(
+        Event eventRecord,
+        int activeParticipants,
+        double? distanceMiles = null,
+        int matchingCuisineCount = 0,
+        int matchingBudzCount = 0) =>
         new(
             eventRecord.Id,
             eventRecord.Title,
@@ -22,7 +27,10 @@ internal static class EventDtoMapper
             eventRecord.HostUserId,
             eventRecord.SelectedRestaurantId,
             eventRecord.CuisineTarget,
-            eventRecord.GroupId);
+            eventRecord.GroupId,
+            distanceMiles,
+            matchingCuisineCount,
+            matchingBudzCount);
 
     internal static EventDetailDto ToDetail(
         Event eventRecord,

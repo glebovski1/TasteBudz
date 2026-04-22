@@ -514,6 +514,7 @@ Priority legend:
 
 - Users can browse open events that match cuisine, time window, distance, price tier, and availability filters.
 - Event browse can explicitly use the signed-in user's home ZIP code and saved availability windows when the user turns those filters on.
+- Event browse may expose an explicit Quick Search mode/tab that ranks open events using home ZIP distance, saved cuisine preferences, and Budz already joined; this personalization happens only when the user selects that mode.
 - Users can filter events by status.
 - Users can browse/search public groups by name and visibility.
 - Blank browse/search state does not silently personalize event results from profile data.

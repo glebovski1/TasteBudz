@@ -428,10 +428,10 @@ public sealed class AdminController : Controller
             return (false, []);
         }
 
-        var restaurants = await restaurantApiService.BrowseAsync(new BrowseRestaurantsQuery { PageSize = 2000 }, cancellationToken);
-        var items = new List<RestaurantAssignmentPanelItem>(restaurants.Items.Count);
+        var restaurants = await restaurantApiService.BrowseAllAsync(cancellationToken: cancellationToken);
+        var items = new List<RestaurantAssignmentPanelItem>(restaurants.Count);
 
-        foreach (var restaurant in restaurants.Items)
+        foreach (var restaurant in restaurants)
         {
             IReadOnlyCollection<RestaurantAdminAssignmentDto> assignments;
 

@@ -112,7 +112,7 @@ public sealed class RestaurantCatalogAdminService(
         CancellationToken cancellationToken)
     {
         var name = NormalizeRequired(request.Name, "name");
-        var streetAddress = NormalizeOptional(request.StreetAddress) ?? currentRestaurant?.StreetAddress;
+        var streetAddress = NormalizeOptional(request.StreetAddress);
         var city = NormalizeRequired(request.City, "city");
         var state = NormalizeRequired(request.State, "state").ToUpperInvariant();
         var zipCode = NormalizeRequired(request.ZipCode, "zipCode");

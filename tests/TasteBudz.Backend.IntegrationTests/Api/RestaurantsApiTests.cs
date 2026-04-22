@@ -122,6 +122,7 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
                 [
                     new RestaurantGeocodeResult(39.1111, -84.5001, "osm:node:9001"),
                     new RestaurantGeocodeResult(39.2222, -84.4002, "osm:node:9002"),
+                    new RestaurantGeocodeResult(39.3333, -84.3003, "osm:node:9003"),
                 ]);
 
                 services.RemoveAll<IRestaurantGeocodingService>();
@@ -167,6 +168,21 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
             ApiTestHelpers.JsonOptions);
         var updated = await updateResponse.Content.ReadFromJsonAsync<AdminRestaurantCatalogItemDto>(ApiTestHelpers.JsonOptions);
 
+        var clearAddressResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/admin/restaurants/{created.RestaurantId}",
+            new SaveRestaurantCatalogRequest
+            {
+                Name = "Elm Street Sushi",
+                StreetAddress = "   ",
+                City = "Cincinnati",
+                State = "OH",
+                ZipCode = "45220",
+                PriceTier = PriceTier.Three,
+                CuisineTags = new[] { "Japanese", "Sushi", "Thai" },
+            },
+            ApiTestHelpers.JsonOptions);
+        var clearedAddress = await clearAddressResponse.Content.ReadFromJsonAsync<AdminRestaurantCatalogItemDto>(ApiTestHelpers.JsonOptions);
+
         var archiveResponse = await client.PostAsync($"/api/v1/admin/restaurants/{created.RestaurantId}/archive", null);
         var browseAfterArchiveResponse = await client.GetAsync("/api/v1/restaurants?q=Elm&pageSize=10");
         var browseAfterArchive = await browseAfterArchiveResponse.Content.ReadFromJsonAsync<ListResponse<RestaurantDto>>(ApiTestHelpers.JsonOptions);
@@ -184,6 +200,9 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
         Assert.Equal(39.2222, updated!.Latitude);
         Assert.Equal(PriceTier.Three, updated.PriceTier);
         Assert.Contains("Thai", updated.CuisineTags);
+        Assert.Equal(HttpStatusCode.OK, clearAddressResponse.StatusCode);
+        Assert.Null(clearedAddress!.StreetAddress);
+        Assert.Equal(39.3333, clearedAddress.Latitude);
 
         Assert.Equal(HttpStatusCode.NoContent, archiveResponse.StatusCode);
         Assert.Empty(browseAfterArchive!.Items);

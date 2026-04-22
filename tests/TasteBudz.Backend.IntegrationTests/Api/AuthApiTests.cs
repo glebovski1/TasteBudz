@@ -132,7 +132,9 @@ public sealed class AuthApiTests(TasteBudzApiFactory factory) : IClassFixture<Ta
         Assert.Equal(HttpStatusCode.OK, tokenResponse.StatusCode);
         Assert.Equal(userSession.CurrentUser.UserId, token.UserId);
         Assert.False(string.IsNullOrWhiteSpace(token.ResetToken));
-        Assert.StartsWith("/Account/ResetPassword?token=", token.ResetUrl, StringComparison.Ordinal);
+        Assert.True(Uri.TryCreate(token.ResetUrl, UriKind.Absolute, out var resetUrl));
+        Assert.Equal("/Account/ResetPassword", resetUrl!.AbsolutePath);
+        Assert.Contains($"token={Uri.EscapeDataString(token.ResetToken)}", resetUrl.Query);
         Assert.Equal(HttpStatusCode.NoContent, resetResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, oldSessionResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);

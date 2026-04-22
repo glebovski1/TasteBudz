@@ -2,6 +2,7 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
 
@@ -14,6 +15,7 @@ public sealed class EventBrowseService(
     IEventRepository eventRepository,
     IRestaurantRepository restaurantRepository,
     IProfileRepository profileRepository,
+    IDiscoveryRepository discoveryRepository,
     EventLifecycleService lifecycleService)
 {
     public async Task<ListResponse<EventSummaryDto>> BrowseAsync(Guid currentUserId, BrowseEventsQuery query, CancellationToken cancellationToken = default)
@@ -29,17 +31,26 @@ public sealed class EventBrowseService(
         var restaurants = (await restaurantRepository.ListAsync(cancellationToken: cancellationToken)).ToDictionary(restaurant => restaurant.Id);
         var currentProfile = await profileRepository.GetProfileAsync(currentUserId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
-        var referencePoint = string.IsNullOrWhiteSpace(query.ZipCode)
+        var referenceZipCode = !string.IsNullOrWhiteSpace(query.ZipCode)
+            ? query.ZipCode.Trim()
+            : query.Recommended ? currentProfile.HomeAreaZipCode : null;
+        var referencePoint = string.IsNullOrWhiteSpace(referenceZipCode)
             ? null
-            : await restaurantRepository.GetZipCoordinatesAsync(query.ZipCode.Trim(), cancellationToken);
+            : await restaurantRepository.GetZipCoordinatesAsync(referenceZipCode, cancellationToken);
         var recurringAvailability = query.AvailabilityOnly
             ? await profileRepository.ListRecurringAvailabilityAsync(currentUserId, cancellationToken)
             : Array.Empty<RecurringAvailabilityWindow>();
         var oneOffAvailability = query.AvailabilityOnly
             ? await profileRepository.ListOneOffAvailabilityAsync(currentUserId, cancellationToken)
             : Array.Empty<OneOffAvailabilityWindow>();
+        var currentPreferences = query.Recommended
+            ? await profileRepository.GetPreferencesAsync(currentUserId, cancellationToken)
+            : null;
+        var budUserIds = query.Recommended
+            ? await ListConnectedBudUserIdsAsync(currentUserId, cancellationToken)
+            : [];
 
-        var filtered = new List<Event>();
+        var filtered = new List<BrowseCandidate>();
 
         foreach (var eventRecord in synchronized)
         {
@@ -94,16 +105,43 @@ public sealed class EventBrowseService(
                 continue;
             }
 
-            if (query.RadiusMiles.HasValue && !await MatchesDistanceAsync(eventRecord, restaurants, referencePoint, currentProfile, query.RadiusMiles.Value, cancellationToken))
+            var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
+            var activeParticipants = participants.Count(participant => participant.State == EventParticipantState.Joined);
+            var distanceMiles = await GetDistanceMilesAsync(eventRecord, restaurants, referencePoint, currentProfile, cancellationToken);
+
+            if (query.RadiusMiles.HasValue &&
+                referencePoint.HasValue &&
+                (!distanceMiles.HasValue || distanceMiles.Value > query.RadiusMiles.Value))
             {
                 continue;
             }
 
-            filtered.Add(eventRecord);
+            var matchingCuisineCount = query.Recommended
+                ? CountMatchingCuisinePreferences(eventRecord, restaurants, currentPreferences)
+                : 0;
+            var matchingBudzCount = query.Recommended
+                ? CountMatchingBudz(participants, budUserIds, currentUserId)
+                : 0;
+
+            filtered.Add(new BrowseCandidate(
+                eventRecord,
+                activeParticipants,
+                distanceMiles,
+                matchingCuisineCount,
+                matchingBudzCount,
+                query.Recommended
+                    ? ComputeRecommendationScore(distanceMiles, matchingCuisineCount, matchingBudzCount)
+                    : 0));
         }
 
-        var ordered = filtered
-            .OrderBy(eventRecord => eventRecord.EventStartAtUtc)
+        var ordered = (query.Recommended
+                ? filtered
+                    .OrderByDescending(candidate => candidate.RecommendationScore)
+                    .ThenBy(candidate => candidate.Event.EventStartAtUtc)
+                    .ThenBy(candidate => candidate.Event.Id)
+                : filtered
+                    .OrderBy(candidate => candidate.Event.EventStartAtUtc)
+                    .ThenBy(candidate => candidate.Event.Id))
             .ToArray();
         var pageItems = ordered
             .Skip((query.Page - 1) * query.PageSize)
@@ -111,10 +149,14 @@ public sealed class EventBrowseService(
             .ToArray();
         var items = new List<EventSummaryDto>(pageItems.Length);
 
-        foreach (var eventRecord in pageItems)
+        foreach (var candidate in pageItems)
         {
-            var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
-            items.Add(EventDtoMapper.ToSummary(eventRecord, participants.Count(participant => participant.State == EventParticipantState.Joined)));
+            items.Add(EventDtoMapper.ToSummary(
+                candidate.Event,
+                candidate.ActiveParticipants,
+                candidate.DistanceMiles,
+                candidate.MatchingCuisineCount,
+                candidate.MatchingBudzCount));
         }
 
         return new ListResponse<EventSummaryDto>(items, ordered.Length);
@@ -149,33 +191,30 @@ public sealed class EventBrowseService(
         restaurants.TryGetValue(eventRecord.SelectedRestaurantId.Value, out var restaurant) &&
         restaurant.PriceTier == priceTier;
 
-    private async Task<bool> MatchesDistanceAsync(
+    private async Task<double?> GetDistanceMilesAsync(
         Event eventRecord,
         IReadOnlyDictionary<Guid, Restaurant> restaurants,
         (double Latitude, double Longitude)? queryPoint,
         UserProfile currentProfile,
-        double radiusMiles,
         CancellationToken cancellationToken)
     {
         if (!queryPoint.HasValue)
         {
-            return true;
+            return null;
         }
 
         var location = await ResolveEventLocationAsync(eventRecord, restaurants, currentProfile, cancellationToken);
 
         if (!location.HasValue)
         {
-            return false;
+            return null;
         }
 
-        var distance = RestaurantSearchService.CalculateDistanceMiles(
+        return RestaurantSearchService.CalculateDistanceMiles(
             queryPoint.Value.Latitude,
             queryPoint.Value.Longitude,
             location.Value.Latitude,
             location.Value.Longitude);
-
-        return distance <= radiusMiles;
     }
 
     private async Task<(double Latitude, double Longitude)?> ResolveEventLocationAsync(
@@ -223,4 +262,83 @@ public sealed class EventBrowseService(
             eventTime >= window.StartTime &&
             eventTime <= window.EndTime);
     }
+
+    private static int CountMatchingCuisinePreferences(
+        Event eventRecord,
+        IReadOnlyDictionary<Guid, Restaurant> restaurants,
+        UserPreferences? preferences)
+    {
+        if (preferences is null || preferences.CuisineTags.Count == 0)
+        {
+            return 0;
+        }
+
+        var matches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var preference in preferences.CuisineTags.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            if (!string.IsNullOrWhiteSpace(eventRecord.CuisineTarget) &&
+                eventRecord.CuisineTarget.Contains(preference, StringComparison.OrdinalIgnoreCase))
+            {
+                matches.Add(preference);
+            }
+        }
+
+        if (eventRecord.SelectedRestaurantId.HasValue &&
+            restaurants.TryGetValue(eventRecord.SelectedRestaurantId.Value, out var restaurant))
+        {
+            foreach (var tag in restaurant.CuisineTags)
+            {
+                if (preferences.CuisineTags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+                {
+                    matches.Add(tag);
+                }
+            }
+        }
+
+        return matches.Count;
+    }
+
+    private static int CountMatchingBudz(
+        IReadOnlyCollection<EventParticipant> participants,
+        HashSet<Guid> budUserIds,
+        Guid currentUserId) =>
+        participants
+            .Where(participant => participant.State == EventParticipantState.Joined)
+            .Select(participant => participant.UserId)
+            .Where(userId => userId != currentUserId && budUserIds.Contains(userId))
+            .Distinct()
+            .Count();
+
+    private async Task<HashSet<Guid>> ListConnectedBudUserIdsAsync(Guid currentUserId, CancellationToken cancellationToken)
+    {
+        var connections = await discoveryRepository.ListBudConnectionsAsync(cancellationToken);
+        return connections
+            .Where(connection => connection.State == BudConnectionState.Connected)
+            .Where(connection => connection.UserOneId == currentUserId || connection.UserTwoId == currentUserId)
+            .Select(connection => connection.UserOneId == currentUserId ? connection.UserTwoId : connection.UserOneId)
+            .ToHashSet();
+    }
+
+    private static double ComputeRecommendationScore(double? distanceMiles, int matchingCuisineCount, int matchingBudzCount)
+    {
+        var score = 0d;
+
+        if (distanceMiles.HasValue)
+        {
+            score += Math.Max(0, 30 - Math.Min(distanceMiles.Value, 30));
+        }
+
+        score += Math.Min(matchingCuisineCount, 3) * 20d;
+        score += Math.Min(matchingBudzCount, 3) * 35d;
+        return score;
+    }
+
+    private sealed record BrowseCandidate(
+        Event Event,
+        int ActiveParticipants,
+        double? DistanceMiles,
+        int MatchingCuisineCount,
+        int MatchingBudzCount,
+        double RecommendationScore);
 }

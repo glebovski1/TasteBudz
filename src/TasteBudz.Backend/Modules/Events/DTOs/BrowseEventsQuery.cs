@@ -27,6 +27,8 @@ public sealed class BrowseEventsQuery
 
     public bool AvailabilityOnly { get; init; }
 
+    public bool Recommended { get; init; }
+
     public Guid? GroupId { get; init; }
 
     [Range(1, int.MaxValue)]

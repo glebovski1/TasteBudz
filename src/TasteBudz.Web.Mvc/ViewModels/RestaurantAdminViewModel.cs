@@ -70,3 +70,34 @@ public sealed class RestaurantSlotForm
         MinThresholdForDiscount = MinThresholdForDiscount,
     };
 }
+
+public sealed class RestaurantSlotEditForm
+{
+    public Guid RestaurantId { get; init; }
+    public Guid SlotId { get; init; }
+
+    [Required]
+    public DateTime? StartsAt { get; set; }
+
+    [Required]
+    public DateTime? EndsAt { get; set; }
+
+    [Required]
+    [Range(2, 8)]
+    public int? Capacity { get; set; }
+
+    [Required]
+    public DateTime? CutoffAt { get; set; }
+
+    [Range(2, 8)]
+    public int? MinThresholdForDiscount { get; set; }
+
+    public UpdateRestaurantSlotRequest ToRequest() => new()
+    {
+        StartsAtUtc = new DateTimeOffset(StartsAt!.Value, TimeSpan.Zero),
+        EndsAtUtc = new DateTimeOffset(EndsAt!.Value, TimeSpan.Zero),
+        Capacity = Capacity!.Value,
+        CutoffAtUtc = new DateTimeOffset(CutoffAt!.Value, TimeSpan.Zero),
+        MinThresholdForDiscount = MinThresholdForDiscount,
+    };
+}

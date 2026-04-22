@@ -73,6 +73,30 @@ public sealed class EventApiServiceTests
     }
 
     [Fact]
+    public async Task BrowseAsync_WhenRecommendationModeRequested_SendsRecommendedQueryFlag()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+        var service = context.CreateService(client => new EventApiService(client));
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/events?recommended=true&page=1&pageSize=20",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<EventSummaryDto>(Array.Empty<EventSummaryDto>(), 0)));
+
+        var result = await service.BrowseAsync(new BrowseEventsQuery
+        {
+            Recommended = true,
+        });
+
+        Assert.Empty(result.Items);
+        Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
+        context.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task MutationEndpoints_SendExpectedBodiesAndRoutes()
     {
         var context = new BackendApiServiceTestContext();

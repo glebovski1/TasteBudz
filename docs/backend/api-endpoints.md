@@ -344,13 +344,15 @@ Representative browse query parameters:
 - `startsAfter`
 - `startsBefore`
 - `availabilityOnly`
+- `recommended`
 - `groupId`
 - `page`
 - `pageSize`
 
 Contract note:
 
-- The backend event browse contract remains explicit and generic. MVC quick filters may choose to populate `zipCode`, `radiusMiles`, and `availabilityOnly` from the signed-in user's saved profile data, but the backend does not silently personalize blank requests.
+- The backend event browse contract remains explicit. MVC quick filters may choose to populate `zipCode`, `radiusMiles`, and `availabilityOnly` from the signed-in user's saved profile data, but the backend does not silently personalize blank requests.
+- When `recommended=true`, the backend may rank results using the caller's home ZIP distance, saved cuisine preferences, and Budz already joined in each event. In that explicit mode, `EventSummaryDto` may populate optional recommendation metadata such as `distanceMiles`, `matchingCuisineCount`, and `matchingBudzCount`.
 
 ### 3.5 Groups
 

@@ -24,6 +24,36 @@ public sealed class RestaurantApiService
             BuildBrowsePath(query ?? new BrowseRestaurantsQuery()),
             cancellationToken);
 
+    public async Task<IReadOnlyCollection<RestaurantDto>> BrowseAllAsync(
+        BrowseRestaurantsQuery? query = null,
+        CancellationToken cancellationToken = default)
+    {
+        const int maxPageSize = 2000;
+        var baseQuery = query ?? new BrowseRestaurantsQuery();
+        var items = new List<RestaurantDto>();
+        var page = Math.Max(baseQuery.Page, 1);
+        var totalCount = int.MaxValue;
+
+        while (items.Count < totalCount)
+        {
+            var response = await BrowseAsync(
+                CloneBrowseQuery(baseQuery, page, maxPageSize),
+                cancellationToken);
+
+            items.AddRange(response.Items);
+            totalCount = response.TotalCount;
+
+            if (response.Items.Count == 0)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        return items;
+    }
+
     public Task<RestaurantDto> GetAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
         backendHttpClient.GetAsync<RestaurantDto>($"/api/v1/restaurants/{restaurantId}", cancellationToken);
 
@@ -123,6 +153,15 @@ public sealed class RestaurantApiService
             request,
             cancellationToken: cancellationToken);
 
+    public Task<RestaurantSlotDto> UpdateManagedSlotAsync(
+        Guid slotId,
+        UpdateRestaurantSlotRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PatchAsync<UpdateRestaurantSlotRequest, RestaurantSlotDto>(
+            $"/api/v1/restaurant-admin/slots/{slotId}",
+            request,
+            cancellationToken);
+
     public Task CancelManagedSlotAsync(
         Guid slotId,
         CancelRestaurantSlotRequest request,
@@ -171,4 +210,16 @@ public sealed class RestaurantApiService
 
         return $"/api/v1/restaurants/suggestions{builder.ToQueryString()}";
     }
+
+    private static BrowseRestaurantsQuery CloneBrowseQuery(BrowseRestaurantsQuery query, int page, int pageSize) =>
+        new()
+        {
+            Q = query.Q,
+            Cuisine = query.Cuisine,
+            PriceTier = query.PriceTier,
+            ZipCode = query.ZipCode,
+            RadiusMiles = query.RadiusMiles,
+            Page = page,
+            PageSize = pageSize,
+        };
 }

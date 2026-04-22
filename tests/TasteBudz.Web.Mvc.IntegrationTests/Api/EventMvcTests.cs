@@ -1,6 +1,7 @@
 using System.Net;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
@@ -42,6 +43,7 @@ public sealed class EventMvcTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Open in Google Maps", html);
+        Assert.Contains("Pins load only for the current map area once you zoom in.", html);
         Assert.Contains("query_place_id=google-place-123", html);
         Assert.Contains("Taco%20Corner%2C%20Cincinnati%2C%20OH%2045202", html);
         Assert.Contains("OpenStreetMap%20Bistro%2C%20Cincinnati%2C%20OH%2045206", html);
@@ -49,6 +51,47 @@ public sealed class EventMvcTests
         Assert.DoesNotContain("<img src=x onerror=alert(1)>", html);
         Assert.DoesNotContain("query_place_id=osm", html);
         Assert.DoesNotContain("query_place_id=osm%3A", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task CreateEvent_LoadsRestaurantsBeyondTheFirstCatalogPage()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(Guid.NewGuid(), "First Page Ramen", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, null),
+                    },
+                    2)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=2&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(Guid.NewGuid(), "Second Page Sushi", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Sushi" }, 39.13, -84.5, null, null),
+                    },
+                    2)));
+
+        using var response = await client.GetAsync("/Event/CreateEvent");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("First Page Ramen", html);
+        Assert.Contains("Second Page Sushi", html);
         factory.BackendHandler.AssertDrained();
     }
 
@@ -143,6 +186,73 @@ public sealed class EventMvcTests
         Assert.Contains("/Profile/Availability", html);
         Assert.DoesNotContain(factory.BackendHandler.Requests, request =>
             request.PathAndQuery.StartsWith("/api/v1/events", StringComparison.Ordinal));
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task QuickSearch_UsesRecommendationModeAndShowsMatchReasons()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/profiles/me",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateProfile(zipCode: "45220")));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/events?recommended=true&page=1&pageSize=100",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<EventSummaryDto>(
+                    new[]
+                    {
+                        new EventSummaryDto(
+                            eventId,
+                            "Buddy Sushi Night",
+                            EventType.Open,
+                            EventStatus.Open,
+                            new DateTimeOffset(2026, 5, 2, 19, 0, 0, TimeSpan.Zero),
+                            new DateTimeOffset(2026, 5, 2, 17, 0, 0, TimeSpan.Zero),
+                            6,
+                            3,
+                            Guid.NewGuid(),
+                            null,
+                            "Sushi",
+                            null,
+                            2.1,
+                            1,
+                            1),
+                    },
+                    1)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/preferences/me",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreatePreferences(cuisines: new[] { "Sushi" })));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/budz",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new BudConnectionDto(Guid.NewGuid(), "sam", "Sam Carter", DateTimeOffset.UtcNow),
+                }));
+
+        using var response = await client.GetAsync("/Event/QuickSearch");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Quick Event Search", html);
+        Assert.Contains("Recommended for You", html);
+        Assert.Contains("Buddy Sushi Night", html);
+        Assert.Contains("2.1 mi away", html);
+        Assert.Contains("Matches 1 food preference", html);
+        Assert.Contains("1 Bud already joined", html);
         factory.BackendHandler.AssertDrained();
     }
 

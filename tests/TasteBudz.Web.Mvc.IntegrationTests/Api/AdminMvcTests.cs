@@ -89,7 +89,7 @@ public sealed class AdminMvcTests
                     userId,
                     "alex",
                     "reset-token",
-                    "/Account/ResetPassword?token=reset-token",
+                    "https://tastebudz.test/Account/ResetPassword?token=reset-token",
                     new DateTimeOffset(2026, 5, 2, 12, 0, 0, TimeSpan.Zero))));
         EnqueueAdminIndexShell(factory, Array.Empty<PasswordResetRequestDto>());
 
@@ -107,7 +107,7 @@ public sealed class AdminMvcTests
             recorded.PathAndQuery == "/api/v1/admin/users/password-reset-tokens");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("/Account/ResetPassword?token=reset-token", html);
+        Assert.Contains("https://tastebudz.test/Account/ResetPassword?token=reset-token", html);
         Assert.Contains("\"usernameOrEmail\":\"alex\"", request.Body);
         Assert.Contains($"\"passwordResetRequestId\":\"{requestId}", request.Body);
         factory.BackendHandler.AssertDrained();
@@ -172,6 +172,71 @@ public sealed class AdminMvcTests
         Assert.Equal("/Admin", response.Headers.Location?.ToString());
         Assert.Equal($"/api/v1/admin/users/password-reset-requests/{requestId}/closure", request.PathAndQuery);
         Assert.Null(request.Body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task AdminIndex_LoadsRestaurantAssignmentsBeyondTheFirstCatalogPage()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var firstRestaurantId = Guid.NewGuid();
+        var secondRestaurantId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(
+            client,
+            factory,
+            isOnboardingComplete: true,
+            roles: new[] { UserRole.User, UserRole.Admin });
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/moderation/reports?status=Pending&page=1&pageSize=50",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<ModerationReportDto>(Array.Empty<ModerationReportDto>(), 0)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(firstRestaurantId, "First Page Ramen", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, null),
+                    },
+                    2)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=2&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(secondRestaurantId, "Second Page Sushi", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Sushi" }, 39.13, -84.5, null, null),
+                    },
+                    2)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/admin/restaurants/{firstRestaurantId}/admin-assignments",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantAdminAssignmentDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/admin/restaurants/{secondRestaurantId}/admin-assignments",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantAdminAssignmentDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/admin/users/password-reset-requests",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<PasswordResetRequestDto>()));
+
+        using var response = await client.GetAsync("/Admin");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("First Page Ramen", html);
+        Assert.Contains("Second Page Sushi", html);
         factory.BackendHandler.AssertDrained();
     }
 
