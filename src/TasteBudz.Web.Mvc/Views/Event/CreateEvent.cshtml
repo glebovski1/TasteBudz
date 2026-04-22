@@ -124,7 +124,7 @@
             <section class="card stack" style="grid-column: 1 / -1;">
                 <div>
                     <h2 class="card__title">Restaurant <span class="muted-note">(optional)</span></h2>
-                    <p class="card__subtitle">Filter the map to find a restaurant, then click a pin to select it.</p>
+                    <p class="card__subtitle">Filter the map to find a restaurant, then click a pin to select it. Pins load only for the current map area once you zoom in.</p>
                 </div>
 
                 <input type="hidden" asp-for="SelectedRestaurantId" id="selectedRestaurantId" />
@@ -265,6 +265,7 @@
         const randMeta        = document.getElementById("randMeta");
         const randPickAnother = document.getElementById("randPickAnother");
         const randConfirm     = document.getElementById("randConfirm");
+        const markerZoomThreshold = 13;
 
         if (!mapEl || restaurants.length === 0) return;
 
@@ -298,23 +299,103 @@
         popupAnchor: [0, -32],
         });
 
-        const hiddenIcon = L.divIcon({
-        className: "map-pin map-pin--hidden",
-        html: "",
-        iconSize: [0, 0],
-        });
-
         // ── Build markers ────────────────────────────────────────────────────
 
-        const markers = restaurants.map(r => {
-        const marker = L.marker([r.lat, r.lng], { icon: defaultIcon })
-        .addTo(map)
-        .bindPopup(createRestaurantPopup(r));
+        const markerEntries = restaurants.map(r => ({
+        data: r,
+        marker: null,
+        matchesFilters: true,
+        isRendered: false,
+        }));
 
-        marker._data = r;
-        marker._visible = true;
-        marker.on("click", () => map.setView([r.lat, r.lng], 15));
+        function ensureMarker(entry) {
+        if (entry.marker) return entry.marker;
+
+        const marker = L.marker([entry.data.lat, entry.data.lng], { icon: defaultIcon })
+        .bindPopup(createRestaurantPopup(entry.data));
+
+        marker.on("click", () => map.setView([entry.data.lat, entry.data.lng], Math.max(map.getZoom(), 15)));
+        entry.marker = marker;
         return marker;
+        }
+
+        function clearSelection() {
+        hiddenId.value = "";
+        label.textContent = "No restaurant selected.";
+        clearBtn.style.display = "none";
+        updateMarkerIcons();
+        }
+
+        function updateMarkerIcons() {
+        const selectedId = hiddenId.value;
+
+        markerEntries.forEach(entry => {
+        if (!entry.isRendered) return;
+        const marker = ensureMarker(entry);
+        marker.setIcon(entry.data.id === selectedId ? selectedIcon : defaultIcon);
+        });
+        }
+
+        function syncMarkerRendering() {
+        const zoom = map.getZoom();
+        const zoomAllowsMarkers = zoom >= markerZoomThreshold;
+        const bounds = map.getBounds();
+        let rendered = 0;
+
+        markerEntries.forEach(entry => {
+        const shouldRender = zoomAllowsMarkers &&
+        entry.matchesFilters &&
+        bounds.contains([entry.data.lat, entry.data.lng]);
+
+        entry.isRendered = shouldRender;
+
+        if (shouldRender) {
+        rendered++;
+        const marker = ensureMarker(entry);
+        if (!map.hasLayer(marker)) marker.addTo(map);
+        } else if (entry.marker && map.hasLayer(entry.marker)) {
+        entry.marker.closePopup();
+        map.removeLayer(entry.marker);
+        }
+        });
+
+        updateMarkerIcons();
+        return { rendered, zoomAllowsMarkers };
+        }
+
+        function updateFilterCount(hasFilter) {
+        const { rendered, zoomAllowsMarkers } = syncMarkerRendering();
+        const matching = markerEntries.filter(entry => entry.matchesFilters).length;
+
+        if (!filterCount) return;
+
+        if (!zoomAllowsMarkers) {
+        filterCount.textContent = `Zoom in to level ${markerZoomThreshold} or closer to load restaurant pins for the current map area.`;
+        return;
+        }
+
+        const isViewportLimited = rendered < matching;
+        if (!hasFilter && !isViewportLimited) {
+        filterCount.textContent = `Showing ${rendered} restaurants in the current map area.`;
+        return;
+        }
+
+        const parts = [`Showing ${rendered} pins in the current map area`];
+        if (hasFilter || matching !== restaurants.length) {
+        parts.push(`${matching} filter matches`);
+        }
+
+        filterCount.textContent = parts.join(" · ");
+        }
+
+        map.on("moveend zoomend", () => {
+        const hasFilter = Boolean(
+        (filterName?.value ?? "").trim() ||
+        (filterCuisine?.value ?? "") ||
+        (filterPrice?.value ?? "") ||
+        (filterDistance?.value ?? ""));
+
+        updateFilterCount(hasFilter);
         });
 
         function selectRestaurant(id, name) {
@@ -322,11 +403,7 @@
         label.textContent = "Selected: " + name;
         clearBtn.style.display = "inline-block";
         if (cuisineTarget) cuisineTarget.value = "";
-
-        markers.forEach(m => {
-        if (!m._visible) return;
-        m.setIcon(m._data.id === id ? selectedIcon : defaultIcon);
-        });
+        updateMarkerIcons();
         }
 
         function createRestaurantPopup(restaurant) {
@@ -375,18 +452,12 @@
         }
 
         clearBtn.addEventListener("click", () => {
-        hiddenId.value = "";
-        label.textContent = "No restaurant selected.";
-        clearBtn.style.display = "none";
-        markers.forEach(m => { if (m._visible) m.setIcon(defaultIcon); });
+        clearSelection();
         });
 
         cuisineTarget?.addEventListener("change", () => {
         if (!cuisineTarget.value) return;
-        hiddenId.value = "";
-        label.textContent = "No restaurant selected.";
-        clearBtn.style.display = "none";
-        markers.forEach(m => { if (m._visible) m.setIcon(defaultIcon); });
+        clearSelection();
         });
 
         // ── Filtering ────────────────────────────────────────────────────────
@@ -400,11 +471,10 @@
 
         if (clearFilters) clearFilters.style.display = hasFilter ? "inline-block" : "none";
 
-        let visible = 0;
         const selectedId = hiddenId.value;
 
-        markers.forEach(m => {
-        const r = m._data;
+        markerEntries.forEach(entry => {
+        const r = entry.data;
         const cuisineStr = (r.cuisine ?? "").toLowerCase();
         const priceStr   = (r.priceTier ?? "");
 
@@ -412,31 +482,17 @@
         const matchCuisine = !cuisineQ   || cuisineStr.split(",").map(s => s.trim()).includes(cuisineQ);
         const matchPrice   = !priceQ     || priceStr === priceQ;
         const matchDist    = !distanceQ  || (r._distance !== null && r._distance <= distanceQ);
-        const show         = matchName && matchCuisine && matchPrice && matchDist;
-
-        m._visible = show;
-
-        if (show) {
-        visible++;
-        const isSelected = r.id === selectedId;
-        m.setIcon(isSelected ? selectedIcon : defaultIcon);
-        if (!map.hasLayer(m)) m.addTo(map);
-        } else {
-        if (map.hasLayer(m)) map.removeLayer(m);
-        // Deselect if the selected restaurant is now filtered out
-        if (r.id === selectedId) {
-        hiddenId.value = "";
-        label.textContent = "No restaurant selected.";
-        clearBtn.style.display = "none";
-        }
-        }
+        entry.matchesFilters = matchName && matchCuisine && matchPrice && matchDist;
         });
 
-        if (filterCount) {
-        filterCount.textContent = hasFilter
-        ? `Showing ${visible} of ${restaurants.length} restaurants`
-        : "";
+        if (selectedId) {
+        const selectedEntry = markerEntries.find(entry => entry.data.id === selectedId);
+        if (selectedEntry && !selectedEntry.matchesFilters) {
+        clearSelection();
         }
+        }
+
+        updateFilterCount(hasFilter);
         }
 
         filterName?.addEventListener("input", applyFilters);
@@ -452,9 +508,6 @@
         applyFilters();
         });
 
-        // Apply the pre-selected cuisine filter on page load
-        applyFilters();
-
         // ── Distance calculation ─────────────────────────────────────────────
         // Compute each marker's distance from the map centre so the distance
         // filter and randomizer can use it without re-querying the server.
@@ -468,41 +521,46 @@
         return R * 2 * Math.asin(Math.sqrt(a));
         }
 
-        markers.forEach(m => {
-        m._data._distance = haversineMiles(avgLat, avgLng, m._data.lat, m._data.lng);
+        markerEntries.forEach(entry => {
+        entry.data._distance = haversineMiles(avgLat, avgLng, entry.data.lat, entry.data.lng);
         });
+
+        // Apply the pre-selected cuisine filter on page load
+        applyFilters();
 
         // ── Randomizer ───────────────────────────────────────────────────────
 
         let lastRandId = null;
 
-        function getVisibleCandidates() {
-        return markers.filter(m => m._visible);
+        function getFilteredCandidates() {
+        return markerEntries.filter(entry => entry.matchesFilters);
         }
 
         function pickRandom(exclude) {
-        const pool = getVisibleCandidates().filter(m => m._data.id !== exclude);
-        if (pool.length === 0) return getVisibleCandidates()[0] ?? null;
+        const candidates = getFilteredCandidates();
+        const pool = candidates.filter(entry => entry.data.id !== exclude);
+        if (pool.length === 0) return candidates[0] ?? null;
         return pool[Math.floor(Math.random() * pool.length)];
         }
 
-        function showRandomResult(marker) {
-        if (!marker) {
+        function showRandomResult(entry) {
+        if (!entry) {
         randomizerResult.setAttribute("hidden", "");
         return;
         }
-        const r = marker._data;
+        const r = entry.data;
         lastRandId = r.id;
         randName.textContent = r.name;
         randMeta.textContent = [r.priceTier, r.cuisine, r._distance != null ? r._distance.toFixed(1) + " mi" : ""].filter(Boolean).join(" · ");
         randomizerResult.removeAttribute("hidden");
 
         // Pan map to the chosen restaurant
-        map.setView([r.lat, r.lng], 15);
-        markers.forEach(m => {
-        if (!m._visible) return;
-        m.setIcon(m._data.id === r.id ? selectedIcon : defaultIcon);
-        });
+        map.setView([r.lat, r.lng], Math.max(map.getZoom(), 15));
+        updateFilterCount(Boolean(
+        (filterName?.value ?? "").trim() ||
+        (filterCuisine?.value ?? "") ||
+        (filterPrice?.value ?? "") ||
+        (filterDistance?.value ?? "")));
         }
 
         randomBtn?.addEventListener("click", () => {
@@ -522,8 +580,8 @@
 
         randConfirm?.addEventListener("click", () => {
         if (!lastRandId) return;
-        const marker = markers.find(m => m._data.id === lastRandId);
-        if (marker) selectRestaurant(lastRandId, marker._data.name);
+        const entry = markerEntries.find(item => item.data.id === lastRandId);
+        if (entry) selectRestaurant(lastRandId, entry.data.name);
         randomizerResult.setAttribute("hidden", "");
         lastRandId = null;
         });
