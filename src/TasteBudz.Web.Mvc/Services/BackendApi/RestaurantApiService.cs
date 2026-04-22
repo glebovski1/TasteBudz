@@ -6,7 +6,7 @@ using TasteBudz.Backend.Modules.Restaurants;
 namespace TasteBudz.Web.Mvc.Services;
 
 /// <summary>
-/// Thin wrapper over restaurant browse, detail, suggestion, and import endpoints.
+/// Thin wrapper over restaurant browse, admin catalog, restaurant-admin operations, and suggestion endpoints.
 /// </summary>
 public sealed class RestaurantApiService
 {
@@ -44,6 +44,38 @@ public sealed class RestaurantApiService
     public Task<ImportResultDto> ImportFromOverpassAsync(CancellationToken cancellationToken = default) =>
         backendHttpClient.PostAsync<ImportResultDto>(
             "/api/v1/restaurants/import",
+            cancellationToken: cancellationToken);
+
+    public Task<IReadOnlyCollection<AdminRestaurantCatalogItemDto>> ListAdminRestaurantsAsync(CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<AdminRestaurantCatalogItemDto>>(
+            "/api/v1/admin/restaurants",
+            cancellationToken);
+
+    public Task<AdminRestaurantCatalogItemDto> CreateAdminRestaurantAsync(
+        SaveRestaurantCatalogRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<SaveRestaurantCatalogRequest, AdminRestaurantCatalogItemDto>(
+            "/api/v1/admin/restaurants",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task<AdminRestaurantCatalogItemDto> UpdateAdminRestaurantAsync(
+        Guid restaurantId,
+        SaveRestaurantCatalogRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PatchAsync<SaveRestaurantCatalogRequest, AdminRestaurantCatalogItemDto>(
+            $"/api/v1/admin/restaurants/{restaurantId}",
+            request,
+            cancellationToken);
+
+    public Task ArchiveAdminRestaurantAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            $"/api/v1/admin/restaurants/{restaurantId}/archive",
+            cancellationToken: cancellationToken);
+
+    public Task RestoreAdminRestaurantAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            $"/api/v1/admin/restaurants/{restaurantId}/restore",
             cancellationToken: cancellationToken);
 
     public Task<IReadOnlyCollection<RestaurantAdminAssignmentDto>> ListAdminAssignmentsAsync(Guid restaurantId, CancellationToken cancellationToken = default) =>

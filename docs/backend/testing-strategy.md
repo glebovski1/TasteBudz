@@ -192,6 +192,7 @@ The following areas are the highest priority for backend testing.
 ### P2 - Browse and support workflows
 
 - restaurant and event filters return the correct result set
+- admin restaurant catalog create/update/archive/restore keeps geocoded coordinates and browse visibility aligned
 - discovery search hides one-sided outbound swipe targets until the target user decides back
 - notifications are created for important workflow changes with expected type and required context fields
 - paging and query contracts stay stable
@@ -289,6 +290,7 @@ These scenarios should anchor early backend testing work.
 | BT-13 | Profile avatar upload replaces the previous avatar and serves stored bytes | High | Media storage and profile contracts stay aligned |
 | BT-14 | Report evidence attachment is hidden from unrelated users but visible to moderators | High | Media authorization respects moderation context |
 | BT-15 | Admin grants and revokes a restaurant admin assignment | High | Role and assignment authority stay aligned |
+| BT-15A | Admin creates, updates, archives, and restores a restaurant catalog entry | High | Manual catalog maintenance keeps geocoded map/search state consistent |
 | BT-16 | Event host reserves an open restaurant slot | High | Event restaurant selection, cuisine clearing, and reservation uniqueness are correct |
 | BT-17 | Restaurant admin cancels a reserved slot | High | Reservation and linked event cancellation behavior is correct |
 | BT-18 | Discount threshold crosses before and after cutoff | Medium | Simulation state recalculates before cutoff and freezes after cutoff |

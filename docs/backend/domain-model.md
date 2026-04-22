@@ -442,16 +442,20 @@ Represents a dining venue available for search, filtering, and event selection.
 Core data:
 
 - name
+- optional street address
 - city/state/ZIP
 - optional latitude/longitude
 - cuisine tags/categories
 - price tier
 - optional external place identifier
+- archive state for catalog visibility
 
 Rules:
 
 - location data must be sufficient for ZIP/distance filtering
+- admin catalog saves may geocode a restaurant address into stored coordinates
 - MVP suggestions are computed from the internal catalog
+- archived restaurants are excluded from browse/suggestion lists but may remain referenced by existing events
 - restaurant-admin profile mutation is allowed only through active assignment checks when restaurant operations are enabled
 
 ### RestaurantAdminAssignment

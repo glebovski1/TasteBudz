@@ -9,11 +9,12 @@ namespace TasteBudz.Backend.Modules.Restaurants;
 /// </summary>
 public sealed class InMemoryRestaurantRepository(InMemoryTasteBudzStore store) : IRestaurantRepository
 {
-    public Task<IReadOnlyCollection<Restaurant>> ListAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyCollection<Restaurant>> ListAsync(bool includeArchived = false, CancellationToken cancellationToken = default)
     {
         lock (store.SyncRoot)
         {
             var items = store.Restaurants.Values
+                .Where(restaurant => includeArchived || !restaurant.IsArchived)
                 .OrderBy(restaurant => restaurant.Name, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
@@ -27,6 +28,15 @@ public sealed class InMemoryRestaurantRepository(InMemoryTasteBudzStore store) :
         {
             store.Restaurants.TryGetValue(restaurantId, out var restaurant);
             return Task.FromResult(restaurant);
+        }
+    }
+
+    public Task SaveAsync(Restaurant restaurant, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            store.Restaurants[restaurant.Id] = restaurant;
+            return Task.CompletedTask;
         }
     }
 

@@ -1,0 +1,183 @@
+@model AdminRestaurantsViewModel
+
+@{
+    ViewData["Title"] = "Restaurant Catalog";
+    var priceTiers = Enum.GetValues<TasteBudz.Backend.Domain.PriceTier>();
+}
+
+<div class="admin-shell">
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">🍽️ Catalog</span>
+            <h1 class="admin-title">Restaurant Catalog</h1>
+            <p class="admin-subtitle">Create, update, archive, and restore restaurant records. Saves geocode the address so restaurants appear on the map.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Index" class="button button--secondary">Back To Admin</a>
+        </div>
+    </div>
+
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">Create Restaurant</h2>
+        </div>
+        <form asp-action="CreateRestaurant" method="post" class="stack">
+            @Html.AntiForgeryToken()
+            <div class="editor-grid">
+                <div class="field">
+                    <label asp-for="CreateForm.Name"></label>
+                    <input name="Name" value="@Model.CreateForm.Name" maxlength="160" />
+                </div>
+                <div class="field">
+                    <label asp-for="CreateForm.StreetAddress"></label>
+                    <input name="StreetAddress" value="@Model.CreateForm.StreetAddress" maxlength="160" placeholder="123 Main St" />
+                </div>
+                <div class="field">
+                    <label asp-for="CreateForm.City"></label>
+                    <input name="City" value="@Model.CreateForm.City" maxlength="80" />
+                </div>
+                <div class="field">
+                    <label asp-for="CreateForm.State"></label>
+                    <input name="State" value="@Model.CreateForm.State" maxlength="2" />
+                </div>
+                <div class="field">
+                    <label asp-for="CreateForm.ZipCode"></label>
+                    <input name="ZipCode" value="@Model.CreateForm.ZipCode" maxlength="10" />
+                </div>
+                <div class="field">
+                    <label asp-for="CreateForm.PriceTier"></label>
+                    <select name="PriceTier">
+                        @foreach (var priceTier in priceTiers)
+                        {
+                            <option value="@priceTier">@priceTier</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <label asp-for="CreateForm.CuisineTagsText"></label>
+                <input name="CuisineTagsText" value="@Model.CreateForm.CuisineTagsText" placeholder="Japanese, Sushi" />
+                <p class="muted-note">Suggested tags: @string.Join(", ", Model.SuggestedCuisineTags)</p>
+            </div>
+            <div class="button-row">
+                <button type="submit" class="button button--primary">Create Restaurant</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">Catalog Entries</h2>
+        </div>
+
+        @if (!Model.Restaurants.Any())
+        {
+            <p class="muted-note">No restaurants found.</p>
+        }
+        else
+        {
+            <div class="report-list">
+                @foreach (var item in Model.Restaurants)
+                {
+                    <article class="report-card card">
+                        <div class="report-card__header">
+                            <div>
+                                <strong>@item.Restaurant.Name</strong>
+                                <p class="muted-note">
+                                    @(string.IsNullOrWhiteSpace(item.Restaurant.StreetAddress)
+                                        ? $"{item.Restaurant.City}, {item.Restaurant.State} {item.Restaurant.ZipCode}"
+                                        : $"{item.Restaurant.StreetAddress}, {item.Restaurant.City}, {item.Restaurant.State} {item.Restaurant.ZipCode}")
+                                </p>
+                            </div>
+                            <div class="button-row">
+                                <span class="pill">@(item.Restaurant.IsArchived ? "Archived" : "Active")</span>
+                                @if (item.Restaurant.Latitude.HasValue && item.Restaurant.Longitude.HasValue)
+                                {
+                                    <span class="pill">@item.Restaurant.Latitude.Value.ToString("F4"), @item.Restaurant.Longitude.Value.ToString("F4")</span>
+                                }
+                                else
+                                {
+                                    <span class="pill">No Coordinates</span>
+                                }
+                            </div>
+                        </div>
+
+                        <form asp-action="UpdateCatalogRestaurant" method="post" class="stack">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="RestaurantId" value="@item.Form.RestaurantId" />
+                            <div class="editor-grid">
+                                <div class="field">
+                                    <label>Name</label>
+                                    <input name="Name" value="@item.Form.Name" maxlength="160" />
+                                </div>
+                                <div class="field">
+                                    <label>Street Address</label>
+                                    <input name="StreetAddress" value="@item.Form.StreetAddress" maxlength="160" />
+                                </div>
+                                <div class="field">
+                                    <label>City</label>
+                                    <input name="City" value="@item.Form.City" maxlength="80" />
+                                </div>
+                                <div class="field">
+                                    <label>State</label>
+                                    <input name="State" value="@item.Form.State" maxlength="2" />
+                                </div>
+                                <div class="field">
+                                    <label>ZIP Code</label>
+                                    <input name="ZipCode" value="@item.Form.ZipCode" maxlength="10" />
+                                </div>
+                                <div class="field">
+                                    <label>Price Tier</label>
+                                    <select name="PriceTier">
+                                        @foreach (var priceTier in priceTiers)
+                                        {
+                                            if (priceTier == item.Form.PriceTier)
+                                            {
+                                                <option value="@priceTier" selected>@priceTier</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@priceTier">@priceTier</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label>Cuisine Tags</label>
+                                <input name="CuisineTagsText" value="@item.Form.CuisineTagsText" />
+                                <p class="muted-note">Comma-separated tags. Suggested tags: @string.Join(", ", Model.SuggestedCuisineTags)</p>
+                            </div>
+                            <div class="button-row">
+                                <button type="submit" class="button button--primary">Save Changes</button>
+                            </div>
+                        </form>
+
+                        <div class="button-row" style="margin-top:0.75rem;">
+                            @if (item.Restaurant.IsArchived)
+                            {
+                                <form asp-action="RestoreRestaurant" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
+                                    <button type="submit" class="button button--secondary">Restore</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <form asp-action="ArchiveRestaurant" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
+                                    <button type="submit"
+                                            class="button button--danger"
+                                            onclick="return confirm('Archive this restaurant so it no longer appears in browse and suggestions?')">
+                                        Archive
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>

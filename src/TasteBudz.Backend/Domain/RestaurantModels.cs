@@ -14,7 +14,9 @@ public sealed record Restaurant(
     double? Longitude,
     PriceTier PriceTier,
     IReadOnlyCollection<string> CuisineTags,
-    string? ExternalPlaceId);
+    string? ExternalPlaceId,
+    string? StreetAddress = null,
+    bool IsArchived = false);
 
 /// <summary>
 /// Active or revoked management link between a user account and a restaurant.

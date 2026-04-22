@@ -192,8 +192,10 @@ Priority legend:
 
 **Acceptance Criteria**
 
-- Restaurants are stored with name, city/state/ZIP, cuisine tags, and price tier.
+- Restaurants are stored with name, city/state/ZIP, cuisine tags, and price tier; street address may also be stored for admin-managed catalog maintenance.
 - Restaurants may optionally store latitude/longitude and a provider-qualified external PlaceId, such as an OpenStreetMap `osm:<id>` value.
+- Admins can create, update, archive, and restore internal catalog records without making user-facing browse/search depend on a live external API.
+- Manual admin catalog saves may geocode the restaurant address into stored latitude/longitude so map presentation can use catalog-backed coordinates.
 - Restaurant records can be referenced by events and later slot entities.
 
 ### FR-007 Restaurant Discovery and Filtering
@@ -205,9 +207,10 @@ Priority legend:
 **Acceptance Criteria**
 
 - Users can filter restaurants by cuisine, price tier, and distance.
-- MVP restaurant discovery reads from the internal catalog only; admin-only OpenStreetMap/Overpass import may be used to populate that catalog.
+- MVP restaurant discovery reads from the internal catalog only; admin-only OpenStreetMap/Overpass import and admin-maintained catalog CRUD may be used to populate that catalog.
 - Restaurant selection is reusable during event creation and may be shown in search/list form; map presentation is optional when coordinates exist.
 - Midpoint or group-aware suggestion logic remains lightweight service behavior over the internal catalog.
+- Archived restaurants are excluded from browse/search/suggestion results while remaining valid historical references for existing events.
 
 ### FR-008 Create Events (Open and Closed)
 

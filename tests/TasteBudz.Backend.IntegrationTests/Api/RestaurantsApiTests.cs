@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.IntegrationTests.Shared;
@@ -106,5 +107,107 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Contains("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task AdminCatalogCrud_GeocodesArchivesAndRestoresRestaurant()
+    {
+        using var baseFactory = new TasteBudzApiFactory();
+        baseFactory.ResetState();
+        using var geocodedFactory = baseFactory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var geocodeResults = new Queue<RestaurantGeocodeResult?>(
+                [
+                    new RestaurantGeocodeResult(39.1111, -84.5001, "osm:node:9001"),
+                    new RestaurantGeocodeResult(39.2222, -84.4002, "osm:node:9002"),
+                ]);
+
+                services.RemoveAll<IRestaurantGeocodingService>();
+                services.AddSingleton<IRestaurantGeocodingService>(new StubRestaurantGeocodingService(geocodeResults));
+            });
+        });
+        using var client = geocodedFactory.CreateClient();
+
+        var admin = await ApiTestHelpers.RegisterAsync(client, username: "admin", email: "admin@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(geocodedFactory.Services, admin.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(client, admin.AccessToken);
+
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/v1/admin/restaurants",
+            new SaveRestaurantCatalogRequest
+            {
+                Name = "Elm Street Sushi",
+                StreetAddress = "123 Elm St",
+                City = "Cincinnati",
+                State = "OH",
+                ZipCode = "45220",
+                PriceTier = PriceTier.Two,
+                CuisineTags = new[] { "Japanese", "Sushi" },
+            },
+            ApiTestHelpers.JsonOptions);
+        var created = await createResponse.Content.ReadFromJsonAsync<AdminRestaurantCatalogItemDto>(ApiTestHelpers.JsonOptions);
+
+        var browseAfterCreateResponse = await client.GetAsync("/api/v1/restaurants?q=Elm&pageSize=10");
+        var browseAfterCreate = await browseAfterCreateResponse.Content.ReadFromJsonAsync<ListResponse<RestaurantDto>>(ApiTestHelpers.JsonOptions);
+
+        var updateResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/admin/restaurants/{created!.RestaurantId}",
+            new SaveRestaurantCatalogRequest
+            {
+                Name = "Elm Street Sushi",
+                StreetAddress = "456 Oak Ave",
+                City = "Cincinnati",
+                State = "OH",
+                ZipCode = "45220",
+                PriceTier = PriceTier.Three,
+                CuisineTags = new[] { "Japanese", "Sushi", "Thai" },
+            },
+            ApiTestHelpers.JsonOptions);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<AdminRestaurantCatalogItemDto>(ApiTestHelpers.JsonOptions);
+
+        var archiveResponse = await client.PostAsync($"/api/v1/admin/restaurants/{created.RestaurantId}/archive", null);
+        var browseAfterArchiveResponse = await client.GetAsync("/api/v1/restaurants?q=Elm&pageSize=10");
+        var browseAfterArchive = await browseAfterArchiveResponse.Content.ReadFromJsonAsync<ListResponse<RestaurantDto>>(ApiTestHelpers.JsonOptions);
+
+        var restoreResponse = await client.PostAsync($"/api/v1/admin/restaurants/{created.RestaurantId}/restore", null);
+        var browseAfterRestoreResponse = await client.GetAsync("/api/v1/restaurants?q=Elm&pageSize=10");
+        var browseAfterRestore = await browseAfterRestoreResponse.Content.ReadFromJsonAsync<ListResponse<RestaurantDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        Assert.Equal(39.1111, created.Latitude);
+        Assert.Equal("osm:node:9001", created.ExternalPlaceId);
+        Assert.Single(browseAfterCreate!.Items);
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        Assert.Equal(39.2222, updated!.Latitude);
+        Assert.Equal(PriceTier.Three, updated.PriceTier);
+        Assert.Contains("Thai", updated.CuisineTags);
+
+        Assert.Equal(HttpStatusCode.NoContent, archiveResponse.StatusCode);
+        Assert.Empty(browseAfterArchive!.Items);
+
+        Assert.Equal(HttpStatusCode.NoContent, restoreResponse.StatusCode);
+        Assert.Single(browseAfterRestore!.Items);
+    }
+
+    private sealed class StubRestaurantGeocodingService(Queue<RestaurantGeocodeResult?> results) : IRestaurantGeocodingService
+    {
+        public Task<RestaurantGeocodeResult?> GeocodeAsync(
+            string restaurantName,
+            string? streetAddress,
+            string city,
+            string state,
+            string zipCode,
+            CancellationToken cancellationToken = default)
+        {
+            if (results.Count == 0)
+            {
+                return Task.FromResult<RestaurantGeocodeResult?>(null);
+            }
+
+            return Task.FromResult(results.Dequeue());
+        }
     }
 }

@@ -8,9 +8,11 @@ namespace TasteBudz.Backend.Modules.Restaurants;
 /// </summary>
 public interface IRestaurantRepository
 {
-    Task<IReadOnlyCollection<Restaurant>> ListAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyCollection<Restaurant>> ListAsync(bool includeArchived = false, CancellationToken cancellationToken = default);
 
     Task<Restaurant?> GetAsync(Guid restaurantId, CancellationToken cancellationToken = default);
+
+    Task SaveAsync(Restaurant restaurant, CancellationToken cancellationToken = default);
 
     Task<(double Latitude, double Longitude)?> GetZipCoordinatesAsync(string zipCode, CancellationToken cancellationToken = default);
 }

@@ -74,7 +74,7 @@ public sealed class RestaurantRecommendationService(
         }
 
         // The final suggestion list is intentionally deterministic: filter, map, order, then cap at five items.
-        var restaurants = await restaurantRepository.ListAsync(cancellationToken);
+        var restaurants = await restaurantRepository.ListAsync(cancellationToken: cancellationToken);
         var referencePoint = await restaurantSearchService.ResolveReferencePointAsync(zipCode, cancellationToken);
         var suggestions = restaurants
             .Where(restaurant => cuisineTags.Count == 0 || restaurant.CuisineTags.Any(tag => cuisineTags.Contains(tag, StringComparer.OrdinalIgnoreCase)))

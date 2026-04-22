@@ -96,7 +96,7 @@ public sealed class RestaurantApiServiceTests
     }
 
     [Fact]
-    public async Task RestaurantOperations_SendExpectedRoutes()
+    public async Task AdminCatalogAndRestaurantOperations_SendExpectedRoutes()
     {
         var context = new BackendApiServiceTestContext();
         await context.SignInAsync();
@@ -104,7 +104,40 @@ public sealed class RestaurantApiServiceTests
         var restaurantId = Guid.NewGuid();
         var slotId = Guid.NewGuid();
         var userId = Guid.NewGuid();
+        var adminRestaurant = new AdminRestaurantCatalogItemDto(
+            restaurantId,
+            "Ramen House",
+            "123 Elm St",
+            "Cincinnati",
+            "OH",
+            "45220",
+            PriceTier.Three,
+            new[] { "Japanese" },
+            39.14,
+            -84.51,
+            "osm:node:123",
+            false);
 
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/admin/restaurants",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, new[] { adminRestaurant }));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/admin/restaurants",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, adminRestaurant));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Patch,
+            $"/api/v1/admin/restaurants/{restaurantId}",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, adminRestaurant with { Name = "Updated Ramen House" }));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/admin/restaurants/{restaurantId}/archive",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/admin/restaurants/{restaurantId}/restore",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
         context.BackendHandler.Enqueue(
             HttpMethod.Get,
             $"/api/v1/restaurants/{restaurantId}/slots",
@@ -148,6 +181,29 @@ public sealed class RestaurantApiServiceTests
             $"/api/v1/restaurant-admin/slots/{slotId}/cancellation",
             (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
 
+        await service.ListAdminRestaurantsAsync();
+        await service.CreateAdminRestaurantAsync(new SaveRestaurantCatalogRequest
+        {
+            Name = "Ramen House",
+            StreetAddress = "123 Elm St",
+            City = "Cincinnati",
+            State = "OH",
+            ZipCode = "45220",
+            PriceTier = PriceTier.Three,
+            CuisineTags = new[] { "Japanese" },
+        });
+        await service.UpdateAdminRestaurantAsync(restaurantId, new SaveRestaurantCatalogRequest
+        {
+            Name = "Updated Ramen House",
+            StreetAddress = "456 Oak Ave",
+            City = "Cincinnati",
+            State = "OH",
+            ZipCode = "45220",
+            PriceTier = PriceTier.Three,
+            CuisineTags = new[] { "Japanese", "Sushi" },
+        });
+        await service.ArchiveAdminRestaurantAsync(restaurantId);
+        await service.RestoreAdminRestaurantAsync(restaurantId);
         await service.ListReservableSlotsAsync(restaurantId);
         await service.ListAdminAssignmentsAsync(restaurantId);
         await service.GrantAdminAssignmentAsync(restaurantId, new CreateRestaurantAdminAssignmentRequest { Username = "manager" });
@@ -167,6 +223,12 @@ public sealed class RestaurantApiServiceTests
         Assert.Contains(
             "\"username\":\"manager\"",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments" && request.Method == HttpMethod.Post).Body);
+        Assert.Contains(
+            "\"streetAddress\":\"123 Elm St\"",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/admin/restaurants" && request.Method == HttpMethod.Post).Body);
+        Assert.Contains(
+            "\"cuisineTags\":[\"Japanese\",\"Sushi\"]",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/admin/restaurants/{restaurantId}" && request.Method == HttpMethod.Patch).Body);
         Assert.Contains(
             "\"name\":\"Updated\"",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/restaurants/{restaurantId}" && request.Method == HttpMethod.Patch).Body);

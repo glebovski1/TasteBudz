@@ -18,6 +18,9 @@
             </a>
             @if (User.IsInRole("Admin"))
             {
+                <a asp-action="Restaurants" class="button button--secondary">
+                    Restaurant Catalog
+                </a>
                 <a asp-action="SupportThreads" class="button button--secondary">
                     Support Chats
                 </a>

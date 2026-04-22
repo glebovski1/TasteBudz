@@ -26,7 +26,7 @@ public sealed class EventBrowseService(
             synchronized.Add(await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken));
         }
 
-        var restaurants = (await restaurantRepository.ListAsync(cancellationToken)).ToDictionary(restaurant => restaurant.Id);
+        var restaurants = (await restaurantRepository.ListAsync(cancellationToken: cancellationToken)).ToDictionary(restaurant => restaurant.Id);
         var currentProfile = await profileRepository.GetProfileAsync(currentUserId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
         var referencePoint = string.IsNullOrWhiteSpace(query.ZipCode)

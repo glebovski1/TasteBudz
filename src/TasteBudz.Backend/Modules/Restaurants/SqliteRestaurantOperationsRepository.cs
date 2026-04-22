@@ -63,6 +63,7 @@ public sealed class SqliteRestaurantOperationsRepository(TasteBudzDbContext dbCo
             {
                 Id = restaurant.Id,
                 Name = restaurant.Name,
+                StreetAddress = restaurant.StreetAddress,
                 City = restaurant.City,
                 State = restaurant.State,
                 ZipCode = restaurant.ZipCode,
@@ -70,11 +71,13 @@ public sealed class SqliteRestaurantOperationsRepository(TasteBudzDbContext dbCo
                 Longitude = restaurant.Longitude,
                 PriceTier = restaurant.PriceTier,
                 ExternalPlaceId = restaurant.ExternalPlaceId,
+                IsArchived = restaurant.IsArchived,
             });
         }
         else
         {
             entity.Name = restaurant.Name;
+            entity.StreetAddress = restaurant.StreetAddress;
             entity.City = restaurant.City;
             entity.State = restaurant.State;
             entity.ZipCode = restaurant.ZipCode;
@@ -82,6 +85,7 @@ public sealed class SqliteRestaurantOperationsRepository(TasteBudzDbContext dbCo
             entity.Longitude = restaurant.Longitude;
             entity.PriceTier = restaurant.PriceTier;
             entity.ExternalPlaceId = restaurant.ExternalPlaceId;
+            entity.IsArchived = restaurant.IsArchived;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

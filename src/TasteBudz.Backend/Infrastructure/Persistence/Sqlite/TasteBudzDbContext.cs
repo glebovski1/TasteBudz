@@ -222,6 +222,7 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.ToTable("Restaurants");
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => item.ZipCode);
+            entity.HasIndex(item => item.IsArchived);
         });
 
         modelBuilder.Entity<RestaurantCuisineEntity>(entity =>

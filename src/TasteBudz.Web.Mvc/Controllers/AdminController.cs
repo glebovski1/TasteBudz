@@ -209,6 +209,20 @@ public sealed class AdminController : Controller
         }
     }
 
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Restaurants(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return View(await BuildRestaurantCatalogViewModelAsync(cancellationToken));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Admin")]
@@ -229,6 +243,106 @@ public sealed class AdminController : Controller
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateRestaurant(AdminRestaurantCatalogForm form, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Restaurant details are invalid.";
+            return RedirectToAction(nameof(Restaurants));
+        }
+
+        try
+        {
+            await restaurantApiService.CreateAdminRestaurantAsync(form.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "Restaurant created.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Restaurant creation failed: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Restaurants));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateCatalogRestaurant(AdminRestaurantCatalogForm form, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid || form.RestaurantId == Guid.Empty)
+        {
+            TempData["StatusMessage"] = "Restaurant details are invalid.";
+            return RedirectToAction(nameof(Restaurants));
+        }
+
+        try
+        {
+            await restaurantApiService.UpdateAdminRestaurantAsync(form.RestaurantId, form.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "Restaurant updated.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Restaurant update failed: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Restaurants));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ArchiveRestaurant(Guid restaurantId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await restaurantApiService.ArchiveAdminRestaurantAsync(restaurantId, cancellationToken);
+            TempData["StatusMessage"] = "Restaurant archived.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Restaurant archive failed: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Restaurants));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RestoreRestaurant(Guid restaurantId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await restaurantApiService.RestoreAdminRestaurantAsync(restaurantId, cancellationToken);
+            TempData["StatusMessage"] = "Restaurant restored.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Restaurant restore failed: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Restaurants));
     }
 
     [HttpPost]
@@ -338,6 +452,27 @@ public sealed class AdminController : Controller
         }
 
         return (true, items);
+    }
+
+    private async Task<AdminRestaurantsViewModel> BuildRestaurantCatalogViewModelAsync(CancellationToken cancellationToken)
+    {
+        var restaurants = await restaurantApiService.ListAdminRestaurantsAsync(cancellationToken);
+        var suggestedCuisineTags = CuisineData.AvailableCuisineTags
+            .Append("Other")
+            .Concat(restaurants.SelectMany(item => item.CuisineTags))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return new AdminRestaurantsViewModel
+        {
+            Restaurants = restaurants.Select(restaurant => new AdminRestaurantCatalogItemViewModel
+            {
+                Restaurant = restaurant,
+                Form = AdminRestaurantCatalogForm.FromDto(restaurant),
+            }).ToArray(),
+            SuggestedCuisineTags = suggestedCuisineTags,
+        };
     }
 
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)

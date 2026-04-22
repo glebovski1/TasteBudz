@@ -256,6 +256,7 @@ CREATE TABLE IF NOT EXISTS GroupInvites (
 CREATE TABLE IF NOT EXISTS Restaurants (
     Id TEXT NOT NULL PRIMARY KEY,
     Name TEXT NOT NULL,
+    StreetAddress TEXT NULL,
     City TEXT NOT NULL,
     State TEXT NOT NULL,
     ZipCode TEXT NOT NULL,
@@ -263,12 +264,14 @@ CREATE TABLE IF NOT EXISTS Restaurants (
     Longitude REAL NULL,
     PriceTier INTEGER NOT NULL,
     ExternalPlaceId TEXT NULL,
+    IsArchived INTEGER NOT NULL DEFAULT 0,
     CHECK (Latitude IS NULL OR Latitude BETWEEN -90 AND 90),
     CHECK (Longitude IS NULL OR Longitude BETWEEN -180 AND 180),
     CHECK (
         (Latitude IS NULL AND Longitude IS NULL) OR
         (Latitude IS NOT NULL AND Longitude IS NOT NULL)
-    )
+    ),
+    CHECK (IsArchived IN (0, 1))
 );
 
 CREATE TABLE IF NOT EXISTS RestaurantCuisines (

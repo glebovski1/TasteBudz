@@ -108,11 +108,12 @@ MVP includes both event chat and group chat. Direct 1-on-1 chat remains later an
 External restaurant APIs add cost, rate limits, and unpredictable data quality when they sit in the user-facing browse/search path.
 
 ### Decision
-MVP uses the internal restaurant catalog as the source of truth for restaurant selection. The catalog may be seeded from SQL scripts and may be populated through an admin-only OpenStreetMap/Overpass import, but user-facing restaurant browse/search continues to read from the local catalog instead of calling an external provider live.
+MVP uses the internal restaurant catalog as the source of truth for restaurant selection. The catalog may be seeded from SQL scripts, may be populated through an admin-only OpenStreetMap/Overpass import, and may geocode admin-maintained restaurant addresses through an external provider during catalog saves, but user-facing restaurant browse/search continues to read from the local catalog instead of calling an external provider live.
 
 ### Consequences
 - Testing is simpler because user-facing restaurant behavior is still local catalog behavior.
 - External IDs should be provider-qualified, such as `osm:<id>`, so clients do not confuse OpenStreetMap identifiers with Google Place IDs.
+- Admin-only geocoding remains acceptable because the result is persisted back into the local catalog instead of becoming a runtime dependency for user browse/search.
 - External live search remains optional later work.
 
 ## [ADR-004] Notifications Are In-App Only in MVP

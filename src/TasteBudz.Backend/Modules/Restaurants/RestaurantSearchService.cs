@@ -12,7 +12,7 @@ public sealed class RestaurantSearchService(IRestaurantRepository restaurantRepo
 {
     public async Task<ListResponse<RestaurantDto>> BrowseAsync(BrowseRestaurantsQuery query, CancellationToken cancellationToken = default)
     {
-        var restaurants = await restaurantRepository.ListAsync(cancellationToken);
+        var restaurants = await restaurantRepository.ListAsync(cancellationToken: cancellationToken);
         var referencePoint = await ResolveReferencePointAsync(query.ZipCode, cancellationToken);
         var filtered = ApplyFilters(restaurants, query.Q, query.Cuisine, query.PriceTier, referencePoint, query.RadiusMiles)
             .Select(restaurant => ToDto(restaurant, referencePoint))
@@ -104,7 +104,8 @@ public sealed class RestaurantSearchService(IRestaurantRepository restaurantRepo
             restaurant.Latitude,
             restaurant.Longitude,
             restaurant.ExternalPlaceId,
-            distance);
+            distance,
+            restaurant.StreetAddress);
     }
 
     internal static double CalculateDistanceMiles(double lat1, double lon1, double lat2, double lon2)

@@ -22,15 +22,15 @@ INSERT OR IGNORE INTO ZipCoordinates (ZipCode, Latitude, Longitude) VALUES
 ('45208', 39.1370, -84.4356),
 ('45212', 39.1631, -84.4347);
 
-INSERT OR IGNORE INTO Restaurants (Id, Name, City, State, ZipCode, Latitude, Longitude, PriceTier, ExternalPlaceId) VALUES
-('11111111-1111-1111-1111-111111111111', 'Maki Social', 'Cincinnati', 'OH', '45220', 39.1275, -84.5200, 1, NULL),
-('22222222-2222-2222-2222-222222222222', 'Queen City Curry', 'Cincinnati', 'OH', '45202', 39.1034, -84.5120, 1, NULL),
-('33333333-3333-3333-3333-333333333333', 'Over-the-Rhine Tacos', 'Cincinnati', 'OH', '45202', 39.1111, -84.5161, 0, NULL),
-('44444444-4444-4444-4444-444444444444', 'Campus Noodles', 'Cincinnati', 'OH', '45219', 39.1290, -84.5145, 0, NULL),
-('55555555-5555-5555-5555-555555555555', 'Riverfront Grill', 'Covington', 'KY', '41011', 39.0837, -84.5086, 2, NULL),
-('66666666-6666-6666-6666-666666666666', 'Garden Falafel', 'Cincinnati', 'OH', '45206', 39.1402, -84.4819, 0, NULL),
-('77777777-7777-7777-7777-777777777777', 'Little Saigon Table', 'Cincinnati', 'OH', '45208', 39.1362, -84.4312, 1, NULL),
-('88888888-8888-8888-8888-888888888888', 'Late Night Pizza Co', 'Cincinnati', 'OH', '45212', 39.1610, -84.4433, 0, NULL);
+INSERT OR IGNORE INTO Restaurants (Id, Name, StreetAddress, City, State, ZipCode, Latitude, Longitude, PriceTier, ExternalPlaceId, IsArchived) VALUES
+('11111111-1111-1111-1111-111111111111', 'Maki Social', NULL, 'Cincinnati', 'OH', '45220', 39.1275, -84.5200, 1, NULL, 0),
+('22222222-2222-2222-2222-222222222222', 'Queen City Curry', NULL, 'Cincinnati', 'OH', '45202', 39.1034, -84.5120, 1, NULL, 0),
+('33333333-3333-3333-3333-333333333333', 'Over-the-Rhine Tacos', NULL, 'Cincinnati', 'OH', '45202', 39.1111, -84.5161, 0, NULL, 0),
+('44444444-4444-4444-4444-444444444444', 'Campus Noodles', NULL, 'Cincinnati', 'OH', '45219', 39.1290, -84.5145, 0, NULL, 0),
+('55555555-5555-5555-5555-555555555555', 'Riverfront Grill', NULL, 'Covington', 'KY', '41011', 39.0837, -84.5086, 2, NULL, 0),
+('66666666-6666-6666-6666-666666666666', 'Garden Falafel', NULL, 'Cincinnati', 'OH', '45206', 39.1402, -84.4819, 0, NULL, 0),
+('77777777-7777-7777-7777-777777777777', 'Little Saigon Table', NULL, 'Cincinnati', 'OH', '45208', 39.1362, -84.4312, 1, NULL, 0),
+('88888888-8888-8888-8888-888888888888', 'Late Night Pizza Co', NULL, 'Cincinnati', 'OH', '45212', 39.1610, -84.4433, 0, NULL, 0);
 
 INSERT OR IGNORE INTO RestaurantCuisines (RestaurantId, CuisineId) VALUES
 ('11111111-1111-1111-1111-111111111111', '10000000-0000-0000-0000-000000000001'),

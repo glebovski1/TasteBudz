@@ -102,16 +102,24 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MediaService>();
         services.AddScoped<RestaurantSearchService>();
         services.AddScoped<RestaurantRecommendationService>();
+        services.AddScoped<RestaurantCatalogAdminService>();
         services.AddScoped<RestaurantAdminAssignmentService>();
         services.AddScoped<ManagedRestaurantService>();
         services.AddScoped<RestaurantSlotService>();
         services.AddScoped<DiscountEligibilityService>();
         services.AddScoped<EventSlotReservationService>();
         services.AddScoped<OverpassRestaurantImporter>();
+        services.AddScoped<IRestaurantGeocodingService, OpenStreetMapRestaurantGeocodingService>();
         services.AddHttpClient("Overpass", client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "TasteBudz/1.0 (restaurant import; contact@tastebudz.local)");
             client.Timeout = TimeSpan.FromSeconds(120);
+        });
+        services.AddHttpClient("Nominatim", client =>
+        {
+            client.BaseAddress = new Uri("https://nominatim.openstreetmap.org");
+            client.DefaultRequestHeaders.Add("User-Agent", "TasteBudz/1.0 (restaurant geocoding; contact@tastebudz.local)");
+            client.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddScoped<EventLifecycleService>();
         services.AddScoped<EventBrowseService>();

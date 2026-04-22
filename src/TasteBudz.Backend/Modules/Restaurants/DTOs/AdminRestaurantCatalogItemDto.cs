@@ -2,9 +2,10 @@ using TasteBudz.Backend.Domain;
 
 namespace TasteBudz.Backend.Modules.Restaurants;
 
-public sealed record RestaurantDto(
+public sealed record AdminRestaurantCatalogItemDto(
     Guid RestaurantId,
     string Name,
+    string? StreetAddress,
     string City,
     string State,
     string ZipCode,
@@ -13,5 +14,4 @@ public sealed record RestaurantDto(
     double? Latitude,
     double? Longitude,
     string? ExternalPlaceId,
-    double? DistanceMiles,
-    string? StreetAddress = null);
+    bool IsArchived);

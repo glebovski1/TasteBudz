@@ -278,7 +278,9 @@ internal static class RestaurantMapsLinkBuilder
 
     public static string BuildGoogleMapsUrl(RestaurantDto restaurant)
     {
-        var query = $"{restaurant.Name}, {restaurant.City}, {restaurant.State} {restaurant.ZipCode}".Trim();
+        var query = string.IsNullOrWhiteSpace(restaurant.StreetAddress)
+            ? $"{restaurant.Name}, {restaurant.City}, {restaurant.State} {restaurant.ZipCode}".Trim()
+            : $"{restaurant.Name}, {restaurant.StreetAddress}, {restaurant.City}, {restaurant.State} {restaurant.ZipCode}".Trim();
         var encodedQuery = Uri.EscapeDataString(query);
         var url = $"https://www.google.com/maps/search/?api=1&query={encodedQuery}";
 
