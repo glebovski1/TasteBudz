@@ -80,6 +80,7 @@ public sealed class TasteBudzApiFactory : WebApplicationFactory<Program>
             ["ConnectionStrings:TasteBudz"] = connectionString,
         };
 
+        overrides.TryAdd("Persistence:Provider", "Sqlite");
         overrides.TryAdd("Persistence:InitializeSqliteOnStartup", "true");
 
         return overrides;

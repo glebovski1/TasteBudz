@@ -134,6 +134,48 @@ public sealed class AccountController : Controller
         return View(new ResetPasswordViewModel { Token = token?.Trim() ?? string.Empty });
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult RequestPasswordReset()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToAction(nameof(ProfileController.View), "Profile");
+        }
+
+        return View(new RequestPasswordResetViewModel());
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestPasswordReset(RequestPasswordResetViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await authApiService.RequestPasswordResetAsync(
+                new CreatePasswordResetRequestRequest
+                {
+                    Username = model.Username.Trim(),
+                    Message = model.Message.Trim(),
+                },
+                cancellationToken);
+
+            TempData["StatusMessage"] = "If that username belongs to an active account, the admin team will review the request.";
+            return RedirectToAction(nameof(Login));
+        }
+        catch (BackendApiException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+            return View(model);
+        }
+    }
+
     [HttpPost]
     [AllowAnonymous]
     [ValidateAntiForgeryToken]

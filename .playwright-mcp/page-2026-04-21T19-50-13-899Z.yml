@@ -1,0 +1,177 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Geometry of Gravity
+      - generic [ref=e7]: 14 lessons · 4 parts
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]: Part 1 — Foundations
+        - button "1.1 Manifolds & coordinates" [ref=e11] [cursor=pointer]: 1.1 Manifolds & coordinates
+        - button "1.2 Tangent vectors" [ref=e13] [cursor=pointer]: 1.2 Tangent vectors
+        - button "1.3 Metrics & line element" [ref=e15] [cursor=pointer]: 1.3 Metrics & line element
+        - button "1.4 Covariant derivative" [ref=e17] [cursor=pointer]: 1.4 Covariant derivative
+        - button "1.5 Parallel transport" [ref=e19] [cursor=pointer]: 1.5 Parallel transport
+        - button "1.6 Geodesics" [ref=e21] [cursor=pointer]: 1.6 Geodesics
+        - button "1.7 Riemann tensor" [ref=e23] [cursor=pointer]: 1.7 Riemann tensor
+      - generic [ref=e25]:
+        - generic [ref=e26]: Part 2 — Newton-Cartan
+        - generic [ref=e27]: Gravity is not a force. It is the geometry of spacetime telling objects which paths are straight.
+        - button "2.1 Absolute time & free fall" [ref=e28] [cursor=pointer]: 2.1 Absolute time & free fall
+        - button "2.2 Orbit as geometry" [ref=e30] [cursor=pointer]: 2.2 Orbit as geometry
+        - button "2.3 Tidal curvature" [ref=e32] [cursor=pointer]: 2.3 Tidal curvature
+      - generic [ref=e34]:
+        - generic [ref=e35]: Part 3 — Schwarzschild
+        - button "3.1 Lorentzian spacetime" [ref=e36] [cursor=pointer]: 3.1 Lorentzian spacetime
+        - button "3.2 Schwarzschild metric" [ref=e38] [cursor=pointer]: 3.2 Schwarzschild metric
+        - button "3.3 Orbits & precession" [ref=e40] [cursor=pointer]: 3.3 Orbits & precession
+      - generic [ref=e42]:
+        - generic [ref=e43]: Part 4 — Horizons
+        - button "3.4 Flamm & Kruskal" [ref=e44] [cursor=pointer]: 3.4 Flamm & Kruskal
+  - generic [ref=e46]:
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - text: 1.6 — Geodesics
+        - generic [ref=e49]: Part 1 · Foundations
+      - generic [ref=e50]:
+        - button "2D" [ref=e51] [cursor=pointer]
+        - button "3D" [ref=e52] [cursor=pointer]
+        - button "Σ formulas" [ref=e53] [cursor=pointer]
+        - button "Mark done" [ref=e54] [cursor=pointer]
+    - generic [ref=e55]:
+      - generic [ref=e61]: "Geodesics are the straightest possible paths a surface allows — they have zero covariant acceleration. The amber curve solves ẍᵏ + Γᵏᵢⱼ ẋⁱ ẋʲ = 0. A particle with no force acting on it follows a geodesic. On a sphere that path looks curved. In spacetime, gravity works the same way: no force — just geometry."
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]: Surface
+            - generic [ref=e66]: S²
+          - generic [ref=e67]:
+            - button "S²" [ref=e68] [cursor=pointer]
+            - button "Torus" [ref=e69] [cursor=pointer]
+            - button "Saddle" [ref=e70] [cursor=pointer]
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]: Geodesic type
+            - generic [ref=e74]: Shortest
+          - generic [ref=e75]:
+            - button "Shortest" [ref=e76] [cursor=pointer]
+            - button "All" [ref=e77] [cursor=pointer]
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]: Start u
+            - generic [ref=e81]: "1.90"
+          - slider [ref=e82]: "1.9"
+        - generic [ref=e83]:
+          - generic [ref=e84]:
+            - generic [ref=e85]: Start v
+            - generic [ref=e86]: "0.30"
+          - slider [ref=e87]: "0.3"
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - generic [ref=e90]: Direction θ
+            - generic [ref=e91]: 0.22π
+          - slider [ref=e92]: "0.7"
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e95]: Length s
+            - generic [ref=e96]: "2.20"
+          - slider [ref=e97]: "2.2"
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e100]: Speed
+            - generic [ref=e101]: 1.0×
+          - slider [ref=e102]: "1"
+        - generic [ref=e103]:
+          - generic [ref=e105]: Show
+          - generic [ref=e106]:
+            - button "Grid" [ref=e107] [cursor=pointer]
+            - button "T-plane" [ref=e108] [cursor=pointer]
+            - button "Curv. map" [ref=e109] [cursor=pointer]
+        - generic [ref=e111]:
+          - generic [ref=e112]: Arc length A→B
+          - generic [ref=e113]: 2.200 rad
+          - generic [ref=e114]: "vs straight chord: 1.782"
+    - generic [ref=e115]:
+      - generic [ref=e116]:
+        - generic [ref=e117]: Geodesic equation
+        - generic [ref=e120]:
+          - math [ref=e122]:
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - generic [ref=e126]:
+                  - generic [ref=e127]:
+                    - generic [ref=e128]: d
+                    - generic [ref=e129]: "2"
+                  - generic [ref=e130]:
+                    - generic [ref=e131]: x
+                    - generic [ref=e132]: k
+                - generic [ref=e133]:
+                  - generic [ref=e134]: d
+                  - generic [ref=e135]:
+                    - generic [ref=e136]: τ
+                    - generic [ref=e137]: "2"
+              - generic [ref=e138]: +
+              - generic [ref=e139]:
+                - generic [ref=e140]: Γ
+                - generic [ref=e141]:
+                  - generic [ref=e142]: i
+                  - generic [ref=e143]: j
+                - generic [ref=e144]: k
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]: d
+                  - generic [ref=e148]:
+                    - generic [ref=e149]: x
+                    - generic [ref=e150]: i
+                - generic [ref=e151]:
+                  - generic [ref=e152]: d
+                  - generic [ref=e153]: τ
+              - generic [ref=e154]:
+                - generic [ref=e155]:
+                  - generic [ref=e156]: d
+                  - generic [ref=e157]:
+                    - generic [ref=e158]: x
+                    - generic [ref=e159]: j
+                - generic [ref=e160]:
+                  - generic [ref=e161]: d
+                  - generic [ref=e162]: τ
+              - generic [ref=e163]: =
+              - generic [ref=e164]: "0"
+          - generic [ref=e165]:
+            - generic [ref=e166]:
+              - generic [ref=e171]:
+                - generic [ref=e173]:
+                  - text: d
+                  - generic [ref=e174]:
+                    - text: τ
+                    - generic [ref=e179]: "2"
+                - generic [ref=e182]:
+                  - generic [ref=e183]:
+                    - text: d
+                    - generic [ref=e188]: "2"
+                  - generic [ref=e189]:
+                    - text: x
+                    - generic [ref=e194]: k
+              - text: +
+            - generic [ref=e198]:
+              - generic [ref=e199]:
+                - text: Γ
+                - generic [ref=e203]:
+                  - generic [ref=e205]: ij
+                  - generic [ref=e206]: k
+              - generic [ref=e214]:
+                - generic [ref=e216]: dτ
+                - generic [ref=e219]:
+                  - text: d
+                  - generic [ref=e220]:
+                    - text: x
+                    - generic [ref=e225]: i
+              - generic [ref=e233]:
+                - generic [ref=e235]: dτ
+                - generic [ref=e238]:
+                  - text: d
+                  - generic [ref=e239]:
+                    - text: x
+                    - generic [ref=e244]: j
+              - text: =
+            - generic [ref=e248]: "0"
+      - generic [ref=e250]: "Integrator: Cash-Karp 4(5) · tol 1e-8"

@@ -60,6 +60,54 @@
                     </div>
                 </div>
             }
+
+            @if (!Model.OpenPasswordResetRequests.Any())
+            {
+                <p class="muted-note" style="margin-top:1rem;">No open password reset requests.</p>
+            }
+            else
+            {
+                <div class="report-list" style="margin-top:1rem;">
+                    @foreach (var request in Model.OpenPasswordResetRequests)
+                    {
+                        <article class="report-card card">
+                            <div class="report-card__header">
+                                <div>
+                                    <strong>@request.Username</strong>
+                                    <p class="muted-note">@request.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(request.MatchedUsername))
+                                {
+                                    <span class="pill">Matched @request.MatchedUsername</span>
+                                }
+                                else
+                                {
+                                    <span class="pill">No active match</span>
+                                }
+                            </div>
+
+                            <p class="report-card__reason">@request.Message</p>
+
+                            <div class="button-row">
+                                @if (!string.IsNullOrWhiteSpace(request.MatchedUsername))
+                                {
+                                    <form asp-action="GeneratePasswordResetToken" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="passwordResetRequestId" value="@request.RequestId" />
+                                        <input type="hidden" name="usernameOrEmail" value="@request.MatchedUsername" />
+                                        <button type="submit" class="button button--primary">Generate Reset Link</button>
+                                    </form>
+                                }
+                                <form asp-action="DismissPasswordResetRequest" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="requestId" value="@request.RequestId" />
+                                    <button type="submit" class="button button--secondary">Dismiss</button>
+                                </form>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
         </section>
 
         <!-- Restaurant Data -->

@@ -122,7 +122,7 @@
                     <p>
                         @if (string.IsNullOrWhiteSpace(Model.Bio))
                         {
-                            <span class="empty-state">No bio added yet.</span>
+                            <span class="empty-state">No public note added yet.</span>
                         }
                         else
                         {
@@ -143,6 +143,7 @@
 
                 <div class="button-row">
                     <a asp-action="Edit" class="button button--primary">Edit Profile</a>
+                    <a asp-action="Availability" class="button button--secondary">Manage Availability</a>
                 </div>
             </div>
         </div>

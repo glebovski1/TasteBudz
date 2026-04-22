@@ -123,7 +123,7 @@
             avatar.textContent   = (data.displayName ?? "?")[0].toUpperCase();
             name.textContent     = data.displayName;
             username.textContent = "@@" + data.username;
-            bio.textContent      = data.bio || "No bio yet.";
+            bio.textContent      = data.bio || "No public note yet.";
 
             pills.innerHTML = "";
             if (data.socialGoal) pills.appendChild(makePill(data.socialGoal));

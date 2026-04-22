@@ -63,8 +63,8 @@ Current runtime persistence note:
 
 | Module | Current state | Notes |
 |---|---|---|
-| Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion, admin-issued password reset tokens |
-| Profiles | Implemented slice | Onboarding status, profile update/read, preferences, availability, privacy, blocks, dashboard summaries |
+| Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion, anonymous password reset requests, admin review/closure, and admin-issued password reset tokens |
+| Profiles | Implemented slice | Onboarding status, profile update/read, public profile note, preferences, availability, privacy, blocks, dashboard summaries |
 | Restaurants | Implemented slice | Browse, detail, deterministic suggestions, seeded catalog |
 | Restaurant Operations | Feature-flagged implemented slice | Admin-managed restaurant admin assignments, managed restaurant profile edits, slot CRUD/cancel, event-host slot reservations, discount simulation; disabled by default |
 | Events | Implemented slice | Browse, create, detail, update, participants, join, leave/accept/decline, invite, cancel, lifecycle sync, owner-only group link, restriction checks |
@@ -78,10 +78,13 @@ Current runtime persistence note:
 
 ## 4. Implemented Endpoint Surface
 
-Implemented controller surface as of 2026-04-16:
+Implemented controller surface as of 2026-04-21:
 
 - `/api/v1/auth/*`
+- `/api/v1/auth/password-reset-requests`
 - `/api/v1/auth/password-reset`
+- `/api/v1/admin/users/password-reset-requests`
+- `/api/v1/admin/users/password-reset-tokens`
 - `/api/v1/onboarding/status`
 - `/api/v1/profiles/me`
 - `/api/v1/profiles/me/avatar`
@@ -165,7 +168,7 @@ Current automated test status as of 2026-04-16:
 Current covered areas:
 
 - password hashing
-- auth registration, login, refresh, logout, duplicate-credential handling, admin-issued password reset, and protected endpoint access
+- auth registration, login, refresh, logout, duplicate-credential handling, anonymous password reset requests, admin-issued password reset, and protected endpoint access
 - profile update workflows
 - profile-avatar upload/replacement and media retrieval behavior
 - recurring and one-off availability edge cases

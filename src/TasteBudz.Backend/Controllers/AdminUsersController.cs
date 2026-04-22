@@ -12,6 +12,14 @@ public sealed class AdminUsersController(
     AuthService authService,
     ICurrentUserAccessor currentUserAccessor) : ControllerBase
 {
+    [HttpGet("password-reset-requests")]
+    public Task<IReadOnlyCollection<PasswordResetRequestDto>> ListOpenPasswordResetRequests(CancellationToken cancellationToken) =>
+        authService.ListOpenPasswordResetRequestsAsync(currentUserAccessor.GetRequiredCurrentUser(), cancellationToken);
+
+    [HttpPost("password-reset-requests/{requestId:guid}/closure")]
+    public Task<PasswordResetRequestDto> ClosePasswordResetRequest(Guid requestId, CancellationToken cancellationToken) =>
+        authService.ClosePasswordResetRequestAsync(currentUserAccessor.GetRequiredCurrentUser(), requestId, cancellationToken);
+
     [HttpPost("password-reset-tokens")]
     public Task<PasswordResetTokenDto> CreatePasswordResetToken(
         [FromBody] CreatePasswordResetTokenRequest request,

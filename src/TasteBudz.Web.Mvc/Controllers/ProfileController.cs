@@ -103,6 +103,176 @@ public sealed class ProfileController : Controller
         }
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Availability(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return View(await BuildAvailabilityViewModelAsync(cancellationToken));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateRecurringAvailability(RecurringAvailabilityInputViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Please provide a valid recurring availability window.";
+            return RedirectToAction(nameof(Availability));
+        }
+
+        try
+        {
+            await profileApiService.CreateRecurringAvailabilityAsync(model.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "Recurring availability saved.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException exception)
+        {
+            TempData["StatusMessage"] = exception.Message;
+        }
+
+        return RedirectToAction(nameof(Availability));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateRecurringAvailability(RecurringAvailabilityInputViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid || !model.WindowId.HasValue)
+        {
+            TempData["StatusMessage"] = "Please provide a valid recurring availability window.";
+            return RedirectToAction(nameof(Availability));
+        }
+
+        try
+        {
+            await profileApiService.UpdateRecurringAvailabilityAsync(model.WindowId.Value, model.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "Recurring availability updated.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException exception)
+        {
+            TempData["StatusMessage"] = exception.Message;
+        }
+
+        return RedirectToAction(nameof(Availability));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteRecurringAvailability(Guid windowId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await profileApiService.DeleteRecurringAvailabilityAsync(windowId, cancellationToken);
+            TempData["StatusMessage"] = "Recurring availability removed.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException exception)
+        {
+            TempData["StatusMessage"] = exception.Message;
+        }
+
+        return RedirectToAction(nameof(Availability));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateOneOffAvailability(OneOffAvailabilityInputViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Please provide a valid one-off availability window.";
+            return RedirectToAction(nameof(Availability));
+        }
+
+        try
+        {
+            await profileApiService.CreateOneOffAvailabilityAsync(model.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "One-off availability saved.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException exception)
+        {
+            TempData["StatusMessage"] = exception.Message;
+        }
+
+        return RedirectToAction(nameof(Availability));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateOneOffAvailability(OneOffAvailabilityInputViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid || !model.WindowId.HasValue)
+        {
+            TempData["StatusMessage"] = "Please provide a valid one-off availability window.";
+            return RedirectToAction(nameof(Availability));
+        }
+
+        try
+        {
+            await profileApiService.UpdateOneOffAvailabilityAsync(model.WindowId.Value, model.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = "One-off availability updated.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException exception)
+        {
+            TempData["StatusMessage"] = exception.Message;
+        }
+
+        return RedirectToAction(nameof(Availability));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteOneOffAvailability(Guid windowId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await profileApiService.DeleteOneOffAvailabilityAsync(windowId, cancellationToken);
+            TempData["StatusMessage"] = "One-off availability removed.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException exception)
+        {
+            TempData["StatusMessage"] = exception.Message;
+        }
+
+        return RedirectToAction(nameof(Availability));
+    }
+
+    private async Task<ProfileAvailabilityViewModel> BuildAvailabilityViewModelAsync(CancellationToken cancellationToken)
+    {
+        var recurring = await profileApiService.ListRecurringAvailabilityAsync(cancellationToken);
+        var oneOff = await profileApiService.ListOneOffAvailabilityAsync(cancellationToken);
+        return ProfileAvailabilityViewModel.FromDto(recurring, oneOff);
+    }
+
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)
     {
         // If backend auth expired, clear local auth too, then send the user back to login.

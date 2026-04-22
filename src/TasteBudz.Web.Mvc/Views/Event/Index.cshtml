@@ -17,23 +17,61 @@
     </div>
 
     <div class="card stack">
-        <form asp-action="Index" method="get" class="button-row" style="align-items: stretch;">
-            <div class="field" style="flex: 1; gap: 0;">
-                <input type="text"
-                       name="q"
-                       value="@Model.SearchQuery"
-                       placeholder="Search events…"
-                       aria-label="Search events" />
+        <form asp-action="Index" method="get" class="stack">
+            <div class="button-row" style="align-items: stretch;">
+                <div class="field" style="flex: 1; gap: 0;">
+                    <input type="text"
+                           name="q"
+                           value="@Model.SearchQuery"
+                           placeholder="Search events…"
+                           aria-label="Search events" />
+                </div>
+                <button type="submit" class="button button--primary">Search</button>
+                @if (!string.IsNullOrWhiteSpace(Model.SearchQuery) || Model.UseMyZip || Model.AvailabilityOnly)
+                {
+                    <a asp-action="Index" class="button button--secondary">Clear</a>
+                }
             </div>
-            <button type="submit" class="button button--primary">Search</button>
-            @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
-            {
-                <a asp-action="Index" class="button button--secondary">Clear</a>
-            }
+
+            <div class="editor-grid">
+                <section class="panel stack">
+                    <label class="checkbox-row">
+                        <input type="checkbox" name="useMyZip" value="true" checked="@Model.UseMyZip" />
+                        <span>Near my ZIP @(string.IsNullOrWhiteSpace(Model.HomeAreaZipCode) ? string.Empty : Model.HomeAreaZipCode)</span>
+                    </label>
+
+                    <div class="field">
+                        <label for="radiusMiles">Radius</label>
+                        <select id="radiusMiles" name="radiusMiles">
+                            @foreach (var option in EventIndexViewModel.AvailableRadiusMiles)
+                            {
+                                <option value="@option" selected="@(Model.RadiusMiles == option)">@option miles</option>
+                            }
+                        </select>
+                    </div>
+                </section>
+
+                <section class="panel stack">
+                    <label class="checkbox-row">
+                        <input type="checkbox" name="availabilityOnly" value="true" checked="@Model.AvailabilityOnly" />
+                        <span>Matches my availability</span>
+                    </label>
+                    <p class="muted-note">Use saved availability windows to narrow the list.</p>
+                </section>
+            </div>
         </form>
     </div>
 
-    @if (!Model.Events.Any())
+    @if (Model.ShowAvailabilitySetupCta)
+    {
+        <div class="panel stack">
+            <p class="empty-state">Add at least one availability window before using this filter.</p>
+            <div class="button-row">
+                <a asp-controller="Profile" asp-action="Availability" class="button button--primary">Manage Availability</a>
+            </div>
+        </div>
+    }
+    else if (!Model.Events.Any())
     {
         <div class="panel">
             <p class="empty-state">

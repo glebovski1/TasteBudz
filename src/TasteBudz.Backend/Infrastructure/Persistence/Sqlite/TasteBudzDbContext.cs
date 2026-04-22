@@ -11,6 +11,7 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
     internal DbSet<UserRoleEntity> UserRoles => Set<UserRoleEntity>();
     internal DbSet<UserSessionEntity> UserSessions => Set<UserSessionEntity>();
     internal DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
+    internal DbSet<PasswordResetRequestEntity> PasswordResetRequests => Set<PasswordResetRequestEntity>();
     internal DbSet<CuisineEntity> Cuisines => Set<CuisineEntity>();
     internal DbSet<ZipCoordinateEntity> ZipCoordinates => Set<ZipCoordinateEntity>();
     internal DbSet<UserProfileEntity> UserProfiles => Set<UserProfileEntity>();
@@ -83,6 +84,16 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.HasIndex(item => new { item.UserId, item.CreatedAtUtc });
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.UserId);
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.CreatedByUserId);
+        });
+
+        modelBuilder.Entity<PasswordResetRequestEntity>(entity =>
+        {
+            entity.ToTable("PasswordResetRequests");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.ClosedAtUtc, item.CreatedAtUtc });
+            entity.HasIndex(item => item.MatchedUserId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.MatchedUserId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.ClosedByUserId);
         });
 
         modelBuilder.Entity<CuisineEntity>(entity =>

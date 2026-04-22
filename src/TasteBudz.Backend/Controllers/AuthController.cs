@@ -28,6 +28,16 @@ public sealed class AuthController(AuthService authService, ICurrentUserAccessor
         return Ok(session);
     }
 
+    [AllowAnonymous]
+    [HttpPost("password-reset-requests")]
+    public async Task<ActionResult<PasswordResetRequestAcceptedDto>> CreatePasswordResetRequest(
+        [FromBody] CreatePasswordResetRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.CreatePasswordResetRequestAsync(request, cancellationToken);
+        return Accepted(result);
+    }
+
     [HttpPost("refresh")]
     public async Task<ActionResult<SessionDto>> Refresh([FromBody] RefreshSessionRequest request, CancellationToken cancellationToken)
     {

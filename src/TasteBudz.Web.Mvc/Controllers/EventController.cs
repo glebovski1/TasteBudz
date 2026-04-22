@@ -42,12 +42,49 @@ public sealed class EventController : Controller
 
     // GET /Event/Index
     [HttpGet]
-    public async Task<IActionResult> Index(string? q, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(
+        string? q,
+        bool useMyZip,
+        int? radiusMiles,
+        bool availabilityOnly,
+        CancellationToken cancellationToken)
     {
+        var selectedRadiusMiles = radiusMiles is 5 or 10 or 25
+            ? radiusMiles.Value
+            : EventIndexViewModel.DefaultRadiusMiles;
+
         try
         {
+            var profile = await profileApiService.GetMyProfileAsync(cancellationToken);
+            var hasAvailabilityWindows = true;
+
+            if (availabilityOnly)
+            {
+                var recurring = await profileApiService.ListRecurringAvailabilityAsync(cancellationToken);
+                var oneOff = await profileApiService.ListOneOffAvailabilityAsync(cancellationToken);
+                hasAvailabilityWindows = recurring.Count > 0 || oneOff.Count > 0;
+
+                if (!hasAvailabilityWindows)
+                {
+                    return View(EventIndexViewModel.EmptyWithFilters(
+                        q,
+                        useMyZip,
+                        selectedRadiusMiles,
+                        availabilityOnly,
+                        profile.HomeAreaZipCode,
+                        showAvailabilitySetupCta: true));
+                }
+            }
+
             var result = await eventApiService.BrowseAsync(
-                new BrowseEventsQuery { Q = q, PageSize = 100 },
+                new BrowseEventsQuery
+                {
+                    Q = q,
+                    ZipCode = useMyZip ? profile.HomeAreaZipCode : null,
+                    RadiusMiles = useMyZip ? selectedRadiusMiles : null,
+                    AvailabilityOnly = availabilityOnly,
+                    PageSize = 100,
+                },
                 cancellationToken);
 
             var completedCutoff = DateTimeOffset.UtcNow.AddDays(-7);
@@ -56,7 +93,13 @@ public sealed class EventController : Controller
                 .Where(e => e.Status != EventStatus.Completed || e.EventStartAtUtc >= completedCutoff)
                 .ToList();
 
-            return View(EventIndexViewModel.FromDto(visibleEvents, q));
+            return View(EventIndexViewModel.FromDto(
+                visibleEvents,
+                q,
+                useMyZip,
+                selectedRadiusMiles,
+                availabilityOnly,
+                profile.HomeAreaZipCode));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -64,7 +107,12 @@ public sealed class EventController : Controller
         }
         catch
         {
-            return View(EventIndexViewModel.Empty);
+            return View(EventIndexViewModel.EmptyWithFilters(
+                q,
+                useMyZip,
+                selectedRadiusMiles,
+                availabilityOnly,
+                null));
         }
     }
 

@@ -140,6 +140,105 @@ public sealed class AuthApiTests(TasteBudzApiFactory factory) : IClassFixture<Ta
     }
 
     [Fact]
+    public async Task PasswordResetRequests_AcceptKnownAndUnknownUsernamesWithoutDisclosure()
+    {
+        factory.ResetState();
+        using var adminClient = factory.CreateClient();
+        using var publicClient = factory.CreateClient();
+
+        var adminSession = await ApiTestHelpers.RegisterAsync(adminClient, username: "admin", email: "admin@example.com");
+        await ApiTestHelpers.RegisterAsync(publicClient, username: "alex", email: "alex@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, adminSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(adminClient, adminSession.AccessToken);
+
+        var knownResponse = await publicClient.PostAsJsonAsync("/api/v1/auth/password-reset-requests", new CreatePasswordResetRequestRequest
+        {
+            Username = "alex",
+            Message = "I lost access to my old email.",
+        });
+        var unknownResponse = await publicClient.PostAsJsonAsync("/api/v1/auth/password-reset-requests", new CreatePasswordResetRequestRequest
+        {
+            Username = "missing-user",
+            Message = "Please help me regain access.",
+        });
+        var knownAccepted = await knownResponse.Content.ReadFromJsonAsync<PasswordResetRequestAcceptedDto>(ApiTestHelpers.JsonOptions);
+        var unknownAccepted = await unknownResponse.Content.ReadFromJsonAsync<PasswordResetRequestAcceptedDto>(ApiTestHelpers.JsonOptions);
+
+        var listResponse = await adminClient.GetAsync("/api/v1/admin/users/password-reset-requests");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var requests = await listResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PasswordResetRequestDto>>(ApiTestHelpers.JsonOptions);
+        Assert.NotNull(requests);
+        var knownRequest = Assert.Single(requests!, request => request.Username == "alex");
+        var unknownRequest = Assert.Single(requests!, request => request.Username == "missing-user");
+
+        Assert.Equal(HttpStatusCode.Accepted, knownResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, unknownResponse.StatusCode);
+        Assert.Equal(knownAccepted!.Message, unknownAccepted!.Message);
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.Equal("alex", knownRequest.MatchedUsername);
+        Assert.Null(unknownRequest.MatchedUsername);
+    }
+
+    [Fact]
+    public async Task AdminPasswordResetRequestWorkflow_CanIssueTokenFromRequestAndDismissOpenRequests()
+    {
+        factory.ResetState();
+        using var adminClient = factory.CreateClient();
+        using var publicClient = factory.CreateClient();
+
+        var adminSession = await ApiTestHelpers.RegisterAsync(adminClient, username: "admin", email: "admin@example.com");
+        var userSession = await ApiTestHelpers.RegisterAsync(publicClient, username: "alex", email: "alex@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, adminSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(adminClient, adminSession.AccessToken);
+
+        var createFirstRequestResponse = await publicClient.PostAsJsonAsync("/api/v1/auth/password-reset-requests", new CreatePasswordResetRequestRequest
+        {
+            Username = "alex",
+            Message = "First reset request.",
+        });
+        var openListResponse = await adminClient.GetAsync("/api/v1/admin/users/password-reset-requests");
+        Assert.Equal(HttpStatusCode.OK, openListResponse.StatusCode);
+        var openRequests = await openListResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PasswordResetRequestDto>>(ApiTestHelpers.JsonOptions);
+        var firstRequest = Assert.Single(openRequests!);
+
+        var tokenResponse = await adminClient.PostAsJsonAsync("/api/v1/admin/users/password-reset-tokens", new CreatePasswordResetTokenRequest
+        {
+            PasswordResetRequestId = firstRequest.RequestId,
+        });
+        var token = await tokenResponse.Content.ReadFromJsonAsync<PasswordResetTokenDto>(ApiTestHelpers.JsonOptions);
+        var afterTokenListResponse = await adminClient.GetAsync("/api/v1/admin/users/password-reset-requests");
+        Assert.Equal(HttpStatusCode.OK, afterTokenListResponse.StatusCode);
+        var afterTokenRequests = await afterTokenListResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PasswordResetRequestDto>>(ApiTestHelpers.JsonOptions);
+
+        var createSecondRequestResponse = await publicClient.PostAsJsonAsync("/api/v1/auth/password-reset-requests", new CreatePasswordResetRequestRequest
+        {
+            Username = "alex",
+            Message = "Second reset request.",
+        });
+        var secondListResponse = await adminClient.GetAsync("/api/v1/admin/users/password-reset-requests");
+        Assert.Equal(HttpStatusCode.OK, secondListResponse.StatusCode);
+        var secondRequests = await secondListResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PasswordResetRequestDto>>(ApiTestHelpers.JsonOptions);
+        var secondRequest = Assert.Single(secondRequests!);
+
+        var closeResponse = await adminClient.PostAsync($"/api/v1/admin/users/password-reset-requests/{secondRequest.RequestId}/closure", null);
+        var closedRequest = await closeResponse.Content.ReadFromJsonAsync<PasswordResetRequestDto>(ApiTestHelpers.JsonOptions);
+        var afterCloseListResponse = await adminClient.GetAsync("/api/v1/admin/users/password-reset-requests");
+        Assert.Equal(HttpStatusCode.OK, afterCloseListResponse.StatusCode);
+        var afterCloseRequests = await afterCloseListResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PasswordResetRequestDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Accepted, createFirstRequestResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, openListResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, tokenResponse.StatusCode);
+        Assert.Equal(userSession.CurrentUser.UserId, token!.UserId);
+        Assert.Empty(afterTokenRequests!);
+        Assert.Equal(HttpStatusCode.Accepted, createSecondRequestResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, closeResponse.StatusCode);
+        Assert.NotNull(closedRequest!.ClosedAtUtc);
+        Assert.Equal(adminSession.CurrentUser.UserId, closedRequest.ClosedByUserId);
+        Assert.Empty(afterCloseRequests!);
+    }
+
+    [Fact]
     public async Task PasswordResetTokenCreation_WhenCallerIsNotAdmin_ReturnsForbidden()
     {
         factory.ResetState();

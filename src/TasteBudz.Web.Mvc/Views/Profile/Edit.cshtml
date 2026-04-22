@@ -47,8 +47,9 @@
 
                 <div class="field">
                     <label asp-for="Bio"></label>
-                    <textarea asp-for="Bio" placeholder="Say a little about your food vibe."></textarea>
+                    <textarea asp-for="Bio" placeholder="Share cuisines, dietary needs, dining style, or schedule preferences only if you want others to see them."></textarea>
                     <span asp-validation-for="Bio" class="field-validation-error"></span>
+                    <p class="muted-note">This note is the public place to share food compatibility details.</p>
                 </div>
             </section>
 
@@ -135,6 +136,7 @@
 
         <div class="button-row">
             <button type="submit" class="button button--primary">Save Profile</button>
+            <a asp-action="Availability" class="button button--secondary">Manage Availability</a>
             <a asp-action="View" class="button button--secondary">Cancel</a>
         </div>
     </form>

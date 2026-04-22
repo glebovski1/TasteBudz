@@ -129,9 +129,9 @@ public sealed class AdminController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GeneratePasswordResetToken(string usernameOrEmail, CancellationToken cancellationToken)
+    public async Task<IActionResult> GeneratePasswordResetToken(string? usernameOrEmail, Guid? passwordResetRequestId, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(usernameOrEmail))
+        if (string.IsNullOrWhiteSpace(usernameOrEmail) && !passwordResetRequestId.HasValue)
         {
             TempData["StatusMessage"] = "Username or email is required.";
             return RedirectToAction(nameof(Index));
@@ -140,14 +140,20 @@ public sealed class AdminController : Controller
         try
         {
             var resetToken = await authApiService.CreatePasswordResetTokenAsync(
-                new CreatePasswordResetTokenRequest { UsernameOrEmail = usernameOrEmail.Trim() },
+                new CreatePasswordResetTokenRequest
+                {
+                    UsernameOrEmail = string.IsNullOrWhiteSpace(usernameOrEmail) ? null : usernameOrEmail.Trim(),
+                    PasswordResetRequestId = passwordResetRequestId,
+                },
                 cancellationToken);
             var model = (await BuildIndexViewModelAsync(cancellationToken)) with
             {
                 GeneratedPasswordResetToken = resetToken,
             };
 
-            TempData["StatusMessage"] = "Password reset link generated.";
+            TempData["StatusMessage"] = passwordResetRequestId.HasValue
+                ? "Password reset link generated and request closed."
+                : "Password reset link generated.";
             return View("Index", model);
         }
         catch (BackendAuthenticationExpiredException)
@@ -159,6 +165,28 @@ public sealed class AdminController : Controller
             TempData["StatusMessage"] = $"Reset token failed: {ex.Message}";
             return RedirectToAction(nameof(Index));
         }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DismissPasswordResetRequest(Guid requestId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await authApiService.ClosePasswordResetRequestAsync(requestId, cancellationToken);
+            TempData["StatusMessage"] = "Password reset request closed.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not close password reset request: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]
@@ -266,12 +294,16 @@ public sealed class AdminController : Controller
             new BrowseModerationReportsQuery { Status = ModerationReportStatus.Pending, PageSize = 50 },
             cancellationToken);
         var (restaurantOperationsAvailable, restaurantAssignments) = await BuildRestaurantAssignmentPanelAsync(cancellationToken);
+        var openPasswordResetRequests = User.IsInRole("Admin")
+            ? await authApiService.ListOpenPasswordResetRequestsAsync(cancellationToken)
+            : [];
 
         return new AdminIndexViewModel
         {
             PendingReports = reports.Items,
             RestaurantOperationsAvailable = restaurantOperationsAvailable,
             RestaurantAssignments = restaurantAssignments,
+            OpenPasswordResetRequests = openPasswordResetRequests,
         };
     }
 

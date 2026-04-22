@@ -29,6 +29,7 @@ public sealed class AuthService(
     private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
     private static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromHours(24);
     private static readonly Regex ZipCodePattern = new("^[0-9]{5}$", RegexOptions.Compiled);
+    private const string PasswordResetRequestAcceptanceMessage = "If that username belongs to an active account, the admin team will review the request.";
 
     public async Task<SessionDto> RegisterAsync(RegisterUserRequest request, CancellationToken cancellationToken = default)
     {
@@ -164,11 +165,17 @@ public sealed class AuthService(
             throw ApiException.Forbidden("Only admins can create password reset tokens.");
         }
 
-        var usernameOrEmail = string.IsNullOrWhiteSpace(request.UsernameOrEmail)
-            ? throw ApiException.BadRequest("usernameOrEmail is required.")
-            : request.UsernameOrEmail.Trim();
-        var account = await authRepository.FindByUsernameOrEmailAsync(usernameOrEmail, cancellationToken)
-            ?? throw ApiException.NotFound("The requested user could not be found.");
+        var passwordResetRequest = request.PasswordResetRequestId.HasValue
+            ? await authRepository.GetPasswordResetRequestAsync(request.PasswordResetRequestId.Value, cancellationToken)
+                ?? throw ApiException.NotFound("The requested password reset request could not be found.")
+            : null;
+
+        if (passwordResetRequest?.ClosedAtUtc is not null)
+        {
+            throw ApiException.Conflict("That password reset request is already closed.");
+        }
+
+        var account = await ResolvePasswordResetTargetAccountAsync(request, passwordResetRequest, cancellationToken);
 
         var now = clock.UtcNow;
         var rawToken = tokenGenerator.GenerateToken();
@@ -187,6 +194,16 @@ public sealed class AuthService(
             {
                 await authRepository.RevokeUnusedPasswordResetTokensForUserAsync(account.Id, now, cancellationToken);
                 await authRepository.SavePasswordResetTokenAsync(resetToken, cancellationToken);
+                if (passwordResetRequest is not null)
+                {
+                    await authRepository.SavePasswordResetRequestAsync(
+                        passwordResetRequest with
+                        {
+                            ClosedAtUtc = now,
+                            ClosedByUserId = admin.UserId,
+                        },
+                        cancellationToken);
+                }
 
                 if (auditLogService is not null)
                 {
@@ -203,6 +220,71 @@ public sealed class AuthService(
             rawToken,
             $"/Account/ResetPassword?token={Uri.EscapeDataString(rawToken)}",
             resetToken.ExpiresAtUtc);
+    }
+
+    public async Task<PasswordResetRequestAcceptedDto> CreatePasswordResetRequestAsync(
+        CreatePasswordResetRequestRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var username = string.IsNullOrWhiteSpace(request.Username)
+            ? throw ApiException.BadRequest("username is required.")
+            : request.Username.Trim();
+        var message = string.IsNullOrWhiteSpace(request.Message)
+            ? throw ApiException.BadRequest("message is required.")
+            : request.Message.Trim();
+        var matchedAccount = await authRepository.FindByUsernameAsync(username, cancellationToken);
+        var passwordResetRequest = new PasswordResetRequest(
+            Guid.NewGuid(),
+            username,
+            message,
+            matchedAccount?.Id,
+            clock.UtcNow,
+            null,
+            null);
+
+        await authRepository.SavePasswordResetRequestAsync(passwordResetRequest, cancellationToken);
+
+        return new PasswordResetRequestAcceptedDto(PasswordResetRequestAcceptanceMessage);
+    }
+
+    public async Task<IReadOnlyCollection<PasswordResetRequestDto>> ListOpenPasswordResetRequestsAsync(
+        CurrentUser admin,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(admin);
+
+        var requests = await authRepository.ListOpenPasswordResetRequestsAsync(cancellationToken);
+        var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
+
+        return requests
+            .Select(request => MapPasswordResetRequest(request, accounts))
+            .ToArray();
+    }
+
+    public async Task<PasswordResetRequestDto> ClosePasswordResetRequestAsync(
+        CurrentUser admin,
+        Guid requestId,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(admin);
+
+        var existing = await authRepository.GetPasswordResetRequestAsync(requestId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested password reset request could not be found.");
+        var closed = existing.ClosedAtUtc.HasValue
+            ? existing
+            : existing with
+            {
+                ClosedAtUtc = clock.UtcNow,
+                ClosedByUserId = admin.UserId,
+            };
+
+        if (!existing.ClosedAtUtc.HasValue)
+        {
+            await authRepository.SavePasswordResetRequestAsync(closed, cancellationToken);
+        }
+
+        var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
+        return MapPasswordResetRequest(closed, accounts);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
@@ -275,6 +357,50 @@ public sealed class AuthService(
             session.RefreshToken,
             session.ExpiresAtUtc,
             new CurrentUserSummaryDto(account.Id, account.Username, account.Email, account.Roles));
+    }
+
+    private async Task<UserAccount> ResolvePasswordResetTargetAccountAsync(
+        CreatePasswordResetTokenRequest request,
+        PasswordResetRequest? passwordResetRequest,
+        CancellationToken cancellationToken)
+    {
+        if (passwordResetRequest?.MatchedUserId is Guid matchedUserId)
+        {
+            return await authRepository.GetByIdAsync(matchedUserId, cancellationToken)
+                ?? throw ApiException.NotFound("The requested user could not be found.");
+        }
+
+        var usernameOrEmail = !string.IsNullOrWhiteSpace(request.UsernameOrEmail)
+            ? request.UsernameOrEmail.Trim()
+            : passwordResetRequest is not null
+                ? passwordResetRequest.Username
+                : throw ApiException.BadRequest("usernameOrEmail is required.");
+
+        return await authRepository.FindByUsernameOrEmailAsync(usernameOrEmail, cancellationToken)
+            ?? throw ApiException.NotFound("The requested user could not be found.");
+    }
+
+    private static PasswordResetRequestDto MapPasswordResetRequest(
+        PasswordResetRequest request,
+        IReadOnlyDictionary<Guid, UserAccount> accounts) =>
+        new(
+            request.Id,
+            request.Username,
+            request.Message,
+            request.MatchedUserId,
+            request.MatchedUserId.HasValue && accounts.TryGetValue(request.MatchedUserId.Value, out var matchedAccount)
+                ? matchedAccount.Username
+                : null,
+            request.CreatedAtUtc,
+            request.ClosedAtUtc,
+            request.ClosedByUserId);
+
+    private static void EnsureAdmin(CurrentUser admin)
+    {
+        if (!admin.Roles.Contains(UserRole.Admin))
+        {
+            throw ApiException.Forbidden("Only admins can manage password reset requests.");
+        }
     }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();

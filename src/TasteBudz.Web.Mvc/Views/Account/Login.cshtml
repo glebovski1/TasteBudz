@@ -28,6 +28,10 @@
                     <span asp-validation-for="Password" class="field-validation-error"></span>
                 </div>
 
+                <div>
+                    <a asp-controller="Account" asp-action="RequestPasswordReset" class="link">Need a password reset?</a>
+                </div>
+
                 <button type="submit" class="primary-btn">Log In</button>
             </form>
         </div>

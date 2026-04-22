@@ -41,6 +41,28 @@ public sealed class AuthApiService
             requiresAuth: false,
             cancellationToken);
 
+    public Task RequestPasswordResetAsync(
+        CreatePasswordResetRequestRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            "/api/v1/auth/password-reset-requests",
+            request,
+            requiresAuth: false,
+            cancellationToken);
+
+    public Task<IReadOnlyCollection<PasswordResetRequestDto>> ListOpenPasswordResetRequestsAsync(
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<IReadOnlyCollection<PasswordResetRequestDto>>(
+            "/api/v1/admin/users/password-reset-requests",
+            cancellationToken);
+
+    public Task<PasswordResetRequestDto> ClosePasswordResetRequestAsync(
+        Guid requestId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<PasswordResetRequestDto>(
+            $"/api/v1/admin/users/password-reset-requests/{requestId}/closure",
+            cancellationToken: cancellationToken);
+
     public Task<PasswordResetTokenDto> CreatePasswordResetTokenAsync(
         CreatePasswordResetTokenRequest request,
         CancellationToken cancellationToken = default) =>

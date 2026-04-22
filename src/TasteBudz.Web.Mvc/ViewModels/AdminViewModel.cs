@@ -11,6 +11,7 @@ public sealed record AdminIndexViewModel
     public IReadOnlyCollection<ModerationReportDto> PendingReports { get; init; } = [];
     public bool RestaurantOperationsAvailable { get; init; }
     public IReadOnlyCollection<RestaurantAssignmentPanelItem> RestaurantAssignments { get; init; } = [];
+    public IReadOnlyCollection<PasswordResetRequestDto> OpenPasswordResetRequests { get; init; } = [];
     public PasswordResetTokenDto? GeneratedPasswordResetToken { get; init; }
 }
 

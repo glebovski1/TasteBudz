@@ -47,11 +47,11 @@ User wants food -> discovers Budz, a group, or an event -> restaurant is selecte
 
 | Role | Allowed actions (MVP, non-exhaustive) |
 |---|---|
-| User | Register/login/logout and complete admin-issued password reset (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline Closed invites (FR-008 to FR-009), use event chat when participating, group chat when a current member, and support chat with admins (FR-017 to FR-017B), block/report users (FR-024 to FR-025) |
+| User | Register/login/logout and submit or complete password reset flows (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline Closed invites (FR-008 to FR-009), use event chat when participating, group chat when a current member, and support chat with admins (FR-017 to FR-017B), block/report users (FR-024 to FR-025) |
 | Host | Create Open/Closed events (FR-008), invite users to Closed events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
 | Group Owner | Create group, manage name/description/visibility (FR-011 to FR-012), remove group members (FR-012), transfer ownership or dissolve group later (FR-012A), create/view group-linked events (FR-013), use group chat (FR-017A) |
 | Moderator | View report queue, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
-| Admin | All Moderator actions plus support chat replies, password reset-token issuance, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-014, FR-017B, FR-026 to FR-028) |
+| Admin | All Moderator actions plus support chat replies, password reset-request review, password reset-token issuance, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-014, FR-017B, FR-026 to FR-028) |
 
 ## 2. Functional Requirements Catalogue
 
@@ -124,6 +124,9 @@ Priority legend:
 - Users can log in with valid credentials.
 - Users can log out and invalidate the active client session/token.
 - Invalid credentials return an error without revealing whether the account exists.
+- Users can submit a password reset request by providing a username and message for admin review.
+- Password reset request submission returns the same generic accepted response whether or not the username matches an active account.
+- Admins can review or dismiss open password reset requests.
 - Admins can generate a one-time password reset link for an active user.
 - A user who opens a valid reset link must create a new password before signing in again.
 - Successful password reset invalidates existing sessions for that user.
@@ -136,11 +139,12 @@ Priority legend:
 
 **Acceptance Criteria**
 
-- Users can edit profile fields including display name/username, bio, ZIP code, and social goal.
+- Users can edit profile fields including display name/username, public profile note (`bio`), ZIP code, and social goal.
 - Users can upload or replace one profile avatar image stored in the application database.
 - Users can view a personal dashboard with profile info plus summaries of active events, groups, and Budz.
 - Users can request account deletion.
 - Profile changes only affect the current user's data.
+- Structured food preferences, allergies, and availability remain non-public by default; users may copy any compatibility details they want to share into the public profile note.
 
 ### FR-003 Food Preferences, Dietary Flags, and Allergies
 
@@ -165,7 +169,8 @@ Priority legend:
 
 - Users can create, edit, and delete recurring weekly availability windows.
 - Users can create, edit, and delete one-off availability windows.
-- Availability windows can be used as filters for event matching and event search.
+- Availability windows can be managed from the profile area and used as filters for event matching and event search.
+- Availability remains private profile data even when it is used to narrow event results.
 
 ### FR-005 Privacy Settings
 
@@ -505,8 +510,10 @@ Priority legend:
 **Acceptance Criteria**
 
 - Users can browse open events that match cuisine, time window, distance, price tier, and availability filters.
+- Event browse can explicitly use the signed-in user's home ZIP code and saved availability windows when the user turns those filters on.
 - Users can filter events by status.
 - Users can browse/search public groups by name and visibility.
+- Blank browse/search state does not silently personalize event results from profile data.
 - MVP implementation may be pure database queries without a dedicated cached feed.
 
 ### FR-023 Feed Support ("Tonight / This Week")

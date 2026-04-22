@@ -238,6 +238,45 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
         }
     }
 
+    public async Task<PasswordResetRequest?> GetPasswordResetRequestAsync(Guid requestId, CancellationToken cancellationToken = default)
+    {
+        var entity = await dbContext.PasswordResetRequests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == requestId, cancellationToken);
+
+        return entity is null ? null : MapPasswordResetRequest(entity);
+    }
+
+    public async Task<IReadOnlyCollection<PasswordResetRequest>> ListOpenPasswordResetRequestsAsync(CancellationToken cancellationToken = default) =>
+        (await dbContext.PasswordResetRequests
+            .AsNoTracking()
+            .Where(request => request.ClosedAtUtc == null)
+            .ToListAsync(cancellationToken))
+        .OrderByDescending(request => request.CreatedAtUtc)
+        .Select(MapPasswordResetRequest)
+        .ToArray();
+
+    public async Task SavePasswordResetRequestAsync(PasswordResetRequest request, CancellationToken cancellationToken = default)
+    {
+        var entity = await dbContext.PasswordResetRequests.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+
+        if (entity is null)
+        {
+            dbContext.PasswordResetRequests.Add(ToEntity(request));
+        }
+        else
+        {
+            entity.Username = request.Username;
+            entity.Message = request.Message;
+            entity.MatchedUserId = request.MatchedUserId;
+            entity.CreatedAtUtc = request.CreatedAtUtc;
+            entity.ClosedAtUtc = request.ClosedAtUtc;
+            entity.ClosedByUserId = request.ClosedByUserId;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<UserAccount> MapAccountAsync(UserAccountEntity entity, CancellationToken cancellationToken)
     {
         var roles = await dbContext.UserRoles
@@ -283,6 +322,16 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
             entity.UsedAtUtc,
             entity.RevokedAtUtc);
 
+    private static PasswordResetRequest MapPasswordResetRequest(PasswordResetRequestEntity entity) =>
+        new(
+            entity.Id,
+            entity.Username,
+            entity.Message,
+            entity.MatchedUserId,
+            entity.CreatedAtUtc,
+            entity.ClosedAtUtc,
+            entity.ClosedByUserId);
+
     private static UserAccountEntity ToEntity(UserAccount account) =>
         new()
         {
@@ -322,6 +371,18 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
             ExpiresAtUtc = token.ExpiresAtUtc,
             UsedAtUtc = token.UsedAtUtc,
             RevokedAtUtc = token.RevokedAtUtc,
+        };
+
+    private static PasswordResetRequestEntity ToEntity(PasswordResetRequest request) =>
+        new()
+        {
+            Id = request.Id,
+            Username = request.Username,
+            Message = request.Message,
+            MatchedUserId = request.MatchedUserId,
+            CreatedAtUtc = request.CreatedAtUtc,
+            ClosedAtUtc = request.ClosedAtUtc,
+            ClosedByUserId = request.ClosedByUserId,
         };
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();

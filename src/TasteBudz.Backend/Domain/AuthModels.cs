@@ -42,3 +42,15 @@ public sealed record PasswordResetToken(
     DateTimeOffset ExpiresAtUtc,
     DateTimeOffset? UsedAtUtc,
     DateTimeOffset? RevokedAtUtc);
+
+/// <summary>
+/// Admin-reviewed password reset request submitted by a user.
+/// </summary>
+public sealed record PasswordResetRequest(
+    Guid Id,
+    string Username,
+    string Message,
+    Guid? MatchedUserId,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? ClosedAtUtc,
+    Guid? ClosedByUserId);

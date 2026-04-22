@@ -11,17 +11,52 @@ namespace TasteBudz.Web.Mvc.ViewModels;
 
 public sealed class EventIndexViewModel
 {
+    public const int DefaultRadiusMiles = 10;
+    public static IReadOnlyList<int> AvailableRadiusMiles { get; } = [5, 10, 25];
+
     public IReadOnlyList<EventSummaryItem> Events { get; init; } = [];
     public string? SearchQuery { get; init; }
+    public bool UseMyZip { get; init; }
+    public int RadiusMiles { get; init; } = DefaultRadiusMiles;
+    public bool AvailabilityOnly { get; init; }
+    public string? HomeAreaZipCode { get; init; }
+    public bool ShowAvailabilitySetupCta { get; init; }
 
     public static EventIndexViewModel Empty => new();
 
+    public static EventIndexViewModel EmptyWithFilters(
+        string? searchQuery,
+        bool useMyZip,
+        int radiusMiles,
+        bool availabilityOnly,
+        string? homeAreaZipCode,
+        bool showAvailabilitySetupCta = false) =>
+        new()
+        {
+            SearchQuery = searchQuery,
+            UseMyZip = useMyZip,
+            RadiusMiles = radiusMiles,
+            AvailabilityOnly = availabilityOnly,
+            HomeAreaZipCode = homeAreaZipCode,
+            ShowAvailabilitySetupCta = showAvailabilitySetupCta,
+        };
+
     public static EventIndexViewModel FromDto(
         IEnumerable<EventSummaryDto> events,
-        string? searchQuery = null) => new()
+        string? searchQuery = null,
+        bool useMyZip = false,
+        int radiusMiles = DefaultRadiusMiles,
+        bool availabilityOnly = false,
+        string? homeAreaZipCode = null,
+        bool showAvailabilitySetupCta = false) => new()
         {
             Events = events.Select(EventSummaryItem.FromDto).ToList(),
             SearchQuery = searchQuery,
+            UseMyZip = useMyZip,
+            RadiusMiles = radiusMiles,
+            AvailabilityOnly = availabilityOnly,
+            HomeAreaZipCode = homeAreaZipCode,
+            ShowAvailabilitySetupCta = showAvailabilitySetupCta,
         };
 }
 

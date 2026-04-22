@@ -141,7 +141,7 @@ The following areas are the highest priority for backend testing.
 ### P0 - Authorization, privacy, and blocking
 
 - only authorized actors can edit, remove, moderate, or access protected resources
-- only admins can issue password reset tokens, and reset completion revokes existing sessions
+- only admins can issue password reset tokens, anonymous reset requests do not disclose account existence, and reset completion revokes existing sessions
 - discovery-disabled users are excluded where required
 - `DiscoveryVisibility` restrictions hide users from discovery/search where required
 - blocking prevents new disallowed interaction paths
@@ -295,6 +295,7 @@ These scenarios should anchor early backend testing work.
 | BT-19 | Direct chat between Budz is enabled behind flag | High | Budz-only access, block checks, history retrieval, and hub delivery are correct |
 | BT-20 | Joined participant creates and completes simulated checkout | High | Feature flag, selected-restaurant requirement, simulated totals, and terminal status transitions are correct |
 | BT-21 | Admin issues a password reset token and user completes reset | High | Admin-only issue, one-time token use, password update, and session revocation are correct |
+| BT-21A | User submits an anonymous password reset request and admin handles it | High | Public response does not disclose account existence and admin review can close the request directly or via token issuance |
 | BT-22 | User and admin exchange support messages | High | Support-scope access is limited to the supported user and admins across REST and hub behavior |
 | BT-23 | User swipes another user before reciprocal decision | Medium | The swiped user is hidden from that actor's people search until deciding back |
 | BT-24 | Joined participant adds feedback to a completed event | High | Completed-only eligibility, one-entry upsert, Open/Closed visibility, photo authorization, and validation are correct |
@@ -303,7 +304,7 @@ These scenarios should anchor early backend testing work.
 
 | Module | Main proof to prioritize |
 |---|---|
-| Auth and Access | login, logout, auth boundaries, protected endpoint access, admin-issued password reset |
+| Auth and Access | login, logout, auth boundaries, protected endpoint access, anonymous reset requests, admin-issued password reset |
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
 | Restaurant Operations | feature-flag behavior, assignments, slot lifecycle, reservation invariants, discount simulation |

@@ -19,6 +19,8 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<Guid, PasswordResetToken> PasswordResetTokens { get; } = new();
 
+    public Dictionary<Guid, PasswordResetRequest> PasswordResetRequests { get; } = new();
+
     public Dictionary<Guid, UserProfile> Profiles { get; } = new();
 
     public Dictionary<Guid, UserPreferences> Preferences { get; } = new();
@@ -93,6 +95,7 @@ public sealed class InMemoryTasteBudzStore
             UserAccounts.Clear();
             Sessions.Clear();
             PasswordResetTokens.Clear();
+            PasswordResetRequests.Clear();
             Profiles.Clear();
             Preferences.Clear();
             RecurringAvailability.Clear();

@@ -209,5 +209,36 @@ public sealed class InMemoryAuthRepository(InMemoryTasteBudzStore store) : IAuth
         }
     }
 
+    public Task<PasswordResetRequest?> GetPasswordResetRequestAsync(Guid requestId, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            store.PasswordResetRequests.TryGetValue(requestId, out var request);
+            return Task.FromResult(request);
+        }
+    }
+
+    public Task<IReadOnlyCollection<PasswordResetRequest>> ListOpenPasswordResetRequestsAsync(CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var requests = store.PasswordResetRequests.Values
+                .Where(request => request.ClosedAtUtc is null)
+                .OrderByDescending(request => request.CreatedAtUtc)
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyCollection<PasswordResetRequest>>(requests);
+        }
+    }
+
+    public Task SavePasswordResetRequestAsync(PasswordResetRequest request, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            store.PasswordResetRequests[request.Id] = request;
+            return Task.CompletedTask;
+        }
+    }
+
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 }

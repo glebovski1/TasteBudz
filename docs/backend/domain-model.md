@@ -21,7 +21,7 @@ TasteBudz allows users to:
 - receive in-app notifications
 - report users or content
 - support moderation, scoped restrictions, and audit logging
-- support admin-issued password reset links
+- support anonymous password reset requests plus admin-issued password reset links
 
 Architecture assumptions:
 
@@ -223,6 +223,7 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 
 - `UserAccount`
 - `PasswordResetToken`
+- `PasswordResetRequest`
 - `UserProfile`
 - `UserPreferences`
 - `UserCuisinePreference`
@@ -344,6 +345,26 @@ Rules:
 - issuing a new reset token revokes previous unused tokens for the user
 - successful reset marks the token used, updates the password hash, and revokes existing user sessions
 
+### PasswordResetRequest
+
+Represents an anonymously submitted password reset help request that admins can review before issuing a reset token.
+
+Core data:
+
+- submitted username
+- user-written message/context
+- optional matched active user account
+- created timestamp
+- optional closed timestamp
+- optional admin actor who closed or handled the request
+
+Rules:
+
+- public submission never reveals whether the username matched an active account
+- requests may exist without any matched account
+- requests do not reset passwords by themselves and do not replace admin-issued token flow
+- admins may close a request directly or implicitly by issuing a reset token from that request
+
 ### UserProfile
 
 Represents the user-facing social profile shown in discovery and social contexts.
@@ -359,6 +380,7 @@ Rules:
 
 - exact addresses are never exposed
 - profile visibility is constrained by privacy settings
+- bio functions as the public compatibility note; structured preferences, allergies, and availability remain private unless the user manually copies that information into the note
 
 ### UserPreferences
 
@@ -383,6 +405,7 @@ Rules:
 
 - start must be before end
 - recurring and one-off windows remain distinct concepts
+- availability is private profile data used for matching/search filters rather than public profile display
 
 ### PrivacySettings
 
@@ -846,6 +869,7 @@ Rules:
 - `UserAccount` 1 -> 1 `UserProfile`
 - `UserAccount` 1 -> 1 `UserPreferences`
 - `UserAccount` 1 -> many `PasswordResetToken`
+- `UserAccount` 1 -> many matched `PasswordResetRequest` references when submitted usernames resolve to active accounts
 - `UserPreferences` 1 -> many `UserCuisinePreference`
 - `UserPreferences` 1 -> many `UserDietaryFlag`
 - `UserPreferences` 1 -> many `UserAllergy`
@@ -990,6 +1014,7 @@ Focus: append-only record of sensitive actions.
 - Each `UserRestriction` applies to exactly one scope.
 - `UserAccount.Status` is not used for temporary scoped moderation.
 - Password reset tokens are admin-created, one-time use, stored hashed, and revoke existing user sessions on success.
+- Password reset requests accept username/message anonymously, may remain unmatched, and return a generic accepted response to the public caller.
 - Audit entries are append-only.
 
 ## 12. MVP vs Extension Readiness

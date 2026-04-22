@@ -32,6 +32,7 @@ Key DTO families:
 - `ProfileDto`: public/private profile fields for the current user
 - `PreferenceDto`: cuisine tags, spice tolerance, dietary flags, allergies
 - `RecurringAvailabilityWindowDto` and `OneOffAvailabilityWindowDto`
+- `PasswordResetRequestAcceptedDto` and `PasswordResetRequestDto`
 - `RestaurantDto`
 - `EventSummaryDto`, `EventDetailDto`, `EventParticipantDto`, `EventFeedbackDto`, `EventFeedbackPhotoDto`
 - `GroupSummaryDto`, `GroupDetailDto`, `GroupInviteDto`
@@ -52,8 +53,11 @@ Key DTO families:
 | Register User | POST | `/api/v1/auth/register` | Create a new user account | No |
 | Login | POST | `/api/v1/auth/login` | Authenticate and issue access/refresh tokens | No |
 | Refresh Session | POST | `/api/v1/auth/refresh` | Exchange refresh token for a new session/token pair | No |
+| Create Password Reset Request | POST | `/api/v1/auth/password-reset-requests` | Submit anonymous username/message reset request for admin review | No |
 | Reset Password | POST | `/api/v1/auth/password-reset` | Complete an admin-issued password reset token by setting a new password | No |
 | Logout | POST | `/api/v1/auth/logout` | Revoke the current refresh token/session | Yes |
+| List Open Password Reset Requests | GET | `/api/v1/admin/users/password-reset-requests` | Return open password reset requests for admin review | Admin |
+| Close Password Reset Request | POST | `/api/v1/admin/users/password-reset-requests/{requestId}/closure` | Dismiss or close an open password reset request | Admin |
 | Create Password Reset Token | POST | `/api/v1/admin/users/password-reset-tokens` | Issue a one-time password reset link for an active user | Admin |
 
 Representative request shapes:
@@ -82,6 +86,13 @@ Representative request shapes:
 
 ```json
 {
+  "username": "string",
+  "message": "string"
+}
+```
+
+```json
+{
   "token": "string",
   "newPassword": "string"
 }
@@ -89,11 +100,12 @@ Representative request shapes:
 
 ```json
 {
-  "usernameOrEmail": "string"
+  "usernameOrEmail": "string",
+  "passwordResetRequestId": "uuid"
 }
 ```
 
-Password reset token responses include `userId`, `username`, `resetToken`, `resetUrl`, and `expiresAtUtc`. Reset tokens are one-time use, expire, and successful reset revokes the user's existing sessions.
+Password reset request submission returns a generic accepted response and does not disclose whether the username matched an active account. Password reset token responses include `userId`, `username`, `resetToken`, `resetUrl`, and `expiresAtUtc`. Reset tokens are one-time use, expire, and successful reset revokes the user's existing sessions. Admin token creation may optionally reference a password reset request id and close that request when the token is issued.
 
 ### 3.2 Profiles, Preferences, Availability, Privacy
 
@@ -135,6 +147,8 @@ Representative request shapes:
 }
 ```
 
+`bio` is the public profile note surfaced in profile and social UI. Structured food preferences, allergies, and availability remain private contracts unless the user manually copies those details into the public note.
+
 ```json
 {
   "cuisineTags": ["Sushi", "Thai"],
@@ -155,8 +169,8 @@ Representative request shapes:
 
 ```json
 {
-  "startsAt": "timestamp",
-  "endsAt": "timestamp",
+  "startsAtUtc": "timestamp",
+  "endsAtUtc": "timestamp",
   "label": "This Saturday"
 }
 ```
@@ -324,6 +338,10 @@ Representative browse query parameters:
 - `groupId`
 - `page`
 - `pageSize`
+
+Contract note:
+
+- The backend event browse contract remains explicit and generic. MVC quick filters may choose to populate `zipCode`, `radiusMiles`, and `availabilityOnly` from the signed-in user's saved profile data, but the backend does not silently personalize blank requests.
 
 ### 3.5 Groups
 

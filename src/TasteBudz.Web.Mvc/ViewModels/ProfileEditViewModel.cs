@@ -42,6 +42,7 @@ public sealed class ProfileEditViewModel
 
     [MaxLength(500)]
     [DataType(DataType.MultilineText)]
+    [Display(Name = "Public Profile Note")]
     public string? Bio { get; set; }
 
     [Required]

@@ -3,6 +3,7 @@ using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Moderation;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
@@ -48,6 +49,100 @@ public sealed class EventMvcTests
         Assert.DoesNotContain("<img src=x onerror=alert(1)>", html);
         Assert.DoesNotContain("query_place_id=osm", html);
         Assert.DoesNotContain("query_place_id=osm%3A", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task EventIndex_UsesProfileZipAndAvailabilityFiltersWhenRequested()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/profiles/me",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateProfile(zipCode: "45220")));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/recurring",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new RecurringAvailabilityWindowDto(Guid.NewGuid(), DayOfWeek.Friday, new TimeOnly(18, 0), new TimeOnly(21, 0), "Dinner"),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/one-off",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<OneOffAvailabilityWindowDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/events?q=ramen&zipCode=45220&radiusMiles=25&availabilityOnly=true&page=1&pageSize=100",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<EventSummaryDto>(
+                    new[]
+                    {
+                        new EventSummaryDto(
+                            eventId,
+                            "Ramen Meetup",
+                            EventType.Open,
+                            EventStatus.Open,
+                            new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                            new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                            6,
+                            3,
+                            Guid.NewGuid(),
+                            null,
+                            "Ramen",
+                            null),
+                    },
+                    1)));
+
+        using var response = await client.GetAsync("/Event/Index?q=ramen&useMyZip=true&radiusMiles=25&availabilityOnly=true");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Ramen Meetup", html);
+        Assert.Contains("Near my ZIP 45220", html);
+        Assert.Contains("Matches my availability", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task EventIndex_WhenAvailabilityFilterHasNoSavedWindows_ShowsSetupCtaAndSkipsBrowse()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/profiles/me",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateProfile(zipCode: "45220")));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/recurring",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RecurringAvailabilityWindowDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/one-off",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<OneOffAvailabilityWindowDto>()));
+
+        using var response = await client.GetAsync("/Event/Index?availabilityOnly=true");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Add at least one availability window before using this filter.", html);
+        Assert.Contains("/Profile/Availability", html);
+        Assert.DoesNotContain(factory.BackendHandler.Requests, request =>
+            request.PathAndQuery.StartsWith("/api/v1/events", StringComparison.Ordinal));
         factory.BackendHandler.AssertDrained();
     }
 

@@ -187,6 +187,57 @@ public sealed class AccountAndProfileMvcTests
     }
 
     [Fact]
+    public async Task LoginAndResetPasswordPages_RenderPasswordResetRequestEntryPoint()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+
+        using var loginResponse = await client.GetAsync("/Account/Login");
+        using var resetResponse = await client.GetAsync("/Account/ResetPassword?token=reset-token");
+        var loginHtml = await loginResponse.Content.ReadAsStringAsync();
+        var resetHtml = await resetResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        Assert.Contains("Need a password reset?", loginHtml);
+        Assert.Contains("/Account/RequestPasswordReset", loginHtml);
+        Assert.Equal(HttpStatusCode.OK, resetResponse.StatusCode);
+        Assert.Contains("Ask the Admin Team", resetHtml);
+        Assert.Contains("/Account/RequestPasswordReset", resetHtml);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task RequestPasswordReset_PostsAnonymousPayloadAndRedirectsToLogin()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Account/RequestPasswordReset");
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/auth/password-reset-requests",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.Accepted));
+
+        using var response = await client.PostAsync(
+            "/Account/RequestPasswordReset",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Username"] = "alex",
+                ["Message"] = "I cannot sign in and need help.",
+            }));
+
+        var request = Assert.Single(factory.BackendHandler.Requests);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Account/Login", response.Headers.Location?.ToString());
+        Assert.Null(request.AuthorizationParameter);
+        Assert.Contains("\"username\":\"alex\"", request.Body);
+        Assert.Contains("\"message\":\"I cannot sign in and need help.\"", request.Body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task ResetPassword_PostsTokenAndNewPasswordToBackendThenRedirectsToLogin()
     {
         using var factory = new TasteBudzMvcFactory();
@@ -215,6 +266,111 @@ public sealed class AccountAndProfileMvcTests
         Assert.Null(request.AuthorizationParameter);
         Assert.Contains("\"token\":\"reset-token\"", request.Body);
         Assert.Contains("\"newPassword\":\"N3wPa$$w0rd\"", request.Body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task Availability_CreateRecurringPostsToBackendAndRedirects()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/recurring",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RecurringAvailabilityWindowDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/one-off",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<OneOffAvailabilityWindowDto>()));
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Profile/Availability");
+        factory.BackendHandler.AssertDrained();
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/availability/recurring",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new RecurringAvailabilityWindowDto(Guid.NewGuid(), DayOfWeek.Friday, new TimeOnly(18, 0), new TimeOnly(20, 30), "Weeknight dinner")));
+
+        using var response = await client.PostAsync(
+            "/Profile/CreateRecurringAvailability",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["DayOfWeek"] = DayOfWeek.Friday.ToString(),
+                ["StartTime"] = "18:00",
+                ["EndTime"] = "20:30",
+                ["Label"] = "Weeknight dinner",
+            }));
+
+        var request = Assert.Single(factory.BackendHandler.Requests);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Profile/Availability", response.Headers.Location?.ToString());
+        Assert.Contains("\"dayOfWeek\":\"Friday\"", request.Body);
+        Assert.Contains("\"startTime\":\"18:00:00\"", request.Body);
+        Assert.Contains("\"endTime\":\"20:30:00\"", request.Body);
+        Assert.Contains("\"label\":\"Weeknight dinner\"", request.Body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task Availability_UpdateOneOffPostsToBackendAndRedirects()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var windowId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/recurring",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RecurringAvailabilityWindowDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/availability/one-off",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new OneOffAvailabilityWindowDto(windowId, new DateTimeOffset(2026, 5, 2, 15, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 2, 17, 0, 0, TimeSpan.Zero), "Saturday brunch"),
+                }));
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Profile/Availability");
+        factory.BackendHandler.AssertDrained();
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Patch,
+            $"/api/v1/availability/one-off/{windowId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new OneOffAvailabilityWindowDto(windowId, new DateTimeOffset(2026, 5, 3, 16, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 3, 18, 0, 0, TimeSpan.Zero), "Sunday dinner")));
+
+        using var response = await client.PostAsync(
+            "/Profile/UpdateOneOffAvailability",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["WindowId"] = windowId.ToString(),
+                ["StartsAt"] = "2026-05-03T16:00",
+                ["EndsAt"] = "2026-05-03T18:00",
+                ["Label"] = "Sunday dinner",
+            }));
+
+        var request = Assert.Single(factory.BackendHandler.Requests);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Profile/Availability", response.Headers.Location?.ToString());
+        Assert.Contains("\"startsAtUtc\":\"2026-05-03T16:00:00", request.Body);
+        Assert.Contains("\"endsAtUtc\":\"2026-05-03T18:00:00", request.Body);
+        Assert.Contains("\"label\":\"Sunday dinner\"", request.Body);
         factory.BackendHandler.AssertDrained();
     }
 

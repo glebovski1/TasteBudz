@@ -169,6 +169,72 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task CreatePasswordResetRequestAsync_KnownAndUnknownUsersReturnSameGenericMessageWithoutDisclosure()
+    {
+        var (service, authRepository, _) = CreateService();
+        var session = await service.RegisterAsync(new RegisterUserRequest
+        {
+            Username = "alex",
+            Email = "alex@example.com",
+            Password = "Pa$$w0rd123",
+            ZipCode = "45220",
+        });
+
+        var known = await service.CreatePasswordResetRequestAsync(new CreatePasswordResetRequestRequest
+        {
+            Username = "alex",
+            Message = "Lost access to my email.",
+        });
+        var unknown = await service.CreatePasswordResetRequestAsync(new CreatePasswordResetRequestRequest
+        {
+            Username = "missing-user",
+            Message = "Please help me reset my password.",
+        });
+        var requests = await authRepository.ListOpenPasswordResetRequestsAsync();
+        var knownRequest = Assert.Single(requests, request => request.Username == "alex");
+        var unknownRequest = Assert.Single(requests, request => request.Username == "missing-user");
+
+        Assert.Equal(known.Message, unknown.Message);
+        Assert.Equal(session.CurrentUser.UserId, knownRequest.MatchedUserId);
+        Assert.Null(unknownRequest.MatchedUserId);
+    }
+
+    [Fact]
+    public async Task CreatePasswordResetTokenAsync_WithPasswordResetRequestId_ClosesRequestAndUsesMatchedUser()
+    {
+        var (service, authRepository, _) = CreateService();
+        var session = await service.RegisterAsync(new RegisterUserRequest
+        {
+            Username = "alex",
+            Email = "alex@example.com",
+            Password = "Pa$$w0rd123",
+            ZipCode = "45220",
+        });
+        var admin = new CurrentUser(Guid.NewGuid(), "admin", new[] { UserRole.Admin });
+
+        await service.CreatePasswordResetRequestAsync(new CreatePasswordResetRequestRequest
+        {
+            Username = "alex",
+            Message = "Need help signing in.",
+        });
+        var openRequest = Assert.Single(await authRepository.ListOpenPasswordResetRequestsAsync());
+
+        var token = await service.CreatePasswordResetTokenAsync(
+            admin,
+            new CreatePasswordResetTokenRequest
+            {
+                PasswordResetRequestId = openRequest.Id,
+            });
+        var storedRequest = await authRepository.GetPasswordResetRequestAsync(openRequest.Id);
+
+        Assert.Equal(session.CurrentUser.UserId, token.UserId);
+        Assert.NotNull(storedRequest);
+        Assert.NotNull(storedRequest!.ClosedAtUtc);
+        Assert.Equal(admin.UserId, storedRequest.ClosedByUserId);
+        Assert.Empty(await authRepository.ListOpenPasswordResetRequestsAsync());
+    }
+
+    [Fact]
     public async Task ResetPasswordAsync_WhenTokenIsExpired_ReturnsBadRequest()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));

@@ -1,0 +1,198 @@
+@model ProfileAvailabilityViewModel
+
+@{
+    ViewData["Title"] = "Availability";
+}
+
+<section class="profile-shell">
+    <div class="card profile-banner">
+        <div>
+            <h1>Availability</h1>
+            <p>Use weekly and one-off windows to power event search. One-off times are stored in UTC.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="View" class="button button--secondary">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="editor-grid">
+        <section class="card stack">
+            <div>
+                <h2 class="card__title">Add Recurring Window</h2>
+            </div>
+
+            <form asp-action="CreateRecurringAvailability" method="post" class="stack">
+                @Html.AntiForgeryToken()
+                <div class="field">
+                    <label for="create-recurring-day">Day</label>
+                    <select id="create-recurring-day" name="DayOfWeek">
+                        <option value="">Select a day</option>
+                        @foreach (var option in ProfileAvailabilityViewModel.DayOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="button-row">
+                    <div class="field" style="flex:1;">
+                        <label for="create-recurring-start">Start</label>
+                        <input id="create-recurring-start" type="time" name="StartTime" />
+                    </div>
+                    <div class="field" style="flex:1;">
+                        <label for="create-recurring-end">End</label>
+                        <input id="create-recurring-end" type="time" name="EndTime" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="create-recurring-label">Label</label>
+                    <input id="create-recurring-label" name="Label" maxlength="100" placeholder="Weeknight dinner" />
+                </div>
+
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Add Recurring Window</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel stack">
+            <div>
+                <h2>Recurring Windows</h2>
+            </div>
+
+            @if (!Model.RecurringWindows.Any())
+            {
+                <p class="empty-state">No recurring windows yet.</p>
+            }
+            else
+            {
+                @foreach (var item in Model.RecurringWindows)
+                {
+                    <article class="summary-card stack">
+                        <form asp-action="UpdateRecurringAvailability" method="post" class="stack">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="WindowId" value="@item.Id" />
+
+                            <div class="field">
+                                <label for="recurring-day-@item.Id">Day</label>
+                                <select id="recurring-day-@item.Id" name="DayOfWeek">
+                                    @foreach (var option in ProfileAvailabilityViewModel.DayOptions)
+                                    {
+                                        <option value="@option.Value" selected="@(string.Equals(option.Value, item.DayOfWeek.ToString(), StringComparison.OrdinalIgnoreCase))">@option.Text</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="button-row">
+                                <div class="field" style="flex:1;">
+                                    <label for="recurring-start-@item.Id">Start</label>
+                                    <input id="recurring-start-@item.Id" type="time" name="StartTime" value="@item.StartTime.ToString("HH\\:mm")" />
+                                </div>
+                                <div class="field" style="flex:1;">
+                                    <label for="recurring-end-@item.Id">End</label>
+                                    <input id="recurring-end-@item.Id" type="time" name="EndTime" value="@item.EndTime.ToString("HH\\:mm")" />
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="recurring-label-@item.Id">Label</label>
+                                <input id="recurring-label-@item.Id" name="Label" maxlength="100" value="@item.Label" />
+                            </div>
+
+                            <div>
+                                <button type="submit" class="button button--primary">Save</button>
+                            </div>
+                        </form>
+
+                        <form asp-action="DeleteRecurringAvailability" method="post" class="button-row">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="windowId" value="@item.Id" />
+                            <button type="submit" class="button button--danger">Delete</button>
+                        </form>
+                    </article>
+                }
+            }
+        </section>
+    </div>
+
+    <div class="editor-grid">
+        <section class="card stack">
+            <div>
+                <h2 class="card__title">Add One-Off Window</h2>
+            </div>
+
+            <form asp-action="CreateOneOffAvailability" method="post" class="stack">
+                @Html.AntiForgeryToken()
+                <div class="button-row">
+                    <div class="field" style="flex:1;">
+                        <label for="create-oneoff-start">Starts (UTC)</label>
+                        <input id="create-oneoff-start" type="datetime-local" name="StartsAt" />
+                    </div>
+                    <div class="field" style="flex:1;">
+                        <label for="create-oneoff-end">Ends (UTC)</label>
+                        <input id="create-oneoff-end" type="datetime-local" name="EndsAt" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="create-oneoff-label">Label</label>
+                    <input id="create-oneoff-label" name="Label" maxlength="100" placeholder="Saturday brunch" />
+                </div>
+
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Add One-Off Window</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel stack">
+            <div>
+                <h2>One-Off Windows</h2>
+            </div>
+
+            @if (!Model.OneOffWindows.Any())
+            {
+                <p class="empty-state">No one-off windows yet.</p>
+            }
+            else
+            {
+                @foreach (var item in Model.OneOffWindows)
+                {
+                    <article class="summary-card stack">
+                        <form asp-action="UpdateOneOffAvailability" method="post" class="stack">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="WindowId" value="@item.Id" />
+
+                            <div class="button-row">
+                                <div class="field" style="flex:1;">
+                                    <label for="oneoff-start-@item.Id">Starts (UTC)</label>
+                                    <input id="oneoff-start-@item.Id" type="datetime-local" name="StartsAt" value="@item.StartsAtInput.ToString("yyyy-MM-ddTHH:mm")" />
+                                </div>
+                                <div class="field" style="flex:1;">
+                                    <label for="oneoff-end-@item.Id">Ends (UTC)</label>
+                                    <input id="oneoff-end-@item.Id" type="datetime-local" name="EndsAt" value="@item.EndsAtInput.ToString("yyyy-MM-ddTHH:mm")" />
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="oneoff-label-@item.Id">Label</label>
+                                <input id="oneoff-label-@item.Id" name="Label" maxlength="100" value="@item.Label" />
+                            </div>
+
+                            <div>
+                                <button type="submit" class="button button--primary">Save</button>
+                            </div>
+                        </form>
+
+                        <form asp-action="DeleteOneOffAvailability" method="post" class="button-row">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="windowId" value="@item.Id" />
+                            <button type="submit" class="button button--danger">Delete</button>
+                        </form>
+                    </article>
+                }
+            }
+        </section>
+    </div>
+</section>

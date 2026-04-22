@@ -55,6 +55,25 @@ CREATE TABLE IF NOT EXISTS PasswordResetTokens (
     CHECK (RevokedAtUtc IS NULL OR RevokedAtUtc >= CreatedAtUtc)
 );
 
+CREATE TABLE IF NOT EXISTS PasswordResetRequests (
+    Id TEXT NOT NULL PRIMARY KEY,
+    Username TEXT NOT NULL,
+    Message TEXT NOT NULL,
+    MatchedUserId TEXT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    ClosedAtUtc TEXT NULL,
+    ClosedByUserId TEXT NULL,
+    FOREIGN KEY (MatchedUserId) REFERENCES UserAccounts (Id),
+    FOREIGN KEY (ClosedByUserId) REFERENCES UserAccounts (Id),
+    CHECK (trim(Username) <> ''),
+    CHECK (trim(Message) <> ''),
+    CHECK (ClosedAtUtc IS NULL OR ClosedAtUtc >= CreatedAtUtc),
+    CHECK (
+        (ClosedAtUtc IS NULL AND ClosedByUserId IS NULL) OR
+        (ClosedAtUtc IS NOT NULL AND ClosedByUserId IS NOT NULL)
+    )
+);
+
 -----------------------------------------------------------------------
 -- 2. SHARED REFERENCE DATA
 -----------------------------------------------------------------------
