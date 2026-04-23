@@ -41,6 +41,8 @@ Production database deployment remains manual. Apply these scripts in order befo
 2. `src/TasteBudz.Database/sqlserver/010_schema.sql`
 3. `src/TasteBudz.Database/sqlserver/020_seed_reference_data.sql`
 
+For an existing Azure SQL database, apply only the needed incremental patch scripts from `src/TasteBudz.Database/sqlserver/patches` before starting the updated app.
+
 Startup validates required SQL Server tables and columns. It does not create or migrate production schema.
 
 ## Codex Deployment Automation
@@ -53,4 +55,4 @@ For code-only updates to the existing published app, use:
 powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1
 ```
 
-The script validates Release restore/build/test, publishes only the MVC host, deploys a zip package, and verifies the homepage plus unauthenticated API and SignalR `401` responses. SQL schema deployment remains manual: when schema changes, apply the ordered scripts in `src/TasteBudz.Database/sqlserver` as a separate release step and keep production startup migrations disabled.
+The script validates Release restore/build/test, publishes only the MVC host, deploys a zip package, and verifies the homepage plus unauthenticated API and SignalR `401` responses. SQL schema deployment remains manual: when schema changes, apply the required bootstrap or patch scripts from `src/TasteBudz.Database/sqlserver` as a separate release step and keep production startup migrations disabled.

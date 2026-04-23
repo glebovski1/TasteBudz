@@ -136,12 +136,12 @@ function Resolve-ScriptPaths {
     param([string[]]$RequestedPaths)
 
     if ($RequestedPaths -and $RequestedPaths.Count -gt 0) {
-        return $RequestedPaths | ForEach-Object {
+        return ,@($RequestedPaths | ForEach-Object {
             (Resolve-Path -LiteralPath $_).Path
-        }
+        })
     }
 
-    return @(
+    return ,@(
         (Resolve-Path -LiteralPath (Join-Path $repoRoot "src\TasteBudz.Database\sqlserver\000_schema_versions.sql")).Path,
         (Resolve-Path -LiteralPath (Join-Path $repoRoot "src\TasteBudz.Database\sqlserver\010_schema.sql")).Path,
         (Resolve-Path -LiteralPath (Join-Path $repoRoot "src\TasteBudz.Database\sqlserver\020_seed_reference_data.sql")).Path

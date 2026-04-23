@@ -166,9 +166,15 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         Assert.Contains("CREATE TABLE IF NOT EXISTS EventFeedbacks", sqliteScript);
         Assert.Contains("CREATE TABLE IF NOT EXISTS EventFeedbackPhotos", sqliteScript);
         Assert.Contains("IX_MediaAssets_EventId", sqliteScript);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS PasswordResetRequests", sqliteScript);
+        Assert.Contains("StreetAddress TEXT NULL", sqliteScript);
+        Assert.Contains("IsArchived INTEGER NOT NULL DEFAULT 0", sqliteScript);
         Assert.Contains("CREATE TABLE dbo.EventFeedbacks", sqlServerScript);
         Assert.Contains("CREATE TABLE dbo.EventFeedbackPhotos", sqlServerScript);
         Assert.Contains("IX_MediaAssets_EventId", sqlServerScript);
+        Assert.Contains("CREATE TABLE dbo.PasswordResetRequests", sqlServerScript);
+        Assert.Contains("StreetAddress NVARCHAR(160) NULL", sqlServerScript);
+        Assert.Contains("IsArchived BIT NOT NULL", sqlServerScript);
     }
 
     private static async Task DropTableAsync(string connectionString, string tableName)
