@@ -1,0 +1,4 @@
+interface:
+  display_name: "Azure SQL Production Schema"
+  short_description: "Apply and verify TasteBudz Azure SQL schema updates."
+  default_prompt: "Use $azure-sql-production-schema to apply and verify TasteBudz production Azure SQL schema updates from the repo's SQL Server scripts before or after Azure App Service publish."
