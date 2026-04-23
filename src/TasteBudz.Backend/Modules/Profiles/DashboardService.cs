@@ -33,7 +33,7 @@ public sealed class DashboardService(
     {
         var summaries = await userEventQueryService.ListActiveForUserAsync(userId, cancellationToken);
         return summaries
-            .Select(summary => new DashboardEventSummaryDto(summary.EventId, summary.Title, summary.Status, summary.EventStartAtUtc))
+            .Select(summary => new DashboardEventSummaryDto(summary.EventId, summary.Title, summary.EventType, summary.Status, summary.EventStartAtUtc, summary.CuisineTarget))
             .ToArray();
     }
 
@@ -41,7 +41,7 @@ public sealed class DashboardService(
     {
         var groups = await userGroupQueryService.ListActiveForUserAsync(userId, cancellationToken);
         return groups
-            .Select(group => new DashboardGroupSummaryDto(group.GroupId, group.Name, group.Visibility))
+            .Select(group => new DashboardGroupSummaryDto(group.GroupId, group.Name, group.Description, group.Visibility, group.ActiveMemberCount))
             .ToArray();
     }
 
@@ -59,16 +59,60 @@ public sealed class DashboardService(
             ?? throw ApiException.NotFound("The current account could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
-        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
+        var avatarTask = mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
+        var preferencesTask = profileRepository.GetPreferencesAsync(userId, cancellationToken);
+        await Task.WhenAll(avatarTask, preferencesTask);
 
-        return new ProfileDto(account.Id, account.Username, account.Email, profile.DisplayName, profile.Bio, profile.HomeAreaZipCode, profile.SocialGoal, avatar?.Id);
+        var avatar = await avatarTask;
+        var preferences = await preferencesTask;
+
+        return new ProfileDto(
+            account.Id,
+            account.Username,
+            account.Email,
+            profile.DisplayName,
+            profile.Bio,
+            profile.HomeAreaZipCode,
+            profile.SocialGoal,
+            avatar?.Id,
+            preferences?.CuisineTags ?? Array.Empty<string>(),
+            preferences?.DietaryFlags ?? Array.Empty<string>());
     }
 
     private async Task<IReadOnlyCollection<DashboardBudSummaryDto>> ListMyBudzAsync(Guid userId, CancellationToken cancellationToken)
     {
         var budz = await discoveryService.ListMyBudzAsync(userId, cancellationToken);
-        return budz
-            .Select(bud => new DashboardBudSummaryDto(bud.UserId, bud.Username, bud.DisplayName))
-            .ToArray();
+        if (budz.Count == 0)
+        {
+            return Array.Empty<DashboardBudSummaryDto>();
+        }
+
+        var profiles = (await profileRepository.ListProfilesAsync(cancellationToken)).ToDictionary(profile => profile.UserId);
+        var items = new List<DashboardBudSummaryDto>(budz.Count);
+
+        foreach (var bud in budz)
+        {
+            var profile = profiles.GetValueOrDefault(bud.UserId);
+            var avatarTask = mediaRepository.GetProfileAvatarAsync(bud.UserId, cancellationToken);
+            var preferencesTask = profileRepository.GetPreferencesAsync(bud.UserId, cancellationToken);
+            await Task.WhenAll(avatarTask, preferencesTask);
+
+            var avatar = await avatarTask;
+            var preferences = await preferencesTask;
+
+            items.Add(new DashboardBudSummaryDto(
+                bud.UserId,
+                bud.Username,
+                bud.DisplayName,
+                profile?.Bio,
+                profile?.SocialGoal,
+                profile?.HomeAreaZipCode,
+                avatar?.Id,
+                preferences?.CuisineTags ?? Array.Empty<string>(),
+                preferences?.DietaryFlags ?? Array.Empty<string>(),
+                bud.ConnectedAtUtc));
+        }
+
+        return items;
     }
 }

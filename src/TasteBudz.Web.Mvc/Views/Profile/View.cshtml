@@ -3,8 +3,8 @@
 @{
     ViewData["Title"] = "Dashboard";
 
-    string StatusClass(TasteBudz.Backend.Domain.EventStatus status) =>
-        $"status-badge status-badge--{status.ToString().ToLowerInvariant()}";
+    string StatusChipClass(TasteBudz.Backend.Domain.EventStatus status) =>
+        $"interest-card__chip interest-card__chip--{status.ToString().ToLowerInvariant()}";
 }
 
 <section class="profile-shell">
@@ -22,7 +22,7 @@
 
         <div id="friends" class="section">
             <h2>Your Budz</h2>
-            <div class="panel__items">
+            <div class="panel__items interest-card-list">
                 @if (Model.Budz.Count == 0)
                 {
                     <p class="empty-state">No Budz connections yet.</p>
@@ -31,17 +31,76 @@
                 {
                     @foreach (var item in Model.Budz)
                     {
-                        <article class="summary-card member-row">
-                            <button class="member-row__profile-trigger"
-                                    onclick="openUserCard('@item.UserId')"
-                                    aria-label="View @item.DisplayName's profile">
-                                <div class="member-row__avatar">@item.DisplayName.Substring(0, 1).ToUpper()</div>
-                            </button>
-                            <button class="member-row__info member-row__info--clickable"
-                                    onclick="openUserCard('@item.UserId')">
-                                <strong>@item.DisplayName</strong>
-                                <span>@@@item.Username</span>
-                            </button>
+                        <article class="summary-card interest-card interest-card--person">
+                            <div class="interest-card__header">
+                                <button type="button"
+                                        class="interest-card__avatar-trigger"
+                                        onclick="openUserCard('@item.UserId')"
+                                        aria-label="View @item.DisplayName's profile">
+                                    <span class="interest-card__avatar-shell">
+                                        @if (item.AvatarUrl is not null)
+                                        {
+                                            <img src="@item.AvatarUrl" alt="" class="interest-card__avatar-image" />
+                                        }
+                                        else
+                                        {
+                                            <span class="interest-card__avatar">@item.Initial</span>
+                                        }
+                                    </span>
+                                </button>
+
+                                <div class="interest-card__body">
+                                    <button type="button"
+                                            class="interest-card__identity interest-card__identity--button"
+                                            onclick="openUserCard('@item.UserId')"
+                                            aria-label="View @item.DisplayName's profile">
+                                        <span class="interest-card__title">@item.DisplayName</span>
+                                        <span class="interest-card__subtitle">@@@item.Username</span>
+                                    </button>
+
+                                    <div class="interest-card__chips">
+                                        @if (item.PreviewFoodTags.Count == 0)
+                                        {
+                                            <span class="interest-card__chip interest-card__chip--muted">No public food preferences yet</span>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var tag in item.PreviewFoodTags)
+                                            {
+                                                <span class="interest-card__chip">@tag</span>
+                                            }
+
+                                            @if (item.HiddenFoodTagCount > 0)
+                                            {
+                                                <span class="interest-card__chip interest-card__chip--muted">+@item.HiddenFoodTagCount more</span>
+                                            }
+                                        }
+                                    </div>
+
+                                </div>
+
+                                <div class="interest-card__actions interest-card__actions--top">
+                                    <button type="button"
+                                            class="interest-card__icon-action"
+                                            onclick="openUserCard('@item.UserId')"
+                                            aria-label="Open @item.DisplayName's profile">
+                                        ...
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="interest-card__facts">
+                                <span class="interest-card__fact">Budz</span>
+                                <span class="interest-card__fact">@item.ConnectedLabel</span>
+                                @if (item.GoalLabel is not null)
+                                {
+                                    <span class="interest-card__fact">@item.GoalLabel</span>
+                                }
+                                @if (item.ZipLabel is not null)
+                                {
+                                    <span class="interest-card__fact">@item.ZipLabel</span>
+                                }
+                            </div>
                         </article>
                     }
                 }
@@ -50,7 +109,7 @@
 
         <div id="events" class="section">
             <h2>Your Events</h2>
-            <div class="panel__items">
+            <div class="panel__items interest-card-list">
                 @if (Model.ActiveEvents.Count == 0)
                 {
                     <p class="empty-state">No active events yet.</p>
@@ -59,23 +118,54 @@
                 {
                     @foreach (var item in Model.ActiveEvents)
                     {
-                        <article class="summary-card member-row">
-                            <div class="member-row__info">
-                                <strong>@item.Title</strong>
-                                <time datetime="@item.EventStartAtUtc.ToString("O")">
-                                    @item.EventStartAtUtc.LocalDateTime.ToString("ddd, MMM d 'at' h:mm tt")
-                                </time>
-                                <span class="@StatusClass(item.Status)">@item.Status</span>
+                        <article class="summary-card interest-card interest-card--event">
+                            <div class="interest-card__header">
+                                <div class="interest-card__stamp" aria-hidden="true">
+                                    <span class="interest-card__stamp-month">@item.MonthLabel</span>
+                                    <span class="interest-card__stamp-day">@item.DayLabel</span>
+                                </div>
+
+                                <div class="interest-card__body">
+                                    <div class="interest-card__heading">
+                                        <strong class="interest-card__title">@item.Title</strong>
+                                        <time class="interest-card__subtitle" datetime="@item.EventStartAtUtc.ToString("O")">
+                                            @item.ScheduleLabel
+                                        </time>
+                                    </div>
+
+                                    <div class="interest-card__chips">
+                                        <span class="@StatusChipClass(item.Status)">@item.Status</span>
+                                        <span class="interest-card__chip">@item.EventTypeLabel</span>
+                                        @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
+                                        {
+                                            <span class="interest-card__chip">@item.CuisineTarget</span>
+                                        }
+                                        <span class="interest-card__chip interest-card__chip--muted">@item.TimingChipLabel</span>
+                                    </div>
+
+                                    <p class="interest-card__summary">@item.SummaryText</p>
+                                </div>
+
+                                <div class="interest-card__actions interest-card__actions--top">
+                                    <a asp-controller="Event"
+                                       asp-action="EventDetails"
+                                       asp-route-eventId="@item.EventId"
+                                       class="interest-card__text-action">Open</a>
+                                    <a asp-controller="Messaging"
+                                       asp-action="EventChat"
+                                       asp-route-eventId="@item.EventId"
+                                       class="interest-card__text-action">Chat</a>
+                                </div>
                             </div>
-                            <div class="button-row" style="margin-left:auto;">
-                                <a asp-controller="Event"
-                                   asp-action="EventDetails"
-                                   asp-route-eventId="@item.EventId"
-                                   class="button button--secondary">View</a>
-                                <a asp-controller="Messaging"
-                                   asp-action="EventChat"
-                                   asp-route-eventId="@item.EventId"
-                                   class="button button--secondary">💬</a>
+
+                            <div class="interest-card__facts">
+                                <span class="interest-card__fact">@item.ScheduleLabel</span>
+                                <span class="interest-card__fact">@item.TimeLabel</span>
+                                <span class="interest-card__fact">@item.EventTypeLabel</span>
+                                @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
+                                {
+                                    <span class="interest-card__fact">@item.CuisineTarget</span>
+                                }
                             </div>
                         </article>
                     }
@@ -85,7 +175,7 @@
 
         <div id="groups" class="section">
             <h2>Your Groups</h2>
-            <div class="panel__items">
+            <div class="panel__items interest-card-list">
                 @if (Model.ActiveGroups.Count == 0)
                 {
                     <p class="empty-state">No active groups yet.</p>
@@ -94,20 +184,42 @@
                 {
                     @foreach (var item in Model.ActiveGroups)
                     {
-                        <article class="summary-card member-row">
-                            <div class="member-row__info">
-                                <strong>@item.Name</strong>
-                                <span>@item.Visibility group</span>
+                        <article class="summary-card interest-card interest-card--group">
+                            <div class="interest-card__header">
+                                <div class="interest-card__avatar-shell interest-card__avatar-shell--initial" aria-hidden="true">
+                                    <span class="interest-card__avatar">@item.Initial</span>
+                                </div>
+
+                                <div class="interest-card__body">
+                                    <div class="interest-card__heading">
+                                        <strong class="interest-card__title">@item.Name</strong>
+                                        <span class="interest-card__subtitle">@item.MembershipLabel</span>
+                                    </div>
+
+                                    <div class="interest-card__chips">
+                                        <span class="interest-card__chip">@item.VisibilityLabel</span>
+                                        <span class="interest-card__chip interest-card__chip--muted">@item.MembershipLabel</span>
+                                    </div>
+
+                                    <p class="interest-card__summary">@item.SummaryText</p>
+                                </div>
+
+                                <div class="interest-card__actions interest-card__actions--top">
+                                    <a asp-controller="Group"
+                                       asp-action="Manage"
+                                       asp-route-groupId="@item.GroupId"
+                                       class="interest-card__text-action">Open</a>
+                                    <a asp-controller="Messaging"
+                                       asp-action="GroupChat"
+                                       asp-route-groupId="@item.GroupId"
+                                       class="interest-card__text-action">Chat</a>
+                                </div>
                             </div>
-                            <div class="button-row" style="margin-left:auto;">
-                                <a asp-controller="Group"
-                                   asp-action="Manage"
-                                   asp-route-groupId="@item.GroupId"
-                                   class="button button--secondary">View</a>
-                                <a asp-controller="Messaging"
-                                   asp-action="GroupChat"
-                                   asp-route-groupId="@item.GroupId"
-                                   class="button button--secondary">💬</a>
+
+                            <div class="interest-card__facts">
+                                <span class="interest-card__fact">@item.VisibilityLabel</span>
+                                <span class="interest-card__fact">@item.MembershipLabel</span>
+                                <span class="interest-card__fact">@item.AccessLabel</span>
                             </div>
                         </article>
                     }
@@ -119,25 +231,40 @@
             <div class="card profile-banner">
                 <div>
                     <h1>@Model.DisplayName</h1>
-                    <p>
-                        @if (string.IsNullOrWhiteSpace(Model.Bio))
+
+                    <p class="card__subtitle">Public profile preview</p>
+
+                    <div class="interest-card__chips">
+                        @if (Model.PublicFoodTags.Count == 0)
                         {
-                            <span class="empty-state">No public note added yet.</span>
+                            <span class="interest-card__chip interest-card__chip--muted">No public food preferences yet</span>
                         }
                         else
                         {
-                            <span>@Model.Bio</span>
+                            @foreach (var tag in Model.PublicFoodTags)
+                            {
+                                <span class="interest-card__chip">@tag</span>
+                            }
                         }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Bio))
+                    {
+                        <p class="interest-card__note">
+                            <span class="interest-card__note-label">Personality</span>
+                            @Model.PersonalityText
+                        </p>
+                    }
+
+                    <p class="interest-card__note">
+                        <span class="interest-card__note-label">Goals</span>
+                        @Model.GoalsText
                     </p>
 
                     <div class="profile-meta">
-                        <span class="pill">@Model.Username</span>
+                        <span class="pill">@@@Model.Username</span>
                         <span class="pill">@Model.Email</span>
                         <span class="pill">ZIP @Model.HomeAreaZipCode</span>
-                        @if (Model.SocialGoal is not null)
-                        {
-                            <span class="pill">@Model.SocialGoal</span>
-                        }
                     </div>
                 </div>
 

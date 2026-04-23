@@ -29,7 +29,7 @@ Key DTO families:
 
 - `SessionDto`: access token, refresh token, expiry, and current user summary
 - `OnboardingStatusDto`: `isComplete` plus `missingRequiredFields`
-- `ProfileDto`: public/private profile fields for the current user
+- `ProfileDto`: profile fields plus public cuisine/dietary compatibility tags used by social UI
 - `PreferenceDto`: cuisine tags, spice tolerance, dietary flags, allergies
 - `RecurringAvailabilityWindowDto` and `OneOffAvailabilityWindowDto`
 - `PasswordResetRequestAcceptedDto` and `PasswordResetRequestDto`
@@ -148,7 +148,7 @@ Representative request shapes:
 }
 ```
 
-`bio` is the public profile note surfaced in profile and social UI. Structured food preferences, allergies, and availability remain private contracts unless the user manually copies those details into the public note.
+`bio` is the public personality note surfaced in profile and social UI. Structured `cuisineTags` and `dietaryFlags` are also public compatibility fields for people cards and profile previews, while allergies and availability remain private contracts.
 
 ```json
 {

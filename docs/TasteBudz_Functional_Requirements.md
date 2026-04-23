@@ -144,7 +144,7 @@ Priority legend:
 - Users can view a personal dashboard with profile info plus summaries of active events, groups, and Budz.
 - Users can request account deletion.
 - Profile changes only affect the current user's data.
-- Structured food preferences, allergies, and availability remain non-public by default; users may copy any compatibility details they want to share into the public profile note.
+- Public people cards and profile previews may surface the user's personality note (`bio`), social goal, cuisine tags, and dietary flags; allergies and availability remain non-public by default.
 
 ### FR-003 Food Preferences, Dietary Flags, and Allergies
 
@@ -158,6 +158,7 @@ Priority legend:
 - Users can set spice tolerance.
 - Users can set dietary flags and allergy warnings.
 - Preferences are available for matching and discovery filters.
+- Cuisine tags and dietary flags may also be surfaced on public people cards and profile previews, while allergy warnings remain private safety data.
 
 ### FR-004 Availability Windows
 

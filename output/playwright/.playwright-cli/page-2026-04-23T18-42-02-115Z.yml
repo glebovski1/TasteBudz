@@ -1,0 +1,34 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "TB TasteBudz" [ref=e4] [cursor=pointer]:
+        - /url: /Account/Login
+        - generic [ref=e5]: TB
+        - strong [ref=e7]: TasteBudz
+      - navigation "Primary" [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Log In" [ref=e10] [cursor=pointer]:
+          - /url: /Account/Login
+        - link "Create Account" [ref=e11] [cursor=pointer]:
+          - /url: /Account/CreateAccount
+  - main [ref=e12]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - heading "Welcome back" [level=2] [ref=e17]
+          - paragraph [ref=e18]: Use your username or email, then continue where you left off.
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e21]: Username or Email
+            - textbox "Username or Email" [ref=e22]:
+              - /placeholder: alex or alex@example.com
+          - generic [ref=e23]:
+            - generic [ref=e24]: Password
+            - textbox "Password" [ref=e25]
+          - link "Need a password reset?" [ref=e27] [cursor=pointer]:
+            - /url: /Account/RequestPasswordReset
+          - button "Log In" [ref=e28] [cursor=pointer]
+      - generic [ref=e29]: Don't have an Account?
+      - link "Create an Account" [ref=e31] [cursor=pointer]:
+        - /url: /Account/CreateAccount

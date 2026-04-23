@@ -5,5 +5,7 @@ namespace TasteBudz.Backend.Modules.Profiles;
 public sealed record DashboardEventSummaryDto(
     Guid EventId,
     string? Title,
+    EventType EventType,
     EventStatus Status,
-    DateTimeOffset EventStartAtUtc);
+    DateTimeOffset EventStartAtUtc,
+    string? CuisineTarget);

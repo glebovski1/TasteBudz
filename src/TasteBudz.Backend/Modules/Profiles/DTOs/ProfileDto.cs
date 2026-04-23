@@ -10,4 +10,6 @@ public sealed record ProfileDto(
     string? Bio,
     string HomeAreaZipCode,
     SocialGoal? SocialGoal,
-    Guid? AvatarMediaAssetId = null);
+    Guid? AvatarMediaAssetId,
+    IReadOnlyCollection<string> CuisineTags,
+    IReadOnlyCollection<string> DietaryFlags);

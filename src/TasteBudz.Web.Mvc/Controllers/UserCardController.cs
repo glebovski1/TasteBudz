@@ -46,6 +46,8 @@ public sealed class UserCardController : Controller
                 bio = profile.Bio,
                 socialGoal = profile.SocialGoal?.ToString(),
                 zipCode = profile.HomeAreaZipCode,
+                cuisineTags = profile.CuisineTags,
+                dietaryFlags = profile.DietaryFlags,
                 isBud,
             });
         }

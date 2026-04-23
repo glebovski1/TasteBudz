@@ -380,7 +380,7 @@ Rules:
 
 - exact addresses are never exposed
 - profile visibility is constrained by privacy settings
-- bio functions as the public compatibility note; structured preferences, allergies, and availability remain private unless the user manually copies that information into the note
+- bio functions as the public personality note; social goal plus structured cuisine and dietary data may be surfaced in public profile cards, while allergies and availability remain private
 
 ### UserPreferences
 
@@ -395,7 +395,7 @@ Core data:
 Rules:
 
 - multi-valued categories are not compressed into one opaque blob
-- allergies and dietary data are safety inputs, not public-by-default data
+- cuisine tags and dietary flags may be surfaced as public compatibility tags, while allergies remain private safety inputs
 
 ### RecurringAvailabilityWindow / OneOffAvailabilityWindow
 

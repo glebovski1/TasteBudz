@@ -38,8 +38,10 @@ public sealed class UserEventQueryService(
             items.Add(new UserEventSummary(
                 synchronized.Id,
                 synchronized.Title,
+                synchronized.EventType,
                 synchronized.Status,
-                synchronized.EventStartAtUtc));
+                synchronized.EventStartAtUtc,
+                synchronized.CuisineTarget));
         }
 
         return items
@@ -89,8 +91,10 @@ public sealed class UserEventQueryService(
 public sealed record UserEventSummary(
     Guid EventId,
     string? Title,
+    EventType EventType,
     EventStatus Status,
-    DateTimeOffset EventStartAtUtc);
+    DateTimeOffset EventStartAtUtc,
+    string? CuisineTarget);
 
 public sealed record UserEventInviteSummary(
     Guid EventId,

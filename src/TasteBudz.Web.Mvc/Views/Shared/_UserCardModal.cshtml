@@ -19,8 +19,9 @@
             <div class="usercard-avatar" id="ucAvatar" aria-hidden="true"></div>
             <h2 class="usercard-name" id="ucName"></h2>
             <p class="usercard-username" id="ucUsername"></p>
-            <p class="usercard-bio" id="ucBio"></p>
-            <div class="usercard-pills" id="ucPills"></div>
+            <div class="usercard-pills" id="ucFoodPills"></div>
+            <p class="usercard-bio" id="ucBio" hidden></p>
+            <div class="usercard-pills usercard-pills--meta" id="ucMetaPills"></div>
 
             <hr class="usercard-divider" />
 
@@ -79,7 +80,8 @@
         const name           = document.getElementById("ucName");
         const username       = document.getElementById("ucUsername");
         const bio            = document.getElementById("ucBio");
-        const pills          = document.getElementById("ucPills");
+        const foodPills      = document.getElementById("ucFoodPills");
+        const metaPills      = document.getElementById("ucMetaPills");
         const actions        = document.getElementById("ucActions");
         const feedback       = document.getElementById("ucFeedback");
         const reportBack     = document.getElementById("ucReportBack");
@@ -123,11 +125,27 @@
             avatar.textContent   = (data.displayName ?? "?")[0].toUpperCase();
             name.textContent     = data.displayName;
             username.textContent = "@@" + data.username;
-            bio.textContent      = data.bio || "No public note yet.";
+            bio.textContent      = data.bio ?? "";
+            bio.hidden           = !data.bio;
 
-            pills.innerHTML = "";
-            if (data.socialGoal) pills.appendChild(makePill(data.socialGoal));
-            if (data.zipCode)    pills.appendChild(makePill("ZIP " + data.zipCode));
+            foodPills.innerHTML = "";
+            const publicFoodTags = [...(data.cuisineTags ?? []), ...(data.dietaryFlags ?? [])];
+            if (publicFoodTags.length === 0) {
+                foodPills.appendChild(makePill("No public food preferences yet"));
+            } else {
+                publicFoodTags.forEach(tag => foodPills.appendChild(makePill(tag)));
+            }
+
+            metaPills.innerHTML = "";
+            if (data.socialGoal) {
+                metaPills.appendChild(makePill(data.socialGoal));
+            }
+            if (data.zipCode) {
+                metaPills.appendChild(makePill("ZIP " + data.zipCode));
+            }
+            if (data.isBud) {
+                metaPills.appendChild(makePill("Your Bud"));
+            }
 
             actions.innerHTML = "";
             if (data.isBud) {
@@ -238,7 +256,10 @@
             profileView.hidden = true;
             reportView.hidden  = true;
             feedback.hidden    = true;
-            pills.innerHTML    = "";
+            bio.hidden         = true;
+            bio.textContent    = "";
+            foodPills.innerHTML = "";
+            metaPills.innerHTML = "";
             actions.innerHTML  = "";
         }
     }());

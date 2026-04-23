@@ -22,15 +22,30 @@ public sealed class UserGroupQueryService(IGroupRepository groupRepository)
         }
 
         var groups = await groupRepository.ListAsync(cancellationToken);
-        return groups
+        var activeGroups = groups
             .Where(group => activeGroupIds.Contains(group.Id) && group.LifecycleState == GroupLifecycleState.Active)
             .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new UserGroupSummary(group.Id, group.Name, group.Visibility))
             .ToArray();
+
+        var summaries = new List<UserGroupSummary>(activeGroups.Length);
+        foreach (var group in activeGroups)
+        {
+            var activeMembers = await groupRepository.ListMembersAsync(group.Id, cancellationToken);
+            summaries.Add(new UserGroupSummary(
+                group.Id,
+                group.Name,
+                group.Description,
+                group.Visibility,
+                activeMembers.Count(member => member.State == GroupMemberState.Active)));
+        }
+
+        return summaries;
     }
 }
 
 public sealed record UserGroupSummary(
     Guid GroupId,
     string Name,
-    GroupVisibility Visibility);
+    string? Description,
+    GroupVisibility Visibility,
+    int ActiveMemberCount);

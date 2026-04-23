@@ -43,13 +43,14 @@
                         <option value="">Select a goal</option>
                     </select>
                     <span asp-validation-for="SocialGoal" class="field-validation-error"></span>
+                    <p class="muted-note">Your selected goal shows publicly on people cards.</p>
                 </div>
 
                 <div class="field">
                     <label asp-for="Bio"></label>
-                    <textarea asp-for="Bio" placeholder="Share cuisines, dietary needs, dining style, or schedule preferences only if you want others to see them."></textarea>
+                    <textarea asp-for="Bio" placeholder="Share your vibe, dining style, and what makes you fun to eat with."></textarea>
                     <span asp-validation-for="Bio" class="field-validation-error"></span>
-                    <p class="muted-note">This note is the public place to share food compatibility details.</p>
+                    <p class="muted-note">This personality note appears on your public people cards.</p>
                 </div>
             </section>
 
@@ -84,6 +85,7 @@
                             </div>
                         }
                     </div>
+                    <p class="muted-note">Cuisine tags are public on your profile cards.</p>
                 </div>
             </section>
         </div>
@@ -112,12 +114,14 @@
                             </div>
                         }
                     </div>
+                    <p class="muted-note">Dietary flags are also public so people can quickly see compatibility.</p>
                 </div>
 
                 <div class="field">
                     <label asp-for="AllergiesText"></label>
                     <textarea asp-for="AllergiesText" placeholder="Peanuts, shellfish, dairy"></textarea>
                     <span asp-validation-for="AllergiesText" class="field-validation-error"></span>
+                    <p class="muted-note">Allergies stay private and are used for safety-aware matching.</p>
                 </div>
             </section>
 

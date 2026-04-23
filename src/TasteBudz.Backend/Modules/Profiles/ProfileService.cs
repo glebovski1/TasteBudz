@@ -25,9 +25,8 @@ public sealed class ProfileService(
             ?? throw ApiException.NotFound("The current account could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
-        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
 
-        return ToDto(account, profile, avatar?.Id);
+        return await ToDtoAsync(account, profile, includeEmail: true, cancellationToken);
     }
 
     /// <summary>
@@ -40,9 +39,8 @@ public sealed class ProfileService(
             ?? throw ApiException.NotFound("The requested user could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The requested user could not be found.");
-        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
 
-        return ToDto(account, profile, avatar?.Id) with { Email = string.Empty };
+        return await ToDtoAsync(account, profile, includeEmail: false, cancellationToken);
     }
 
     public async Task<ProfileDto> UpdateMyProfileAsync(Guid userId, UpdateMyProfileRequest request, CancellationToken cancellationToken = default)
@@ -90,12 +88,34 @@ public sealed class ProfileService(
         await authRepository.UpdateAccountAsync(updatedAccount, cancellationToken);
         await profileRepository.SaveProfileAsync(updatedProfile, cancellationToken);
 
-        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
-        return ToDto(updatedAccount, updatedProfile, avatar?.Id);
+        return await ToDtoAsync(updatedAccount, updatedProfile, includeEmail: true, cancellationToken);
     }
 
-    private static ProfileDto ToDto(UserAccount account, UserProfile profile, Guid? avatarMediaAssetId) =>
-        new(account.Id, account.Username, account.Email, profile.DisplayName, profile.Bio, profile.HomeAreaZipCode, profile.SocialGoal, avatarMediaAssetId);
+    private async Task<ProfileDto> ToDtoAsync(
+        UserAccount account,
+        UserProfile profile,
+        bool includeEmail,
+        CancellationToken cancellationToken)
+    {
+        var avatarTask = mediaRepository.GetProfileAvatarAsync(account.Id, cancellationToken);
+        var preferencesTask = profileRepository.GetPreferencesAsync(account.Id, cancellationToken);
+        await Task.WhenAll(avatarTask, preferencesTask);
+
+        var avatar = await avatarTask;
+        var preferences = await preferencesTask;
+
+        return new ProfileDto(
+            account.Id,
+            account.Username,
+            includeEmail ? account.Email : string.Empty,
+            profile.DisplayName,
+            profile.Bio,
+            profile.HomeAreaZipCode,
+            profile.SocialGoal,
+            avatar?.Id,
+            preferences?.CuisineTags ?? Array.Empty<string>(),
+            preferences?.DietaryFlags ?? Array.Empty<string>());
+    }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 

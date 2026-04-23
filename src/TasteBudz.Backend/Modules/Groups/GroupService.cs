@@ -7,6 +7,7 @@ using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 
@@ -20,6 +21,7 @@ public sealed class GroupService(
     IEventRepository eventRepository,
     IAuthRepository authRepository,
     IProfileRepository profileRepository,
+    IMediaRepository mediaRepository,
     INotificationService notificationService,
     EventLifecycleService eventLifecycleService,
     IClock clock,
@@ -382,16 +384,35 @@ public sealed class GroupService(
             .ToArray();
         var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
         var profiles = (await profileRepository.ListProfilesAsync(cancellationToken)).ToDictionary(profile => profile.UserId);
-        var memberDtos = activeMembers
+        var orderedMembers = activeMembers
             .Where(member => accounts.ContainsKey(member.UserId))
             .OrderBy(member => profiles.GetValueOrDefault(member.UserId)?.DisplayName ?? accounts[member.UserId].Username, StringComparer.OrdinalIgnoreCase)
-            .Select(member => new GroupMemberDto(
+            .ToArray();
+        var memberDtos = new List<GroupMemberDto>(orderedMembers.Length);
+
+        foreach (var member in orderedMembers)
+        {
+            var profile = profiles.GetValueOrDefault(member.UserId);
+            var avatarTask = mediaRepository.GetProfileAvatarAsync(member.UserId, cancellationToken);
+            var preferencesTask = profileRepository.GetPreferencesAsync(member.UserId, cancellationToken);
+            await Task.WhenAll(avatarTask, preferencesTask);
+
+            var avatar = await avatarTask;
+            var preferences = await preferencesTask;
+
+            memberDtos.Add(new GroupMemberDto(
                 member.UserId,
                 accounts[member.UserId].Username,
-                profiles.GetValueOrDefault(member.UserId)?.DisplayName ?? accounts[member.UserId].Username,
+                profile?.DisplayName ?? accounts[member.UserId].Username,
+                profile?.Bio,
+                profile?.SocialGoal,
+                profile?.HomeAreaZipCode,
+                avatar?.Id,
+                preferences?.CuisineTags ?? Array.Empty<string>(),
+                preferences?.DietaryFlags ?? Array.Empty<string>(),
                 member.State,
-                member.CreatedAtUtc))
-            .ToArray();
+                member.CreatedAtUtc));
+        }
         var currentMembership = activeMembers.FirstOrDefault(member => member.UserId == currentUserId);
 
         return new GroupDetailDto(

@@ -604,7 +604,7 @@ Use:
 Sensitive data handling rules:
 
 - avoid exposing exact ZIP publicly
-- avoid exposing allergy/private preference detail outside allowed workflows
+- avoid exposing allergies or private availability detail outside allowed workflows; public person cards may include cuisine tags and dietary flags
 - keep limited public profile previews for discovery
 - respect blocks in both reads and writes
 - apply least-privilege access to the database

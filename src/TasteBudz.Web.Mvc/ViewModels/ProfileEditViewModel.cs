@@ -42,7 +42,7 @@ public sealed class ProfileEditViewModel
 
     [MaxLength(500)]
     [DataType(DataType.MultilineText)]
-    [Display(Name = "Public Profile Note")]
+    [Display(Name = "Personality")]
     public string? Bio { get; set; }
 
     [Required]
@@ -51,7 +51,7 @@ public sealed class ProfileEditViewModel
     public string HomeAreaZipCode { get; set; } = string.Empty;
 
     [Required]
-    [Display(Name = "Social Goal")]
+    [Display(Name = "Goals")]
     public SocialGoal? SocialGoal { get; set; }
 
     [Required]

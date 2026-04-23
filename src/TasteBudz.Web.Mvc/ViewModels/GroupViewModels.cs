@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
@@ -126,14 +127,50 @@ public sealed class GroupMemberItem
     public Guid UserId { get; init; }
     public string DisplayName { get; init; } = string.Empty;
     public string Username { get; init; } = string.Empty;
+    public string? Bio { get; init; }
+    public SocialGoal? SocialGoal { get; init; }
+    public string? HomeAreaZipCode { get; init; }
+    public Guid? AvatarMediaAssetId { get; init; }
+    public IReadOnlyCollection<string> CuisineTags { get; init; } = Array.Empty<string>();
+    public IReadOnlyCollection<string> DietaryFlags { get; init; } = Array.Empty<string>();
     public bool IsOwner { get; init; }
     public DateTimeOffset JoinedAtUtc { get; init; }
+
+    public string Initial => GroupCardFormatting.GetInitial(DisplayName);
+
+    public string? AvatarUrl => GroupCardFormatting.ToMediaUrl(AvatarMediaAssetId);
+
+    public string? GoalLabel => GroupCardFormatting.GetSocialGoalLabel(SocialGoal);
+
+    public string? ZipLabel => GroupCardFormatting.GetZipLabel(HomeAreaZipCode);
+
+    public string RoleLabel => IsOwner ? "Owner" : "Member";
+
+    public string JoinedChipLabel => $"Joined {JoinedAtUtc.ToLocalTime().ToString("MMM d", CultureInfo.InvariantCulture)}";
+
+    public string JoinedLabel => $"Joined {JoinedAtUtc.ToLocalTime().ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
+
+    public IReadOnlyList<string> PublicFoodTags => GroupCardFormatting.BuildPublicFoodTags(CuisineTags, DietaryFlags);
+
+    public IReadOnlyList<string> PreviewFoodTags => PublicFoodTags.Take(6).ToArray();
+
+    public int HiddenFoodTagCount => Math.Max(0, PublicFoodTags.Count - PreviewFoodTags.Count);
+
+    public string PersonalityText => GroupCardFormatting.GetPersonalityText(Bio);
+
+    public string GoalsText => GroupCardFormatting.GetSocialGoalDescription(SocialGoal);
 
     public static GroupMemberItem FromDto(GroupMemberDto dto, Guid ownerUserId) => new()
     {
         UserId = dto.UserId,
         DisplayName = dto.DisplayName,
         Username = dto.Username,
+        Bio = dto.Bio,
+        SocialGoal = dto.SocialGoal,
+        HomeAreaZipCode = dto.HomeAreaZipCode,
+        AvatarMediaAssetId = dto.AvatarMediaAssetId,
+        CuisineTags = dto.CuisineTags,
+        DietaryFlags = dto.DietaryFlags,
         IsOwner = dto.UserId == ownerUserId,
         JoinedAtUtc = dto.JoinedAtUtc,
     };
@@ -176,5 +213,93 @@ public sealed class GroupEventHistoryItem
             AverageRating = feedbackItems.Count == 0 ? null : feedbackItems.Average(item => item.Rating),
             IsCompleted = dto.Status == EventStatus.Completed,
         };
+    }
+}
+
+file static class GroupCardFormatting
+{
+    public static string GetInitial(string value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? "?"
+            : value.Trim()[0].ToString().ToUpperInvariant();
+
+    public static string? ToMediaUrl(Guid? mediaAssetId) =>
+        mediaAssetId.HasValue
+            ? $"/api/v1/media/{mediaAssetId.Value}"
+            : null;
+
+    public static string? GetSocialGoalLabel(SocialGoal? socialGoal) => socialGoal switch
+    {
+        SocialGoal.Friends => "Friends",
+        SocialGoal.Dating => "Dating",
+        SocialGoal.Networking => "Networking",
+        _ => null,
+    };
+
+    public static string? GetZipLabel(string? homeAreaZipCode) =>
+        string.IsNullOrWhiteSpace(homeAreaZipCode)
+            ? null
+            : $"ZIP {homeAreaZipCode}";
+
+    public static IReadOnlyList<string> BuildPublicFoodTags(
+        IEnumerable<string>? cuisineTags,
+        IEnumerable<string>? dietaryFlags)
+    {
+        var tags = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        AddRange(cuisineTags, seen, tags);
+        AddRange(dietaryFlags, seen, tags);
+
+        return tags;
+    }
+
+    public static string GetPersonalityText(string? bio) =>
+        string.IsNullOrWhiteSpace(bio)
+            ? "No personality note yet."
+            : Truncate(bio, 140);
+
+    public static string GetSocialGoalDescription(SocialGoal? socialGoal) => socialGoal switch
+    {
+        SocialGoal.Friends => "Looking for new foodie friends",
+        SocialGoal.Dating => "Open to dinner dates",
+        SocialGoal.Networking => "Interested in local networking over food",
+        _ => "Open to new TasteBudz connections",
+    };
+
+    public static string Truncate(string value, int maxLength)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length <= maxLength)
+        {
+            return trimmed;
+        }
+
+        return $"{trimmed[..Math.Max(0, maxLength - 1)].TrimEnd()}...";
+    }
+
+    private static void AddRange(
+        IEnumerable<string>? values,
+        ISet<string> seen,
+        ICollection<string> destination)
+    {
+        if (values is null)
+        {
+            return;
+        }
+
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var normalized = value.Trim();
+            if (seen.Add(normalized))
+            {
+                destination.Add(normalized);
+            }
+        }
     }
 }
