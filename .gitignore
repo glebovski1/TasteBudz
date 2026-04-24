@@ -12,5 +12,6 @@ obj/
 *.DS_Store
 artifacts/coverage/
 artifacts/publish/
+.superpowers/
 tests/**/TestResults/
 src/TasteBudz.Web.Mvc/appsettings.Production.json
