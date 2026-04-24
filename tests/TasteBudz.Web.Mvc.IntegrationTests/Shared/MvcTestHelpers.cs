@@ -51,7 +51,17 @@ public static partial class MvcTestHelpers
         string email = "alex@example.com",
         string zipCode = "45220",
         SocialGoal? socialGoal = SocialGoal.Friends) =>
-        new(Guid.NewGuid(), username, email, displayName, "Always down for noodles.", zipCode, socialGoal);
+        new(
+            Guid.NewGuid(),
+            username,
+            email,
+            displayName,
+            "Always down for noodles.",
+            zipCode,
+            socialGoal,
+            null,
+            new[] { "Sushi", "Thai" },
+            Array.Empty<string>());
 
     public static PreferenceDto CreatePreferences(
         IReadOnlyCollection<string>? cuisines = null,
@@ -72,15 +82,15 @@ public static partial class MvcTestHelpers
             CreateProfile(),
             new[]
             {
-                new DashboardEventSummaryDto(Guid.NewGuid(), "Friday Sushi Night", EventStatus.Confirmed, new DateTimeOffset(2026, 3, 20, 19, 0, 0, TimeSpan.Zero)),
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Friday Sushi Night", EventType.Open, EventStatus.Confirmed, new DateTimeOffset(2026, 3, 20, 19, 0, 0, TimeSpan.Zero), "Sushi"),
             },
             new[]
             {
-                new DashboardGroupSummaryDto(Guid.NewGuid(), "Cincy Foodies", GroupVisibility.Public),
+                new DashboardGroupSummaryDto(Guid.NewGuid(), "Cincy Foodies", "Dinner club", GroupVisibility.Public, 3),
             },
             new[]
             {
-                new DashboardBudSummaryDto(Guid.NewGuid(), "sam", "Sam Carter"),
+                new DashboardBudSummaryDto(Guid.NewGuid(), "sam", "Sam Carter", null, SocialGoal.Friends, "45220", null, Array.Empty<string>(), Array.Empty<string>(), DateTimeOffset.UtcNow),
             });
 
     public static async Task<SessionDto> LoginThroughUiAsync(

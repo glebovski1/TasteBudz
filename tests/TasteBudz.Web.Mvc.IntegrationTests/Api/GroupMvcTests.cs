@@ -33,11 +33,12 @@ public sealed class GroupMvcTests
                     "Cincy Foodies",
                     "Dinner club",
                     GroupVisibility.Public,
+                    GroupWallpaperTheme.Default,
                     GroupLifecycleState.Active,
                     true,
                     new[]
                     {
-                        new GroupMemberDto(session.CurrentUser.UserId, "alex", "Alex Carter", GroupMemberState.Active, DateTimeOffset.UtcNow),
+                        new GroupMemberDto(session.CurrentUser.UserId, "alex", "Alex Carter", null, null, null, null, Array.Empty<string>(), Array.Empty<string>(), GroupMemberState.Active, DateTimeOffset.UtcNow),
                     })));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
@@ -81,6 +82,27 @@ public sealed class GroupMvcTests
                         DateTimeOffset.UtcNow,
                         DateTimeOffset.UtcNow),
                 }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/groups/{groupId}/announcements",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<GroupAnnouncementDto>(
+                    new[]
+                    {
+                        new GroupAnnouncementDto(
+                            Guid.NewGuid(),
+                            groupId,
+                            session.CurrentUser.UserId,
+                            "alex",
+                            "Alex Carter",
+                            GroupAnnouncementType.OwnerPost,
+                            "Ramen plan",
+                            "Meet by the front window.",
+                            null,
+                            DateTimeOffset.UtcNow),
+                    },
+                    1)));
 
         using var response = await client.GetAsync($"/Group/Manage?groupId={groupId}");
         var html = await response.Content.ReadAsStringAsync();
@@ -88,9 +110,11 @@ public sealed class GroupMvcTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Create Group Event", html);
         Assert.Contains($"/Event/CreateEvent?groupId={groupId}", html);
-        Assert.Contains("Group Event History", html);
+        Assert.Contains("Group Board", html);
+        Assert.Contains("Ramen plan", html);
+        Assert.Contains("Linked Events", html);
         Assert.Contains("Completed noodles", html);
-        Assert.Contains("Average rating: 5.0 / 5", html);
+        Assert.Contains("5.0 / 5 average", html);
         Assert.Contains("Great noodles.", html);
         factory.BackendHandler.AssertDrained();
     }
@@ -166,11 +190,12 @@ public sealed class GroupMvcTests
                     "Cincy Foodies",
                     "Dinner club",
                     GroupVisibility.Public,
+                    GroupWallpaperTheme.Default,
                     GroupLifecycleState.Active,
                     true,
                     new[]
                     {
-                        new GroupMemberDto(ownerUserId, "alex", "Alex Carter", GroupMemberState.Active, DateTimeOffset.UtcNow),
+                        new GroupMemberDto(ownerUserId, "alex", "Alex Carter", null, null, null, null, Array.Empty<string>(), Array.Empty<string>(), GroupMemberState.Active, DateTimeOffset.UtcNow),
                     })));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,

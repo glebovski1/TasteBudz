@@ -2,17 +2,28 @@
 
 @{
     ViewData["Title"] = "Create Group";
+
+    var previewName = string.IsNullOrWhiteSpace(Model.Name) ? "Neighborhood Dinner Club" : Model.Name.Trim();
+    var previewDescription = string.IsNullOrWhiteSpace(Model.Description)
+        ? "A low-pressure dinner crew for shared cravings, new spots, and easy planning."
+        : Model.Description.Trim();
+    var previewVisibility = Model.Visibility?.ToString() == "Private" ? "Private" : "Public";
+    var previewMonogram = previewName[0].ToString().ToUpperInvariant();
 }
 
-<section class="profile-shell">
+<section class="profile-shell group-page">
 
-    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
-        <div>
-            <h1>Create a New Group</h1>
-            <p>Set up your group's name, description, and privacy settings.</p>
+    <div class="card group-discovery-hero group-discovery-hero--compact">
+        <div class="group-discovery-hero__copy">
+            <span class="group-discovery-hero__eyebrow">Create a Group</span>
+            <h1>Shape the vibe before anyone joins.</h1>
+            <p>Define the name, describe the food mood, and choose whether the community is open to everyone or invite-only.</p>
         </div>
-        <div class="button-row">
-            <a asp-action="Index" class="button button--secondary">Back to Groups</a>
+
+        <div class="group-discovery-hero__actions">
+            <div class="button-row group-discovery-hero__action-row">
+                <a asp-action="Index" class="button button--secondary">Back to Groups</a>
+            </div>
         </div>
     </div>
 
@@ -20,53 +31,117 @@
         @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
 
-        <div class="editor-grid">
-
-            <section class="card stack">
-                <div>
-                    <h2 class="card__title">Group Details</h2>
-                    <p class="card__subtitle">Choose a name and description that tells people what your group is about.</p>
+        <div class="group-creation-grid">
+            <section class="card stack group-creation-form">
+                <div class="group-section__header group-section__header--compact">
+                    <div>
+                        <p class="group-section__eyebrow">Details</p>
+                        <h2>Group Identity</h2>
+                    </div>
+                    <p class="card__subtitle">Make the name and description specific enough that people know whether this is their kind of dinner crew.</p>
                 </div>
 
                 <div class="field">
                     <label asp-for="Name"></label>
-                    <input asp-for="Name" placeholder="e.g. Italian Foodies, Taco Lovers…" />
+                    <input asp-for="Name"
+                           id="GroupNameInput"
+                           placeholder="e.g. Downtown Taco Crew, Sushi After Work" />
                     <span asp-validation-for="Name" class="field-validation-error"></span>
                 </div>
 
                 <div class="field">
                     <label asp-for="Description"></label>
-                    <textarea asp-for="Description" placeholder="What is this group about? (optional)"></textarea>
+                    <textarea asp-for="Description"
+                              id="GroupDescriptionInput"
+                              placeholder="Who is this group for, what kind of meals do you plan, and how often do you meet?"></textarea>
                     <span asp-validation-for="Description" class="field-validation-error"></span>
                 </div>
-            </section>
 
-            <section class="panel stack">
-                <div>
-                    <h2>Privacy</h2>
-                    <p class="card__subtitle">Public groups are open for anyone to join. Private groups require an invite.</p>
-                </div>
+                <div class="stack">
+                    <div class="group-section__header group-section__header--compact">
+                        <div>
+                            <p class="group-section__eyebrow">Access</p>
+                            <h2>Privacy</h2>
+                        </div>
+                    </div>
 
-                <div class="field">
-                    <label asp-for="Visibility"></label>
-                    <select asp-for="Visibility">
-                        <option value="">Select privacy…</option>
-                        <option value="Public">Public — anyone can join</option>
-                        <option value="Private">Private — invite only</option>
-                    </select>
+                    <div class="group-visibility-picker">
+                        <label class="group-visibility-option">
+                            @Html.RadioButtonFor(m => m.Visibility, "Public", new { id = "VisibilityPublic", @class = "group-visibility-option__input" })
+                            <span class="group-visibility-option__body">
+                                <span class="group-visibility-option__headline">Public</span>
+                                <span class="group-visibility-option__description">Anyone can join while the group is active.</span>
+                                <span class="group-visibility-option__detail">Best for neighborhood crews, cuisine clubs, and recurring open meetups.</span>
+                            </span>
+                        </label>
+
+                        <label class="group-visibility-option">
+                            @Html.RadioButtonFor(m => m.Visibility, "Private", new { id = "VisibilityPrivate", @class = "group-visibility-option__input" })
+                            <span class="group-visibility-option__body">
+                                <span class="group-visibility-option__headline">Private</span>
+                                <span class="group-visibility-option__description">New members join by owner invitation only.</span>
+                                <span class="group-visibility-option__detail">Best for established friend groups, selective hosts, or invite-led planning.</span>
+                            </span>
+                        </label>
+                    </div>
+
                     <span asp-validation-for="Visibility" class="field-validation-error"></span>
                 </div>
 
-                <p class="muted-note">
-                    You can change the privacy setting later from the group management page.
-                </p>
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Create Group</button>
+                    <a asp-action="Index" class="button button--secondary">Cancel</a>
+                </div>
             </section>
 
-        </div>
+            <aside class="panel stack group-creation-preview">
+                <div class="group-section__header group-section__header--compact">
+                    <div>
+                        <p class="group-section__eyebrow">Preview</p>
+                        <h2>How it will appear</h2>
+                    </div>
+                    <p class="card__subtitle">The card updates as you type, so you can see the first impression before publishing.</p>
+                </div>
 
-        <div class="button-row">
-            <button type="submit" class="button button--primary">Create Group</button>
-            <a asp-action="Index" class="button button--secondary">Cancel</a>
+                <article class="group-showcase-card group-showcase-card--preview group-showcase-card--tone-0">
+                    <div class="group-showcase-card__link">
+                        <div class="group-showcase-card__masthead">
+                            <span id="GroupPreviewMonogram" class="group-showcase-card__monogram" aria-hidden="true">@previewMonogram</span>
+                            <div class="group-showcase-card__masthead-copy">
+                                <span id="GroupPreviewAccessLabel" class="group-showcase-card__eyebrow">@(previewVisibility == "Private" ? "Invite only" : "Open to join")</span>
+                                <span id="GroupPreviewSupportText" class="group-showcase-card__support">@(previewVisibility == "Private" ? "Private access is curated by the owner through invites." : "Jump in now and start planning with the current members.")</span>
+                            </div>
+                            <span id="GroupPreviewVisibility" class="pill group-showcase-card__visibility">@previewVisibility</span>
+                        </div>
+
+                        <div class="group-showcase-card__body">
+                            <div class="group-showcase-card__meta">
+                                <span>Starts with you</span>
+                                <span id="GroupPreviewMeta">@(previewVisibility == "Private" ? "Curated access" : "Open now")</span>
+                            </div>
+
+                            <h2 id="GroupPreviewName" class="group-showcase-card__name">@previewName</h2>
+                            <p id="GroupPreviewDescription" class="group-showcase-card__desc">@previewDescription</p>
+                        </div>
+
+                        <div class="group-showcase-card__footer">
+                            <span class="group-showcase-card__footer-copy">Ready to publish</span>
+                            <span class="group-showcase-card__cta">Create Group</span>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="group-note-list">
+                    <div class="group-note-list__item">
+                        <span class="group-note-list__label">What works well</span>
+                        <strong>Clear names, specific food themes, and short descriptions with a real meetup angle.</strong>
+                    </div>
+                    <div class="group-note-list__item">
+                        <span class="group-note-list__label">What to avoid</span>
+                        <strong>Generic names that give no clue whether the group is casual, curated, local, or cuisine-led.</strong>
+                    </div>
+                </div>
+            </aside>
         </div>
 
     </form>
@@ -75,4 +150,56 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (function () {
+            var nameInput = document.getElementById('GroupNameInput');
+            var descriptionInput = document.getElementById('GroupDescriptionInput');
+            var publicOption = document.getElementById('VisibilityPublic');
+            var privateOption = document.getElementById('VisibilityPrivate');
+
+            var previewName = document.getElementById('GroupPreviewName');
+            var previewDescription = document.getElementById('GroupPreviewDescription');
+            var previewMonogram = document.getElementById('GroupPreviewMonogram');
+            var previewVisibility = document.getElementById('GroupPreviewVisibility');
+            var previewAccessLabel = document.getElementById('GroupPreviewAccessLabel');
+            var previewSupportText = document.getElementById('GroupPreviewSupportText');
+            var previewMeta = document.getElementById('GroupPreviewMeta');
+
+            if (!nameInput || !descriptionInput || !previewName || !previewDescription || !previewMonogram || !previewVisibility || !previewAccessLabel || !previewSupportText || !previewMeta) {
+                return;
+            }
+
+            function getVisibility() {
+                return privateOption && privateOption.checked ? 'Private' : 'Public';
+            }
+
+            function updatePreview() {
+                var nextName = nameInput.value.trim() || 'Neighborhood Dinner Club';
+                var nextDescription = descriptionInput.value.trim() || 'A low-pressure dinner crew for shared cravings, new spots, and easy planning.';
+                var visibility = getVisibility();
+
+                previewName.textContent = nextName;
+                previewDescription.textContent = nextDescription;
+                previewMonogram.textContent = nextName.charAt(0).toUpperCase();
+                previewVisibility.textContent = visibility;
+                previewAccessLabel.textContent = visibility === 'Private' ? 'Invite only' : 'Open to join';
+                previewSupportText.textContent = visibility === 'Private'
+                    ? 'Private access is curated by the owner through invites.'
+                    : 'Jump in now and start planning with the current members.';
+                previewMeta.textContent = visibility === 'Private' ? 'Curated access' : 'Open now';
+            }
+
+            [nameInput, descriptionInput, publicOption, privateOption].forEach(function (element) {
+                if (!element) {
+                    return;
+                }
+
+                element.addEventListener('input', updatePreview);
+                element.addEventListener('change', updatePreview);
+            });
+
+            updatePreview();
+        }());
+    </script>
 }

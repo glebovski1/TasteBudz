@@ -219,10 +219,25 @@ CREATE TABLE IF NOT EXISTS Groups (
     Name TEXT NOT NULL,
     Description TEXT NULL,
     Visibility INTEGER NOT NULL,
+    WallpaperTheme INTEGER NOT NULL DEFAULT 0,
     LifecycleState INTEGER NOT NULL,
     CreatedAtUtc TEXT NOT NULL,
     UpdatedAtUtc TEXT NOT NULL,
     FOREIGN KEY (OwnerUserId) REFERENCES UserAccounts (Id)
+);
+
+CREATE TABLE IF NOT EXISTS GroupAnnouncements (
+    Id TEXT NOT NULL PRIMARY KEY,
+    GroupId TEXT NOT NULL,
+    AuthorUserId TEXT NOT NULL,
+    AnnouncementType INTEGER NOT NULL,
+    Title TEXT NOT NULL,
+    Body TEXT NOT NULL,
+    RelatedEventId TEXT NULL,
+    CreatedAtUtc TEXT NOT NULL,
+    FOREIGN KEY (GroupId) REFERENCES Groups (Id),
+    FOREIGN KEY (AuthorUserId) REFERENCES UserAccounts (Id),
+    FOREIGN KEY (RelatedEventId) REFERENCES Events (Id)
 );
 
 CREATE TABLE IF NOT EXISTS GroupMembers (
@@ -656,6 +671,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS IX_UserSessions_RefreshToken ON UserSessions (
 CREATE INDEX IF NOT EXISTS IX_PasswordResetTokens_UserId_CreatedAtUtc ON PasswordResetTokens (UserId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_GroupMembers_UserId ON GroupMembers (UserId);
 CREATE INDEX IF NOT EXISTS IX_GroupInvites_InvitedUserId ON GroupInvites (InvitedUserId);
+CREATE INDEX IF NOT EXISTS IX_GroupAnnouncements_GroupId_CreatedAtUtc ON GroupAnnouncements (GroupId, CreatedAtUtc);
 CREATE INDEX IF NOT EXISTS IX_Restaurants_ZipCode ON Restaurants (ZipCode);
 CREATE INDEX IF NOT EXISTS IX_Events_GroupId ON Events (GroupId);
 CREATE INDEX IF NOT EXISTS IX_EventParticipants_UserId ON EventParticipants (UserId);

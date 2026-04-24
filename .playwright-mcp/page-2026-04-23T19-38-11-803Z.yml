@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "TB TasteBudz" [ref=e4] [cursor=pointer]:
+        - /url: /Account/Login
+        - generic [ref=e5]: TB
+        - strong [ref=e7]: TasteBudz
+      - navigation "Primary" [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /Profile/View
+        - link "Find Budz" [ref=e10] [cursor=pointer]:
+          - /url: /Discovery/Swipe
+        - link "Groups" [ref=e11] [cursor=pointer]:
+          - /url: /Group
+        - link "Events" [ref=e12] [cursor=pointer]:
+          - /url: /Event
+        - link "Support" [ref=e13] [cursor=pointer]:
+          - /url: /Messaging/Support
+        - button "Notifications" [ref=e15] [cursor=pointer]:
+          - text: 🔔
+          - generic: "1"
+        - button "Log Out" [ref=e16] [cursor=pointer]
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - heading "Groups" [level=1] [ref=e21]
+          - paragraph [ref=e22]: Find a group that shares your food interests, or start your own.
+        - link "+ Create Group" [ref=e24] [cursor=pointer]:
+          - /url: /Group/CreateGroup
+      - generic [ref=e25]:
+        - heading "Explore Groups" [level=2] [ref=e26]
+        - generic [ref=e27]:
+          - textbox "Search groups" [ref=e29]:
+            - /placeholder: Search groups by name...
+          - button "Search" [ref=e30] [cursor=pointer]
+      - article [ref=e32]:
+        - generic [ref=e33]:
+          - heading "Clifton Supper Club" [level=3] [ref=e34]
+          - generic [ref=e35]: Public
+        - paragraph [ref=e36]: Public dinner planning for weekday meetups.
+        - generic [ref=e37]:
+          - generic [ref=e38]: 2 members
+          - link "View" [ref=e39] [cursor=pointer]:
+            - /url: /Group/Manage?groupId=00000000-0000-0000-0000-000000002001
+    - link "Open support" [ref=e40] [cursor=pointer]:
+      - /url: /Messaging/Support
+      - text: Help
+    - link "Open chats" [ref=e41] [cursor=pointer]:
+      - /url: /Messaging/Chat
+      - img [ref=e42]

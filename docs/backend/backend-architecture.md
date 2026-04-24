@@ -235,7 +235,7 @@ Architectural note: Events remain the most transaction-sensitive module in the s
 
 ### 5.5 Groups
 
-Own persistent groups, group membership, ownership rules, discoverability, group-linked event context, and group chat authorization context.
+Own persistent groups, group membership, ownership rules, discoverability, group-linked event context, group announcements, owner-selected preset wallpapers, and group chat authorization context.
 
 Key responsibilities:
 
@@ -245,6 +245,9 @@ Key responsibilities:
 - owner-only group management
 - public/private visibility
 - owner member-removal actions
+- owner-authored group announcements
+- automatic group announcements for newly linked group events
+- owner-selected preset food wallpaper theme
 - ownership transfer later
 - group dissolution later
 - expose group-linked event context
@@ -264,6 +267,7 @@ Rules to preserve:
 - private groups require invitation in MVP
 - private-group invites are owner-initiated in MVP
 - only the current group owner may associate new events with the group's context
+- only the current group owner may write owner announcements or change the group wallpaper theme
 - group membership does not replace event participation
 
 ### 5.6 Media

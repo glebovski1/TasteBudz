@@ -43,6 +43,14 @@ public sealed class GroupsController(
     public Task<ListResponse<EventSummaryDto>> ListEvents(Guid groupId, [FromQuery] GroupEventsQuery query, CancellationToken cancellationToken) =>
         groupService.ListGroupEventsAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, groupId, query, cancellationToken);
 
+    [HttpGet("{groupId:guid}/announcements")]
+    public Task<ListResponse<GroupAnnouncementDto>> ListAnnouncements(Guid groupId, CancellationToken cancellationToken) =>
+        groupService.ListAnnouncementsAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, groupId, cancellationToken);
+
+    [HttpPost("{groupId:guid}/announcements")]
+    public Task<GroupAnnouncementDto> CreateAnnouncement(Guid groupId, [FromBody] CreateGroupAnnouncementRequest request, CancellationToken cancellationToken) =>
+        groupService.CreateAnnouncementAsync(currentUserAccessor.GetRequiredCurrentUser(), groupId, request, cancellationToken);
+
     [HttpGet("{groupId:guid}/messages")]
     public Task<CursorPageResponse<ChatMessageDto>> ListMessages(Guid groupId, [FromQuery] ChatHistoryQuery query, CancellationToken cancellationToken) =>
         messagingService.ListGroupMessagesAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, groupId, query, cancellationToken);

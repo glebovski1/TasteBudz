@@ -8,6 +8,7 @@ public sealed record GroupDetailDto(
     string Name,
     string? Description,
     GroupVisibility Visibility,
+    GroupWallpaperTheme WallpaperTheme,
     GroupLifecycleState LifecycleState,
     bool IsCurrentUserMember,
     IReadOnlyCollection<GroupMemberDto> Members);

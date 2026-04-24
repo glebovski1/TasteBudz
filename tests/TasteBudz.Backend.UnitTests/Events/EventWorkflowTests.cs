@@ -161,7 +161,7 @@ public sealed class EventWorkflowTests
         var owner = ToCurrentUser(ownerSession);
         var groupId = Guid.NewGuid();
 
-        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Private crew", null, GroupVisibility.Private, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Private crew", null, GroupVisibility.Private, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
 
         var exception = await Assert.ThrowsAsync<ApiException>(() =>
@@ -189,7 +189,7 @@ public sealed class EventWorkflowTests
         var owner = ToCurrentUser(ownerSession);
         var groupId = Guid.NewGuid();
 
-        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{host.UserId:N}"] = new GroupMember(groupId, host.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
 
@@ -216,7 +216,7 @@ public sealed class EventWorkflowTests
         var owner = ToCurrentUser(ownerSession);
         var groupId = Guid.NewGuid();
 
-        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
 
         var detail = await services.EventService.CreateAsync(owner, new CreateEventRequest

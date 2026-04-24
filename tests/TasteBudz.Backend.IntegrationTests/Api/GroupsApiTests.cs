@@ -96,6 +96,15 @@ public sealed class GroupsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Contains(browse!.Items, item => item.GroupId == group.GroupId);
         Assert.Equal(HttpStatusCode.OK, groupEventsResponse.StatusCode);
         Assert.Contains(groupEvents!.Items, item => item.GroupId == group.GroupId && item.Title == "Linked brunch");
+
+        var announcementsResponse = await guestClient.GetAsync($"/api/v1/groups/{group.GroupId}/announcements");
+        var announcements = await announcementsResponse.Content.ReadFromJsonAsync<ListResponse<GroupAnnouncementDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, announcementsResponse.StatusCode);
+        Assert.Contains(announcements!.Items, item =>
+            item.AnnouncementType == GroupAnnouncementType.EventCreated &&
+            item.RelatedEventId.HasValue &&
+            item.Title == "New group event");
     }
 
     [Fact]
@@ -203,5 +212,72 @@ public sealed class GroupsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Contains("application/problem+json", inviteResponse.Content.Headers.ContentType?.MediaType);
         Assert.Equal(403, problem!.Status);
         Assert.Equal("Blocking prevents group invitations between these users.", problem.Detail);
+    }
+
+    [Fact]
+    public async Task GroupAnnouncements_AreOwnerManagedAndVisibleWithGroupAccess()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Announcement group",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var guestPostResponse = await guestClient.PostAsJsonAsync($"/api/v1/groups/{group!.GroupId}/announcements", new CreateGroupAnnouncementRequest
+        {
+            Title = "Guest post",
+            Body = "This should not be accepted.",
+        });
+        var ownerPostResponse = await ownerClient.PostAsJsonAsync($"/api/v1/groups/{group.GroupId}/announcements", new CreateGroupAnnouncementRequest
+        {
+            Title = "Friday menu",
+            Body = "Trying ramen and dumplings.",
+        });
+        var listResponse = await guestClient.GetAsync($"/api/v1/groups/{group.GroupId}/announcements");
+        var announcements = await listResponse.Content.ReadFromJsonAsync<ListResponse<GroupAnnouncementDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Forbidden, guestPostResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, ownerPostResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.Contains(announcements!.Items, item =>
+            item.AnnouncementType == GroupAnnouncementType.OwnerPost &&
+            item.Title == "Friday menu" &&
+            item.Body == "Trying ramen and dumplings.");
+    }
+
+    [Fact]
+    public async Task GroupUpdate_OwnerCanSetPresetWallpaper()
+    {
+        factory.ResetState();
+        using var ownerClient = factory.CreateClient();
+
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+
+        var createGroupResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Wallpaper group",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+
+        var updateResponse = await ownerClient.PatchAsJsonAsync($"/api/v1/groups/{group!.GroupId}", new UpdateGroupRequest
+        {
+            WallpaperTheme = GroupWallpaperTheme.TacoTable,
+        });
+        var updated = await updateResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        Assert.Equal(GroupWallpaperTheme.TacoTable, updated!.WallpaperTheme);
     }
 }

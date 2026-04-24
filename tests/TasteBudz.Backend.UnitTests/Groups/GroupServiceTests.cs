@@ -6,6 +6,7 @@ using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Media;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.UnitTests.Shared;
@@ -121,6 +122,74 @@ public sealed class GroupServiceTests
         Assert.DoesNotContain(detail.Members, member => member.UserId == guest.CurrentUser.UserId);
     }
 
+    [Fact]
+    public async Task UpdateAsync_OwnerCanSetWallpaperTheme()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Wallpaper crew",
+            Visibility = GroupVisibility.Public,
+        });
+
+        var updated = await services.GroupService.UpdateAsync(ToCurrentUser(owner), group.GroupId, new UpdateGroupRequest
+        {
+            WallpaperTheme = GroupWallpaperTheme.SushiBar,
+        });
+
+        Assert.Equal(GroupWallpaperTheme.SushiBar, updated.WallpaperTheme);
+    }
+
+    [Fact]
+    public async Task CreateAnnouncementAsync_NonOwnerIsRejected()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Owner posts",
+            Visibility = GroupVisibility.Public,
+        });
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.GroupService.CreateAnnouncementAsync(ToCurrentUser(guest), group.GroupId, new CreateGroupAnnouncementRequest
+            {
+                Title = "Menu update",
+                Body = "Trying noodles this week.",
+            }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateAnnouncementAsync_OwnerPostAppearsInList()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Owner posts",
+            Visibility = GroupVisibility.Public,
+        });
+
+        await services.GroupService.CreateAnnouncementAsync(ToCurrentUser(owner), group.GroupId, new CreateGroupAnnouncementRequest
+        {
+            Title = "Menu update",
+            Body = "Trying noodles this week.",
+        });
+
+        var announcements = await services.GroupService.ListAnnouncementsAsync(owner.CurrentUser.UserId, group.GroupId);
+
+        var announcement = Assert.Single(announcements.Items);
+        Assert.Equal(GroupAnnouncementType.OwnerPost, announcement.AnnouncementType);
+        Assert.Equal("Menu update", announcement.Title);
+    }
+
     private static async Task<SessionDto> RegisterAsync(AuthService authService, string username, string email) =>
         await authService.RegisterAsync(new RegisterUserRequest
         {
@@ -141,10 +210,11 @@ public sealed class GroupServiceTests
         var profileRepository = new InMemoryProfileRepository(store);
         var eventRepository = new InMemoryEventRepository(store);
         var groupRepository = new InMemoryGroupRepository(store);
+        var mediaRepository = new InMemoryMediaRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var authService = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, notificationService, lifecycleService, clock);
+        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, clock);
 
         return new TestServices(authService, groupService, notificationService);
     }

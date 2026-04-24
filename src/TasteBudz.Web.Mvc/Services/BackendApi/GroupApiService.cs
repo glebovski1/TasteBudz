@@ -53,6 +53,22 @@ public sealed class GroupApiService
             BuildGroupEventsPath(groupId, query ?? new GroupEventsQuery()),
             cancellationToken);
 
+    public Task<ListResponse<GroupAnnouncementDto>> ListAnnouncementsAsync(
+        Guid groupId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<ListResponse<GroupAnnouncementDto>>(
+            $"/api/v1/groups/{groupId}/announcements",
+            cancellationToken);
+
+    public Task<GroupAnnouncementDto> CreateAnnouncementAsync(
+        Guid groupId,
+        CreateGroupAnnouncementRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CreateGroupAnnouncementRequest, GroupAnnouncementDto>(
+            $"/api/v1/groups/{groupId}/announcements",
+            request,
+            cancellationToken: cancellationToken);
+
     public Task<GroupDetailDto> JoinAsync(Guid groupId, CancellationToken cancellationToken = default) =>
         backendHttpClient.PostAsync<GroupDetailDto>(
             $"/api/v1/groups/{groupId}/members",

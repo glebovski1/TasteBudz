@@ -61,6 +61,8 @@ public sealed class InMemoryTasteBudzStore
 
     public Dictionary<Guid, GroupInvite> GroupInvites { get; } = new();
 
+    public Dictionary<Guid, GroupAnnouncement> GroupAnnouncements { get; } = new();
+
     public Dictionary<string, SwipeDecision> SwipeDecisions { get; } = new(StringComparer.Ordinal);
 
     public Dictionary<string, BudConnection> BudConnections { get; } = new(StringComparer.Ordinal);
@@ -109,6 +111,7 @@ public sealed class InMemoryTasteBudzStore
             Groups.Clear();
             GroupMembers.Clear();
             GroupInvites.Clear();
+            GroupAnnouncements.Clear();
             SwipeDecisions.Clear();
             BudConnections.Clear();
             Notifications.Clear();

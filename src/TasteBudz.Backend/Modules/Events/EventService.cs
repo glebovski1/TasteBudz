@@ -102,6 +102,25 @@ public sealed class EventService(
                     await eventInviteService.InviteResolvedAsync(currentUser, eventRecord, invitees, cancellationToken);
                 }
 
+                if (eventRecord.GroupId.HasValue)
+                {
+                    var eventTitle = string.IsNullOrWhiteSpace(eventRecord.Title)
+                        ? "New group event"
+                        : eventRecord.Title.Trim();
+                    var localStart = eventRecord.EventStartAtUtc.ToLocalTime();
+                    await groupRepository.SaveAnnouncementAsync(
+                        new GroupAnnouncement(
+                            Guid.NewGuid(),
+                            eventRecord.GroupId.Value,
+                            currentUser.UserId,
+                            GroupAnnouncementType.EventCreated,
+                            "New group event",
+                            $"{eventTitle} was added for {localStart:MMM d} at {localStart:h:mm tt}.",
+                            eventRecord.Id,
+                            clock.UtcNow),
+                        cancellationToken);
+                }
+
                 var synchronized = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
                 return await MapDetailAsync(synchronized, cancellationToken);
             },

@@ -104,6 +104,28 @@ public enum GroupLifecycleState
 }
 
 /// <summary>
+/// Preset visual themes a group owner can choose for the group hub.
+/// </summary>
+public enum GroupWallpaperTheme
+{
+    Default,
+    PizzaNight,
+    SushiBar,
+    TacoTable,
+    CoffeeBrunch,
+    GardenFresh,
+}
+
+/// <summary>
+/// Origin of a group announcement shown on the group hub.
+/// </summary>
+public enum GroupAnnouncementType
+{
+    OwnerPost,
+    EventCreated,
+}
+
+/// <summary>
 /// Membership states for a user inside a group.
 /// </summary>
 public enum GroupMemberState

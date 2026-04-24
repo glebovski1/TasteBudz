@@ -45,7 +45,7 @@ public sealed class ProfileApiServiceTests
                 HttpStatusCode.OK,
                 new[]
                 {
-                    new DashboardEventSummaryDto(Guid.NewGuid(), "Friday Sushi Night", EventStatus.Confirmed, inviteTime),
+                    new DashboardEventSummaryDto(Guid.NewGuid(), "Friday Sushi Night", EventType.Open, EventStatus.Confirmed, inviteTime, "Sushi"),
                 }));
         context.BackendHandler.Enqueue(
             HttpMethod.Get,
@@ -54,7 +54,7 @@ public sealed class ProfileApiServiceTests
                 HttpStatusCode.OK,
                 new[]
                 {
-                    new DashboardGroupSummaryDto(Guid.NewGuid(), "Cincy Foodies", GroupVisibility.Public),
+                    new DashboardGroupSummaryDto(Guid.NewGuid(), "Cincy Foodies", "Dinner club", GroupVisibility.Public, 3),
                 }));
         context.BackendHandler.Enqueue(
             HttpMethod.Get,

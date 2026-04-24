@@ -608,3 +608,23 @@ Feedback reports use the existing moderation report flow with `TargetType=User`,
 - The Events module owns feedback policy and repositories; the Media module stores bytes and delegates event-feedback image authorization to Events.
 - Feedback image access must be checked through the same visibility rules as feedback listing.
 - External object storage, chat attachments, realtime updates, and feedback notifications remain out of scope for this slice.
+
+## [ADR-032] Group Announcements and Wallpapers Stay Owner-Managed in MVP
+
+- Date: 2026-04-24
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+
+Groups need a more complete hub experience with members, chat, event history, owner posts, automatic event updates, and lightweight visual personalization. Uploaded custom backgrounds would require additional moderation, media lifecycle, and storage policy work.
+
+### Decision
+
+Groups store a preset `GroupWallpaperTheme` selected by the current group owner. Group announcements are first-class group records, not pinned chat messages. Owner posts require current group ownership. Creating a group-linked event writes an `EventCreated` group announcement. Announcement visibility follows group detail visibility.
+
+### Consequences
+
+- The Groups module owns announcement persistence and owner authorization.
+- The Events module may write a group event announcement as part of event creation after group-link authorization succeeds.
+- Wallpaper customization is limited to enum-backed presets in MVP; uploaded group backgrounds can reuse media infrastructure in a later slice after moderation and lifecycle rules are defined.

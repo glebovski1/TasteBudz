@@ -363,6 +363,8 @@ Contract note:
 | Get Group Detail | GET | `/api/v1/groups/{groupId}` | Return group detail | Yes |
 | Update Group | PATCH | `/api/v1/groups/{groupId}` | Update group settings | Yes |
 | List Group-Linked Events | GET | `/api/v1/groups/{groupId}/events` | View linked events for group history/context | Yes |
+| List Group Announcements | GET | `/api/v1/groups/{groupId}/announcements` | View owner posts and event-created announcements | Yes |
+| Create Group Announcement | POST | `/api/v1/groups/{groupId}/announcements` | Owner creates a group announcement/post | Yes |
 | Join Group | POST | `/api/v1/groups/{groupId}/members` | Join public group | Yes |
 | Leave Group | DELETE | `/api/v1/groups/{groupId}/members/me` | Leave group | Yes |
 | Remove Group Member | POST | `/api/v1/groups/{groupId}/members/{userId}/removal` | Owner removes member | Yes |
@@ -385,7 +387,15 @@ Representative request shapes:
 {
   "name": "Updated Cincy Foodies",
   "description": "Weekend dinner group",
-  "visibility": "Private"
+  "visibility": "Private",
+  "wallpaperTheme": "SushiBar"
+}
+```
+
+```json
+{
+  "title": "Friday ramen plan",
+  "body": "Meet near the front window at 7."
 }
 ```
 

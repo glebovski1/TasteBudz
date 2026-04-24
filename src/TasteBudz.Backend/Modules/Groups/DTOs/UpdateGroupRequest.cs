@@ -13,4 +13,6 @@ public sealed class UpdateGroupRequest
     public string? Description { get; init; }
 
     public GroupVisibility? Visibility { get; init; }
+
+    public GroupWallpaperTheme? WallpaperTheme { get; init; }
 }

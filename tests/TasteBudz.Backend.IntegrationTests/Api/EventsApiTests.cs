@@ -353,7 +353,7 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         {
             var groupRepository = scope.ServiceProvider.GetRequiredService<IGroupRepository>();
             var now = DateTimeOffset.UtcNow;
-            await groupRepository.SaveAsync(new Group(targetGroupId, ownerSession.CurrentUser.UserId, "Browse group", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now));
+            await groupRepository.SaveAsync(new Group(targetGroupId, ownerSession.CurrentUser.UserId, "Browse group", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, now, now));
             await groupRepository.SaveMemberAsync(new GroupMember(targetGroupId, ownerSession.CurrentUser.UserId, GroupMemberState.Active, now, now));
         }
 

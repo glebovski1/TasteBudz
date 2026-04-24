@@ -279,6 +279,8 @@ Priority legend:
 - Public groups allow direct join when active.
 - Private groups require invitation in MVP.
 - Group members can view basic group details and the current member list.
+- Group detail includes a member/person list, group chat entry point, linked event history, and announcement panel.
+- Group owners can choose a preset food-themed group wallpaper/background for personalization in MVP.
 
 ### FR-012 Group Roles
 
@@ -292,6 +294,7 @@ Priority legend:
 - The owner is auto-created as an active member.
 - Owners can manage group settings and remove members.
 - Owners initiate private-group invites in MVP.
+- Owners can write group announcements/posts that are shown on the group announcement panel.
 - `Group.OwnerUserId` is the canonical ownership source; membership is tracked separately.
 
 ### FR-012A Group Ownership Transfer and Dissolution
@@ -318,6 +321,7 @@ Priority legend:
 - Only the current group owner can associate an event with that group's context in MVP.
 - Group-linked events are viewable in group context.
 - Group event history may display linked-event feedback by reusing event feedback visibility rules.
+- Creating a group-linked event creates a group announcement so members can see the new event from the group board.
 - Group membership does not replace event participation rules.
 
 ### FR-014 Event Status Lifecycle

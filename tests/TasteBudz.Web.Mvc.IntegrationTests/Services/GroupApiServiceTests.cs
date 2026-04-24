@@ -40,11 +40,12 @@ public sealed class GroupApiServiceTests
                     "Foodies",
                     "Dinner club",
                     GroupVisibility.Public,
+                    GroupWallpaperTheme.Default,
                     GroupLifecycleState.Active,
                     true,
                     new[]
                     {
-                        new GroupMemberDto(Guid.NewGuid(), "alex", "Alex Carter", GroupMemberState.Active, DateTimeOffset.UtcNow),
+                        new GroupMemberDto(Guid.NewGuid(), "alex", "Alex Carter", null, null, null, null, Array.Empty<string>(), Array.Empty<string>(), GroupMemberState.Active, DateTimeOffset.UtcNow),
                     })));
         context.BackendHandler.Enqueue(
             HttpMethod.Get,
@@ -93,19 +94,19 @@ public sealed class GroupApiServiceTests
             "/api/v1/groups",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new GroupDetailDto(groupId, Guid.NewGuid(), "Foodies", "Dinner club", GroupVisibility.Public, GroupLifecycleState.Active, true, Array.Empty<GroupMemberDto>())));
+                new GroupDetailDto(groupId, Guid.NewGuid(), "Foodies", "Dinner club", GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, true, Array.Empty<GroupMemberDto>())));
         context.BackendHandler.Enqueue(
             HttpMethod.Patch,
             $"/api/v1/groups/{groupId}",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new GroupDetailDto(groupId, Guid.NewGuid(), "Updated Foodies", "Updated club", GroupVisibility.Private, GroupLifecycleState.Active, true, Array.Empty<GroupMemberDto>())));
+                new GroupDetailDto(groupId, Guid.NewGuid(), "Updated Foodies", "Updated club", GroupVisibility.Private, GroupWallpaperTheme.SushiBar, GroupLifecycleState.Active, true, Array.Empty<GroupMemberDto>())));
         context.BackendHandler.Enqueue(
             HttpMethod.Post,
             $"/api/v1/groups/{groupId}/members",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new GroupDetailDto(groupId, Guid.NewGuid(), "Foodies", "Dinner club", GroupVisibility.Public, GroupLifecycleState.Active, true, Array.Empty<GroupMemberDto>())));
+                new GroupDetailDto(groupId, Guid.NewGuid(), "Foodies", "Dinner club", GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, true, Array.Empty<GroupMemberDto>())));
         context.BackendHandler.Enqueue(
             HttpMethod.Delete,
             $"/api/v1/groups/{groupId}/members/me",
@@ -138,6 +139,7 @@ public sealed class GroupApiServiceTests
             Name = "Updated Foodies",
             Description = "Updated club",
             Visibility = GroupVisibility.Private,
+            WallpaperTheme = GroupWallpaperTheme.SushiBar,
         });
         await service.JoinAsync(groupId);
         await service.LeaveAsync(groupId);
@@ -156,6 +158,9 @@ public sealed class GroupApiServiceTests
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/groups").Body);
         Assert.Contains(
             "\"visibility\":\"Private\"",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/groups/{groupId}" && request.Method == HttpMethod.Patch).Body);
+        Assert.Contains(
+            "\"wallpaperTheme\":\"SushiBar\"",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/groups/{groupId}" && request.Method == HttpMethod.Patch).Body);
         Assert.Contains(
             "\"username\":\"sam\"",

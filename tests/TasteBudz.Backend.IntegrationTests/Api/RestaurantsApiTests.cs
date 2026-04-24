@@ -82,7 +82,7 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
         {
             // Seed the group directly through the repository so the HTTP test exercises the real suggestion endpoint only.
             var groupRepository = scope.ServiceProvider.GetRequiredService<IGroupRepository>();
-            await groupRepository.SaveAsync(new Group(groupId, session.CurrentUser.UserId, "Dinner Club", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now));
+            await groupRepository.SaveAsync(new Group(groupId, session.CurrentUser.UserId, "Dinner Club", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, now, now));
             await groupRepository.SaveMemberAsync(new GroupMember(groupId, session.CurrentUser.UserId, GroupMemberState.Active, now, now));
         }
 

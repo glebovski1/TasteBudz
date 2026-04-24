@@ -127,5 +127,27 @@ public sealed class InMemoryGroupRepository(InMemoryTasteBudzStore store) : IGro
         }
     }
 
+    public Task<IReadOnlyCollection<GroupAnnouncement>> ListAnnouncementsAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var items = store.GroupAnnouncements.Values
+                .Where(announcement => announcement.GroupId == groupId)
+                .OrderByDescending(announcement => announcement.CreatedAtUtc)
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyCollection<GroupAnnouncement>>(items);
+        }
+    }
+
+    public Task SaveAnnouncementAsync(GroupAnnouncement announcement, CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            store.GroupAnnouncements[announcement.Id] = announcement;
+            return Task.CompletedTask;
+        }
+    }
+
     private static string ToMemberKey(Guid groupId, Guid userId) => $"{groupId:N}:{userId:N}";
 }

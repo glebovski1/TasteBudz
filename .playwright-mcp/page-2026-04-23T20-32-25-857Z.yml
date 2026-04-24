@@ -1,0 +1,101 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "TB TasteBudz" [ref=e4] [cursor=pointer]:
+        - /url: /Account/Login
+        - generic [ref=e5]: TB
+        - strong [ref=e7]: TasteBudz
+      - navigation "Primary" [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /Profile/View
+        - link "Find Budz" [ref=e10] [cursor=pointer]:
+          - /url: /Discovery/Swipe
+        - link "Groups" [ref=e11] [cursor=pointer]:
+          - /url: /Group
+        - link "Events" [ref=e12] [cursor=pointer]:
+          - /url: /Event
+        - link "Support" [ref=e13] [cursor=pointer]:
+          - /url: /Messaging/Support
+        - button "Notifications" [ref=e15] [cursor=pointer]:
+          - text: 🔔
+          - generic: "1"
+        - button "Log Out" [ref=e16] [cursor=pointer]
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Create a Group
+          - heading "Shape the vibe before anyone joins." [level=1] [ref=e22]
+          - paragraph [ref=e23]: Define the name, describe the food mood, and choose whether the community is open to everyone or invite-only.
+        - link "Back to Groups" [ref=e26] [cursor=pointer]:
+          - /url: /Group
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - paragraph [ref=e32]: Details
+              - heading "Group Identity" [level=2] [ref=e33]
+            - paragraph [ref=e34]: Make the name and description specific enough that people know whether this is their kind of dinner crew.
+          - generic [ref=e35]:
+            - generic [ref=e36]: Group Name
+            - textbox "e.g. Downtown Taco Crew, Sushi After Work" [ref=e37]
+          - generic [ref=e38]:
+            - generic [ref=e39]: Group Description
+            - textbox "Who is this group for, what kind of meals do you plan, and how often do you meet?" [ref=e40]
+          - generic [ref=e41]:
+            - generic [ref=e43]:
+              - paragraph [ref=e44]: Access
+              - heading "Privacy" [level=2] [ref=e45]
+            - generic [ref=e46]:
+              - generic [ref=e47] [cursor=pointer]:
+                - radio "Public Anyone can join while the group is active. Best for neighborhood crews, cuisine clubs, and recurring open meetups."
+                - generic [ref=e48]:
+                  - generic [ref=e49]: Public
+                  - generic [ref=e50]: Anyone can join while the group is active.
+                  - generic [ref=e51]: Best for neighborhood crews, cuisine clubs, and recurring open meetups.
+              - generic [ref=e52] [cursor=pointer]:
+                - radio "Private New members join by owner invitation only. Best for established friend groups, selective hosts, or invite-led planning."
+                - generic [ref=e53]:
+                  - generic [ref=e54]: Private
+                  - generic [ref=e55]: New members join by owner invitation only.
+                  - generic [ref=e56]: Best for established friend groups, selective hosts, or invite-led planning.
+          - generic [ref=e57]:
+            - button "Create Group" [ref=e58] [cursor=pointer]
+            - link "Cancel" [ref=e59] [cursor=pointer]:
+              - /url: /Group
+        - complementary [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - paragraph [ref=e63]: Preview
+              - heading "How it will appear" [level=2] [ref=e64]
+            - paragraph [ref=e65]: The card updates as you type, so you can see the first impression before publishing.
+          - article [ref=e66]:
+            - generic [ref=e67]:
+              - generic [ref=e68]:
+                - generic [ref=e69]: "N"
+                - generic [ref=e70]:
+                  - generic [ref=e71]: Open to join
+                  - generic [ref=e72]: Jump in now and start planning with the current members.
+                - generic [ref=e73]: Public
+              - generic [ref=e74]:
+                - generic [ref=e75]:
+                  - generic [ref=e76]: Starts with you
+                  - generic [ref=e77]: Open now
+                - heading "Neighborhood Dinner Club" [level=2] [ref=e78]
+                - paragraph [ref=e79]: A low-pressure dinner crew for shared cravings, new spots, and easy planning.
+              - generic [ref=e80]:
+                - generic [ref=e81]: Ready to publish
+                - generic [ref=e82]: Create Group
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]: What works well
+              - strong [ref=e86]: Clear names, specific food themes, and short descriptions with a real meetup angle.
+            - generic [ref=e87]:
+              - generic [ref=e88]: What to avoid
+              - strong [ref=e89]: Generic names that give no clue whether the group is casual, curated, local, or cuisine-led.
+    - link "Open support" [ref=e90] [cursor=pointer]:
+      - /url: /Messaging/Support
+      - text: Help
+    - link "Open chats" [ref=e91] [cursor=pointer]:
+      - /url: /Messaging/Chat
+      - img [ref=e92]

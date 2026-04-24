@@ -26,6 +26,7 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
     internal DbSet<BudConnectionEntity> BudConnections => Set<BudConnectionEntity>();
     internal DbSet<UserBlockEntity> UserBlocks => Set<UserBlockEntity>();
     internal DbSet<GroupEntity> Groups => Set<GroupEntity>();
+    internal DbSet<GroupAnnouncementEntity> GroupAnnouncements => Set<GroupAnnouncementEntity>();
     internal DbSet<GroupMemberEntity> GroupMembers => Set<GroupMemberEntity>();
     internal DbSet<GroupInviteEntity> GroupInvites => Set<GroupInviteEntity>();
     internal DbSet<RestaurantEntity> Restaurants => Set<RestaurantEntity>();
@@ -196,6 +197,16 @@ public sealed class TasteBudzDbContext(DbContextOptions<TasteBudzDbContext> opti
             entity.ToTable("Groups");
             entity.HasKey(item => item.Id);
             entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.OwnerUserId);
+        });
+
+        modelBuilder.Entity<GroupAnnouncementEntity>(entity =>
+        {
+            entity.ToTable("GroupAnnouncements");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.GroupId, item.CreatedAtUtc });
+            entity.HasOne<GroupEntity>().WithMany().HasForeignKey(item => item.GroupId);
+            entity.HasOne<UserAccountEntity>().WithMany().HasForeignKey(item => item.AuthorUserId);
+            entity.HasOne<EventEntity>().WithMany().HasForeignKey(item => item.RelatedEventId);
         });
 
         modelBuilder.Entity<GroupMemberEntity>(entity =>

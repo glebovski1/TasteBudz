@@ -1,0 +1,22 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "TB TasteBudz" [ref=e4] [cursor=pointer]:
+        - /url: /Account/Login
+        - generic [ref=e5]: TB
+        - strong [ref=e7]: TasteBudz
+      - navigation "Primary" [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Log In" [ref=e10] [cursor=pointer]:
+          - /url: /Account/Login
+        - link "Create Account" [ref=e11] [cursor=pointer]:
+          - /url: /Account/CreateAccount
+  - main [ref=e12]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]
+        - generic [ref=e19]
+      - generic [ref=e29]: Don't have an Account?
+      - link "Create an Account" [ref=e31] [cursor=pointer]:
+        - /url: /Account/CreateAccount

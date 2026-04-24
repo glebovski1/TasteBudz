@@ -41,7 +41,7 @@ public sealed class GroupController : Controller
                 new BrowseGroupsQuery { Q = q, PageSize = 20 },
                 cancellationToken);
 
-            return View(GroupIndexViewModel.FromDto(result.Items, q));
+            return View(GroupIndexViewModel.FromDto(result.Items, result.TotalCount, q));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -95,8 +95,9 @@ public sealed class GroupController : Controller
             var currentUserId = GetCurrentUserId();
             var linkedEvents = await TryListGroupEventsAsync(groupId, cancellationToken);
             var eventHistory = await BuildEventHistoryAsync(linkedEvents, currentUserId, cancellationToken);
+            var announcements = await TryListAnnouncementsAsync(groupId, cancellationToken);
 
-            return View(GroupManageViewModel.FromDto(detail, currentUserId, eventHistory));
+            return View(GroupManageViewModel.FromDto(detail, currentUserId, eventHistory, announcements));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -122,6 +123,7 @@ public sealed class GroupController : Controller
                 Name = model.EditName,
                 Description = string.IsNullOrWhiteSpace(model.EditDescription) ? null : model.EditDescription,
                 Visibility = model.EditVisibility,
+                WallpaperTheme = model.EditWallpaperTheme,
             }, cancellationToken);
 
             TempData["StatusMessage"] = "Group settings updated.";
@@ -133,6 +135,38 @@ public sealed class GroupController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Error: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Manage), new { groupId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateAnnouncement(Guid groupId, GroupManageViewModel model, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(model.AnnouncementTitle) || string.IsNullOrWhiteSpace(model.AnnouncementBody))
+        {
+            TempData["StatusMessage"] = "Please enter an announcement title and message.";
+            return RedirectToAction(nameof(Manage), new { groupId });
+        }
+
+        try
+        {
+            await groupApiService.CreateAnnouncementAsync(groupId, new CreateGroupAnnouncementRequest
+            {
+                Title = model.AnnouncementTitle,
+                Body = model.AnnouncementBody,
+            }, cancellationToken);
+
+            TempData["StatusMessage"] = "Announcement posted.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not post announcement: {ex.Message}";
         }
 
         return RedirectToAction(nameof(Manage), new { groupId });
@@ -287,6 +321,25 @@ public sealed class GroupController : Controller
         }
 
         return items;
+    }
+
+    private async Task<IReadOnlyList<GroupAnnouncementItem>> TryListAnnouncementsAsync(
+        Guid groupId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await groupApiService.ListAnnouncementsAsync(groupId, cancellationToken);
+            return result.Items.Select(GroupAnnouncementItem.FromDto).ToList();
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            return [];
+        }
     }
 
     private async Task<IReadOnlyCollection<EventFeedbackDto>> TryListEventFeedbackAsync(

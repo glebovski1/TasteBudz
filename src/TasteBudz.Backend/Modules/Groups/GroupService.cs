@@ -73,7 +73,7 @@ public sealed class GroupService(
         var name = NormalizeRequiredName(request.Name);
         var description = NormalizeOptional(request.Description);
         var groupId = Guid.NewGuid();
-        var group = new Group(groupId, currentUser.UserId, name, description, visibility, GroupLifecycleState.Active, now, now);
+        var group = new Group(groupId, currentUser.UserId, name, description, visibility, GroupWallpaperTheme.Default, GroupLifecycleState.Active, now, now);
         var membership = new GroupMember(groupId, currentUser.UserId, GroupMemberState.Active, now, now);
 
         return await persistenceTransactionRunner.ExecuteAsync(
@@ -103,6 +103,7 @@ public sealed class GroupService(
             Name = request.Name is null ? group.Name : NormalizeRequiredName(request.Name),
             Description = request.Description is null ? group.Description : NormalizeOptional(request.Description),
             Visibility = request.Visibility ?? group.Visibility,
+            WallpaperTheme = request.WallpaperTheme ?? group.WallpaperTheme,
             UpdatedAtUtc = clock.UtcNow,
         };
 
@@ -144,6 +145,49 @@ public sealed class GroupService(
             .ToArray();
 
         return new ListResponse<EventSummaryDto>(pageItems, ordered.Length);
+    }
+
+    public async Task<ListResponse<GroupAnnouncementDto>> ListAnnouncementsAsync(
+        Guid currentUserId,
+        Guid groupId,
+        CancellationToken cancellationToken = default)
+    {
+        var group = await GetActiveGroupAsync(groupId, cancellationToken);
+        await EnsureCanViewAsync(currentUserId, group, cancellationToken);
+
+        var announcements = await groupRepository.ListAnnouncementsAsync(groupId, cancellationToken);
+        var items = new List<GroupAnnouncementDto>(announcements.Count);
+
+        foreach (var announcement in announcements.OrderByDescending(item => item.CreatedAtUtc))
+        {
+            items.Add(await MapAnnouncementAsync(announcement, cancellationToken));
+        }
+
+        return new ListResponse<GroupAnnouncementDto>(items, items.Count);
+    }
+
+    public async Task<GroupAnnouncementDto> CreateAnnouncementAsync(
+        CurrentUser currentUser,
+        Guid groupId,
+        CreateGroupAnnouncementRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var group = await GetActiveGroupAsync(groupId, cancellationToken);
+        EnsureOwner(currentUser.UserId, group);
+
+        var now = clock.UtcNow;
+        var announcement = new GroupAnnouncement(
+            Guid.NewGuid(),
+            group.Id,
+            currentUser.UserId,
+            GroupAnnouncementType.OwnerPost,
+            NormalizeRequiredTitle(request.Title),
+            NormalizeRequiredBody(request.Body),
+            null,
+            now);
+
+        await groupRepository.SaveAnnouncementAsync(announcement, cancellationToken);
+        return await MapAnnouncementAsync(announcement, cancellationToken);
     }
 
     public async Task<GroupDetailDto> JoinAsync(Guid currentUserId, Guid groupId, CancellationToken cancellationToken = default)
@@ -421,9 +465,29 @@ public sealed class GroupService(
             group.Name,
             group.Description,
             group.Visibility,
+            group.WallpaperTheme,
             group.LifecycleState,
             currentMembership?.State == GroupMemberState.Active,
             memberDtos);
+    }
+
+    private async Task<GroupAnnouncementDto> MapAnnouncementAsync(GroupAnnouncement announcement, CancellationToken cancellationToken)
+    {
+        var account = await authRepository.GetByIdAsync(announcement.AuthorUserId, cancellationToken)
+            ?? throw ApiException.NotFound("The announcement author could not be found.");
+        var profile = await profileRepository.GetProfileAsync(announcement.AuthorUserId, cancellationToken);
+
+        return new GroupAnnouncementDto(
+            announcement.Id,
+            announcement.GroupId,
+            announcement.AuthorUserId,
+            account.Username,
+            profile?.DisplayName ?? account.Username,
+            announcement.AnnouncementType,
+            announcement.Title,
+            announcement.Body,
+            announcement.RelatedEventId,
+            announcement.CreatedAtUtc);
     }
 
     private async Task<bool> CanViewLinkedEventAsync(Guid currentUserId, Event eventRecord, CancellationToken cancellationToken)
@@ -453,6 +517,37 @@ public sealed class GroupService(
         if (normalized.Length < 3)
         {
             throw ApiException.BadRequest("name must be at least 3 characters.");
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizeRequiredTitle(string? value)
+    {
+        var normalized = NormalizeRequiredText(value, "title", 3, 120);
+        return normalized;
+    }
+
+    private static string NormalizeRequiredBody(string? value) =>
+        NormalizeRequiredText(value, "body", 3, 1000);
+
+    private static string NormalizeRequiredText(string? value, string fieldName, int minLength, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw ApiException.BadRequest($"{fieldName} is required.");
+        }
+
+        var normalized = value.Trim();
+
+        if (normalized.Length < minLength)
+        {
+            throw ApiException.BadRequest($"{fieldName} must be at least {minLength} characters.");
+        }
+
+        if (normalized.Length > maxLength)
+        {
+            throw ApiException.BadRequest($"{fieldName} cannot exceed {maxLength} characters.");
         }
 
         return normalized;

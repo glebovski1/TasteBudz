@@ -87,7 +87,7 @@ public sealed class RestaurantRecommendationServiceTests
         // This group is intentionally dissolved to prove the lifecycle guard.
         var groupId = Guid.NewGuid();
         var ownerUserId = Guid.NewGuid();
-        store.Groups[groupId] = new Group(groupId, ownerUserId, "Inactive group", null, GroupVisibility.Public, GroupLifecycleState.Dissolved, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        store.Groups[groupId] = new Group(groupId, ownerUserId, "Inactive group", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Dissolved, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 
         var service = CreateService(store);
 
@@ -111,7 +111,7 @@ public sealed class RestaurantRecommendationServiceTests
         var ownerUserId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
 
-        store.Groups[groupId] = new Group(groupId, ownerUserId, "Public group", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now);
+        store.Groups[groupId] = new Group(groupId, ownerUserId, "Public group", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, now, now);
         store.GroupMembers[$"{groupId:N}:{ownerUserId:N}"] = new GroupMember(groupId, ownerUserId, GroupMemberState.Active, now, now);
         store.Profiles[ownerUserId] = new UserProfile(ownerUserId, "Owner", "Host", "45220", SocialGoal.Friends, now, now);
 
@@ -141,7 +141,7 @@ public sealed class RestaurantRecommendationServiceTests
         var groupId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
 
-        store.Groups[groupId] = new Group(groupId, ownerUserId, "Sushi Budz", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now);
+        store.Groups[groupId] = new Group(groupId, ownerUserId, "Sushi Budz", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, now, now);
         store.GroupMembers[$"{groupId:N}:{ownerUserId:N}"] = new GroupMember(groupId, ownerUserId, GroupMemberState.Active, now, now);
         store.Profiles[ownerUserId] = new UserProfile(ownerUserId, "Owner", "Host", "45220", SocialGoal.Friends, now, now);
 
@@ -173,7 +173,7 @@ public sealed class RestaurantRecommendationServiceTests
         var groupId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
 
-        store.Groups[groupId] = new Group(groupId, ownerUserId, "Travel group", null, GroupVisibility.Public, GroupLifecycleState.Active, now, now);
+        store.Groups[groupId] = new Group(groupId, ownerUserId, "Travel group", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, now, now);
         store.GroupMembers[$"{groupId:N}:{ownerUserId:N}"] = new GroupMember(groupId, ownerUserId, GroupMemberState.Active, now, now);
         store.Profiles[ownerUserId] = new UserProfile(ownerUserId, "Owner", "Host", "45220", SocialGoal.Friends, now, now);
 

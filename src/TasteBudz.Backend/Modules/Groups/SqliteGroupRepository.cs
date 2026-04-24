@@ -34,6 +34,7 @@ public sealed class SqliteGroupRepository(TasteBudzDbContext dbContext) : IGroup
             entity.Name = group.Name;
             entity.Description = group.Description;
             entity.Visibility = group.Visibility;
+            entity.WallpaperTheme = group.WallpaperTheme;
             entity.LifecycleState = group.LifecycleState;
             entity.CreatedAtUtc = group.CreatedAtUtc;
             entity.UpdatedAtUtc = group.UpdatedAtUtc;
@@ -131,6 +132,37 @@ public sealed class SqliteGroupRepository(TasteBudzDbContext dbContext) : IGroup
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<GroupAnnouncement>> ListAnnouncementsAsync(Guid groupId, CancellationToken cancellationToken = default) =>
+        (await dbContext.GroupAnnouncements
+            .AsNoTracking()
+            .Where(announcement => announcement.GroupId == groupId)
+            .ToListAsync(cancellationToken))
+        .Select(MapAnnouncement)
+        .OrderByDescending(announcement => announcement.CreatedAtUtc)
+        .ToArray();
+
+    public async Task SaveAnnouncementAsync(GroupAnnouncement announcement, CancellationToken cancellationToken = default)
+    {
+        var entity = await dbContext.GroupAnnouncements.FirstOrDefaultAsync(item => item.Id == announcement.Id, cancellationToken);
+
+        if (entity is null)
+        {
+            dbContext.GroupAnnouncements.Add(ToEntity(announcement));
+        }
+        else
+        {
+            entity.GroupId = announcement.GroupId;
+            entity.AuthorUserId = announcement.AuthorUserId;
+            entity.AnnouncementType = announcement.AnnouncementType;
+            entity.Title = announcement.Title;
+            entity.Body = announcement.Body;
+            entity.RelatedEventId = announcement.RelatedEventId;
+            entity.CreatedAtUtc = announcement.CreatedAtUtc;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private static Group MapGroup(GroupEntity entity) =>
         new(
             entity.Id,
@@ -138,9 +170,21 @@ public sealed class SqliteGroupRepository(TasteBudzDbContext dbContext) : IGroup
             entity.Name,
             entity.Description,
             entity.Visibility,
+            entity.WallpaperTheme,
             entity.LifecycleState,
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc);
+
+    private static GroupAnnouncement MapAnnouncement(GroupAnnouncementEntity entity) =>
+        new(
+            entity.Id,
+            entity.GroupId,
+            entity.AuthorUserId,
+            entity.AnnouncementType,
+            entity.Title,
+            entity.Body,
+            entity.RelatedEventId,
+            entity.CreatedAtUtc);
 
     private static GroupMember MapMember(GroupMemberEntity entity) =>
         new(
@@ -168,9 +212,23 @@ public sealed class SqliteGroupRepository(TasteBudzDbContext dbContext) : IGroup
             Name = group.Name,
             Description = group.Description,
             Visibility = group.Visibility,
+            WallpaperTheme = group.WallpaperTheme,
             LifecycleState = group.LifecycleState,
             CreatedAtUtc = group.CreatedAtUtc,
             UpdatedAtUtc = group.UpdatedAtUtc,
+        };
+
+    private static GroupAnnouncementEntity ToEntity(GroupAnnouncement announcement) =>
+        new()
+        {
+            Id = announcement.Id,
+            GroupId = announcement.GroupId,
+            AuthorUserId = announcement.AuthorUserId,
+            AnnouncementType = announcement.AnnouncementType,
+            Title = announcement.Title,
+            Body = announcement.Body,
+            RelatedEventId = announcement.RelatedEventId,
+            CreatedAtUtc = announcement.CreatedAtUtc,
         };
 
     private static GroupMemberEntity ToEntity(GroupMember member) =>

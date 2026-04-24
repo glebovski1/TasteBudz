@@ -1,0 +1,140 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "TB TasteBudz" [ref=e4] [cursor=pointer]:
+        - /url: /Account/Login
+        - generic [ref=e5]: TB
+        - strong [ref=e7]: TasteBudz
+      - button "Open navigation menu" [ref=e8] [cursor=pointer]
+  - main [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: Open community
+          - heading "Clifton Supper Club" [level=1] [ref=e17]
+          - paragraph [ref=e18]: Public dinner planning for weekday meetups.
+          - generic [ref=e19]:
+            - generic [ref=e20]: Public
+            - generic [ref=e21]: 2 members
+            - generic [ref=e22]: 1 linked event
+          - generic "Group overview" [ref=e23]:
+            - generic [ref=e24]:
+              - generic [ref=e25]: Owner
+              - strong [ref=e26]: Alex Mercer
+            - generic [ref=e27]:
+              - generic [ref=e28]: Membership
+              - strong [ref=e29]: Anyone on TasteBudz can join while the group is active.
+            - generic [ref=e30]:
+              - generic [ref=e31]: Group chat
+              - strong [ref=e32]: Open now
+        - generic [ref=e33]:
+          - link "Back to Groups" [ref=e34] [cursor=pointer]:
+            - /url: /Group
+          - link "Create Group Event" [ref=e35] [cursor=pointer]:
+            - /url: /Event/CreateEvent?groupId=00000000-0000-0000-0000-000000002001
+          - link "Open Group Chat" [ref=e36] [cursor=pointer]:
+            - /url: /Messaging/GroupChat?groupId=00000000-0000-0000-0000-000000002001
+      - generic [ref=e37]:
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]:
+                - paragraph [ref=e42]: People
+                - heading "Members" [level=2] [ref=e43]
+              - paragraph [ref=e44]: See who is already in the room and what they are into before the next meetup.
+            - generic [ref=e45]:
+              - article [ref=e46]:
+                - generic [ref=e47]:
+                  - button "View Alex Mercer's profile" [ref=e48] [cursor=pointer]:
+                    - generic [ref=e50]: A
+                  - generic [ref=e51]:
+                    - button "View Alex Mercer's profile" [ref=e52] [cursor=pointer]:
+                      - generic [ref=e53]: Alex Mercer
+                      - generic [ref=e54]: "@alex"
+                    - generic [ref=e55]:
+                      - generic [ref=e56]: Japanese
+                      - generic [ref=e57]: Sushi
+                  - generic [ref=e58]:
+                    - generic [ref=e59]: Owner
+                    - button "Open Alex Mercer's profile" [ref=e60] [cursor=pointer]: ...
+                - generic [ref=e61]:
+                  - generic [ref=e62]: Owner
+                  - generic [ref=e63]: Joined Mar 21, 2026
+                  - generic [ref=e64]: Friends
+                  - generic [ref=e65]: ZIP 45220
+              - article [ref=e66]:
+                - generic [ref=e67]:
+                  - button "View Brooke Lane's profile" [ref=e68] [cursor=pointer]:
+                    - generic [ref=e70]: B
+                  - generic [ref=e71]:
+                    - button "View Brooke Lane's profile" [ref=e72] [cursor=pointer]:
+                      - generic [ref=e73]: Brooke Lane
+                      - generic [ref=e74]: "@brooke"
+                    - generic [ref=e75]:
+                      - generic [ref=e76]: Indian
+                      - generic [ref=e77]: Pizza
+                      - generic [ref=e78]: Vegetarian
+                  - generic [ref=e79]:
+                    - button "Open Brooke Lane's profile" [ref=e80] [cursor=pointer]: ...
+                    - button "Remove" [ref=e82] [cursor=pointer]
+                - generic [ref=e83]:
+                  - generic [ref=e84]: Member
+                  - generic [ref=e85]: Joined Mar 22, 2026
+                  - generic [ref=e86]: Dating
+                  - generic [ref=e87]: ZIP 45202
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - generic [ref=e90]:
+                - paragraph [ref=e91]: History
+                - heading "Linked Events" [level=2] [ref=e92]
+              - paragraph [ref=e93]: Completed event feedback appears here only when the current viewer is allowed to see it.
+            - article [ref=e95]:
+              - generic [ref=e96]:
+                - generic [ref=e97]:
+                  - generic [ref=e98]: Fri, Apr 3
+                  - strong [ref=e99]: 7:00 PM
+                - generic [ref=e100]:
+                  - generic [ref=e101]:
+                    - heading "Friday Sushi Crawl" [level=3] [ref=e102]:
+                      - link "Friday Sushi Crawl" [ref=e103] [cursor=pointer]:
+                        - /url: /Event/EventDetails?eventId=00000000-0000-0000-0000-000000003001
+                    - generic [ref=e104]:
+                      - generic [ref=e105]: Open
+                      - generic [ref=e106]: Completed
+                      - generic [ref=e107]: 2 / 4 joined
+                  - generic [ref=e108]:
+                    - heading "Feedback" [level=4] [ref=e110]
+                    - paragraph [ref=e111]: No feedback visible yet.
+        - complementary [ref=e112]:
+          - generic [ref=e113]:
+            - generic [ref=e115]:
+              - paragraph [ref=e116]: Snapshot
+              - heading "Group Notes" [level=2] [ref=e117]
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - generic [ref=e120]: Visibility
+                - strong [ref=e121]: Anyone on TasteBudz can join while the group is active.
+              - generic [ref=e122]:
+                - generic [ref=e123]: Current owner
+                - strong [ref=e124]: Alex Mercer
+              - generic [ref=e125]:
+                - generic [ref=e126]: Chat access
+                - strong [ref=e127]: Available to current active members only.
+          - generic [ref=e128]:
+            - generic [ref=e130]:
+              - paragraph [ref=e131]: Owner Tools
+              - heading "Group Settings" [level=2] [ref=e132]
+            - paragraph [ref=e133]: Update the public face of the group without changing the underlying workflow.
+            - generic [ref=e134]:
+              - generic [ref=e135]:
+                - generic [ref=e136]: Group Name
+                - textbox "Group Name" [ref=e137]: Clifton Supper Club
+              - generic [ref=e138]:
+                - generic [ref=e139]: Description
+                - textbox "Description" [ref=e140]: Public dinner planning for weekday meetups.
+              - generic [ref=e141]:
+                - generic [ref=e142]: Privacy
+                - combobox "Privacy" [ref=e143]:
+                  - option "Public - anyone can join" [selected]
+                  - option "Private - invite only"
+              - button "Save Settings" [ref=e144] [cursor=pointer]

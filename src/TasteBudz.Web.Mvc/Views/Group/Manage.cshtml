@@ -2,25 +2,54 @@
 
 @{
     ViewData["Title"] = Model.Name;
+
+    var owner = Model.Owner;
 }
 
-<section class="profile-shell">
+<section class="profile-shell group-page group-page--manage @Model.WallpaperCssClass">
 
-    @* Group Banner *@
-    <div class="card profile-banner">
-        <div>
+    <div class="card group-manage-hero">
+        <div class="group-manage-hero__copy">
+            <span class="group-manage-hero__eyebrow">@Model.VisibilitySummary</span>
             <h1>@Model.Name</h1>
+
             @if (!string.IsNullOrWhiteSpace(Model.Description))
             {
                 <p>@Model.Description</p>
             }
+            else
+            {
+                <p>This group is ready for shared cravings, quick coordination, and the next dinner plan.</p>
+            }
+
             <div class="profile-meta">
                 <span class="pill">@Model.Visibility</span>
-                <span class="pill">@Model.Members.Count @(Model.Members.Count == 1 ? "member" : "members")</span>
+                <span class="pill">@Model.ActiveMemberCount @(Model.ActiveMemberCount == 1 ? "member" : "members")</span>
+                <span class="pill">@Model.LinkedEventCount linked @(Model.LinkedEventCount == 1 ? "event" : "events")</span>
+                <span class="pill">@Model.AnnouncementCount @(Model.AnnouncementCount == 1 ? "announcement" : "announcements")</span>
+            </div>
+
+            <div class="group-manage-hero__stats" aria-label="Group overview">
+                <div class="group-manage-hero__stat">
+                    <span class="group-manage-hero__stat-label">Owner</span>
+                    <strong>@(owner?.DisplayName ?? "Group owner")</strong>
+                </div>
+                <div class="group-manage-hero__stat">
+                    <span class="group-manage-hero__stat-label">Membership</span>
+                    <strong>@Model.JoiningSummary</strong>
+                </div>
+                <div class="group-manage-hero__stat">
+                    <span class="group-manage-hero__stat-label">Group chat</span>
+                    <strong>@((Model.IsCurrentUserMember || Model.IsCurrentUserOwner) ? "Open now" : "Join to unlock")</strong>
+                </div>
+                <div class="group-manage-hero__stat">
+                    <span class="group-manage-hero__stat-label">Wallpaper</span>
+                    <strong>@Model.WallpaperTheme</strong>
+                </div>
             </div>
         </div>
 
-        <div class="button-row">
+        <div class="group-manage-hero__actions">
             <a asp-action="Index" class="button button--secondary">Back to Groups</a>
 
             @if (Model.IsCurrentUserOwner)
@@ -36,12 +65,12 @@
                 <a asp-controller="Messaging"
                    asp-action="GroupChat"
                    asp-route-groupId="@Model.GroupId"
-                   class="button button--secondary">Chat</a>
+                   class="button button--secondary">Open Group Chat</a>
             }
 
             @if (Model.IsCurrentUserMember && !Model.IsCurrentUserOwner)
             {
-                <form asp-action="Leave" asp-route-groupId="@Model.GroupId" method="post" style="display:inline;">
+                <form asp-action="Leave" asp-route-groupId="@Model.GroupId" method="post">
                     @Html.AntiForgeryToken()
                     <button type="submit" class="button button--secondary"
                             onclick="return confirm('Leave this group?')">
@@ -52,7 +81,7 @@
 
             @if (!Model.IsCurrentUserMember && !Model.IsCurrentUserOwner)
             {
-                <form asp-action="Join" asp-route-groupId="@Model.GroupId" method="post" style="display:inline;">
+                <form asp-action="Join" asp-route-groupId="@Model.GroupId" method="post">
                     @Html.AntiForgeryToken()
                     <button type="submit" class="button button--primary">Join Group</button>
                 </form>
@@ -60,235 +89,368 @@
         </div>
     </div>
 
-    <div class="panel-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+    <div class="group-detail-layout">
+        <div class="group-detail-layout__main">
+            <section class="panel stack group-announcement-panel">
+                <div class="group-section__header">
+                    <div>
+                        <p class="group-section__eyebrow">Announcements</p>
+                        <h2>Group Board</h2>
+                    </div>
+                    <p class="card__subtitle">Owner posts and new group events appear here for the group.</p>
+                </div>
 
-        @* Members Panel *@
-        <section class="panel stack" style="grid-column: 1 / -1;">
-            <h2>Members</h2>
-            <div class="panel__items interest-card-list">
-                @if (Model.Members.Count == 0)
+                @if (Model.IsCurrentUserOwner)
                 {
-                    <p class="empty-state">No members yet.</p>
+                    <form asp-action="CreateAnnouncement" asp-route-groupId="@Model.GroupId" method="post" class="group-announcement-form">
+                        @Html.AntiForgeryToken()
+                        <div class="field">
+                            <label for="AnnouncementTitle">Post Title</label>
+                            <input type="text" id="AnnouncementTitle" name="AnnouncementTitle" maxlength="120" placeholder="e.g. Friday ramen plan" />
+                        </div>
+                        <div class="field">
+                            <label for="AnnouncementBody">Message</label>
+                            <textarea id="AnnouncementBody" name="AnnouncementBody" maxlength="1000" placeholder="Write an update for the group..."></textarea>
+                        </div>
+                        <button type="submit" class="button button--primary">Post Announcement</button>
+                    </form>
                 }
-                else
-                {
-                    @foreach (var member in Model.Members)
-                    {
-                        <article class="summary-card interest-card interest-card--person">
-                            <div class="interest-card__header">
-                                <button type="button"
-                                        class="interest-card__avatar-trigger"
-                                        onclick="openUserCard('@member.UserId')"
-                                        aria-label="View @member.DisplayName's profile">
-                                    <span class="interest-card__avatar-shell">
-                                        @if (member.AvatarUrl is not null)
-                                        {
-                                            <img src="@member.AvatarUrl" alt="" class="interest-card__avatar-image" />
-                                        }
-                                        else
-                                        {
-                                            <span class="interest-card__avatar">@member.Initial</span>
-                                        }
-                                    </span>
-                                </button>
 
-                                <div class="interest-card__body">
+                <div class="group-announcement-list">
+                    @if (Model.Announcements.Count == 0)
+                    {
+                        <p class="empty-state">No announcements yet. New group events and owner posts will show here.</p>
+                    }
+                    else
+                    {
+                        @foreach (var announcement in Model.Announcements)
+                        {
+                            <article class="summary-card group-announcement-card">
+                                <div class="group-announcement-card__meta">
+                                    <span class="pill">@announcement.TypeLabel</span>
+                                    <span>@announcement.CreatedLabel</span>
+                                </div>
+                                <h3>@announcement.Title</h3>
+                                <p>@announcement.Body</p>
+                                <div class="group-announcement-card__footer">
+                                    <span>By @announcement.AuthorDisplayName (@@@announcement.AuthorUsername)</span>
+                                    @if (announcement.RelatedEventId.HasValue)
+                                    {
+                                        <a asp-controller="Event"
+                                           asp-action="EventDetails"
+                                           asp-route-eventId="@announcement.RelatedEventId.Value">View event</a>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    }
+                </div>
+            </section>
+
+            <section class="panel stack">
+                <div class="group-section__header">
+                    <div>
+                        <p class="group-section__eyebrow">People</p>
+                        <h2>Members</h2>
+                    </div>
+                    <p class="card__subtitle">See who is already in the room and what they are into before the next meetup.</p>
+                </div>
+
+                <div class="panel__items interest-card-list">
+                    @if (Model.Members.Count == 0)
+                    {
+                        <p class="empty-state">No members yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var member in Model.Members)
+                        {
+                            <article class="summary-card interest-card interest-card--person">
+                                <div class="interest-card__header">
                                     <button type="button"
-                                            class="interest-card__identity interest-card__identity--button"
+                                            class="interest-card__avatar-trigger"
                                             onclick="openUserCard('@member.UserId')"
                                             aria-label="View @member.DisplayName's profile">
-                                        <span class="interest-card__title">@member.DisplayName</span>
-                                        <span class="interest-card__subtitle">@@@member.Username</span>
+                                        <span class="interest-card__avatar-shell">
+                                            @if (member.AvatarUrl is not null)
+                                            {
+                                                <img src="@member.AvatarUrl"
+                                                     alt=""
+                                                     class="interest-card__avatar-image"
+                                                     loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <span class="interest-card__avatar">@member.Initial</span>
+                                            }
+                                        </span>
                                     </button>
 
-                                    <div class="interest-card__chips">
-                                        @if (member.PreviewFoodTags.Count == 0)
-                                        {
-                                            <span class="interest-card__chip interest-card__chip--muted">No public food preferences yet</span>
-                                        }
-                                        else
-                                        {
-                                            @foreach (var tag in member.PreviewFoodTags)
-                                            {
-                                                <span class="interest-card__chip">@tag</span>
-                                            }
+                                    <div class="interest-card__body">
+                                        <button type="button"
+                                                class="interest-card__identity interest-card__identity--button"
+                                                onclick="openUserCard('@member.UserId')"
+                                                aria-label="View @member.DisplayName's profile">
+                                            <span class="interest-card__title">@member.DisplayName</span>
+                                            <span class="interest-card__subtitle">@@@member.Username</span>
+                                        </button>
 
-                                            @if (member.HiddenFoodTagCount > 0)
+                                        <div class="interest-card__chips">
+                                            @if (member.PreviewFoodTags.Count == 0)
                                             {
-                                                <span class="interest-card__chip interest-card__chip--muted">+@member.HiddenFoodTagCount more</span>
+                                                <span class="interest-card__chip interest-card__chip--muted">No public food preferences yet</span>
                                             }
-                                        }
+                                            else
+                                            {
+                                                @foreach (var tag in member.PreviewFoodTags)
+                                                {
+                                                    <span class="interest-card__chip">@tag</span>
+                                                }
+
+                                                @if (member.HiddenFoodTagCount > 0)
+                                                {
+                                                    <span class="interest-card__chip interest-card__chip--muted">+@member.HiddenFoodTagCount more</span>
+                                                }
+                                            }
+                                        </div>
                                     </div>
 
+                                    <div class="interest-card__actions interest-card__actions--top">
+                                        @if (member.IsOwner)
+                                        {
+                                            <span class="pill group-member-pill">Owner</span>
+                                        }
+
+                                        <button type="button"
+                                                class="interest-card__icon-action"
+                                                onclick="openUserCard('@member.UserId')"
+                                                aria-label="Open @member.DisplayName's profile">
+                                            ...
+                                        </button>
+
+                                        @if (Model.IsCurrentUserOwner && !member.IsOwner)
+                                        {
+                                            <form asp-action="RemoveMember"
+                                                  asp-route-groupId="@Model.GroupId"
+                                                  asp-route-userId="@member.UserId"
+                                                  method="post">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit"
+                                                        class="interest-card__danger-action"
+                                                        onclick="return confirm('Remove @member.DisplayName from the group?')">
+                                                    Remove
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
                                 </div>
 
-                                <div class="interest-card__actions interest-card__actions--top">
-                                    <button type="button"
-                                            class="interest-card__icon-action"
-                                            onclick="openUserCard('@member.UserId')"
-                                            aria-label="Open @member.DisplayName's profile">
-                                        ...
-                                    </button>
-
-                                    @if (Model.IsCurrentUserOwner && !member.IsOwner)
+                                <div class="interest-card__facts">
+                                    <span class="interest-card__fact">@member.RoleLabel</span>
+                                    <span class="interest-card__fact">@member.JoinedLabel</span>
+                                    @if (member.GoalLabel is not null)
                                     {
-                                        <form asp-action="RemoveMember"
-                                              asp-route-groupId="@Model.GroupId"
-                                              asp-route-userId="@member.UserId"
-                                              method="post">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit"
-                                                    class="interest-card__danger-action"
-                                                    onclick="return confirm('Remove @member.DisplayName from the group?')">
-                                                Remove
-                                            </button>
-                                        </form>
+                                        <span class="interest-card__fact">@member.GoalLabel</span>
+                                    }
+                                    @if (member.ZipLabel is not null)
+                                    {
+                                        <span class="interest-card__fact">@member.ZipLabel</span>
                                     }
                                 </div>
-                            </div>
-
-                            <div class="interest-card__facts">
-                                <span class="interest-card__fact">@member.RoleLabel</span>
-                                <span class="interest-card__fact">@member.JoinedLabel</span>
-                                @if (member.GoalLabel is not null)
-                                {
-                                    <span class="interest-card__fact">@member.GoalLabel</span>
-                                }
-                                @if (member.ZipLabel is not null)
-                                {
-                                    <span class="interest-card__fact">@member.ZipLabel</span>
-                                }
-                            </div>
-                        </article>
+                            </article>
+                        }
                     }
-                }
-            </div>
-        </section>
+                </div>
+            </section>
 
-        <section class="panel stack" style="grid-column: 1 / -1;">
-            <div>
-                <h2>Group Event History</h2>
-                <p class="card__subtitle">Linked event feedback appears here when you have access to view it.</p>
-            </div>
+            <section class="panel stack">
+                <div class="group-section__header">
+                    <div>
+                        <p class="group-section__eyebrow">History</p>
+                        <h2>Linked Events</h2>
+                    </div>
+                    <p class="card__subtitle">Completed event feedback appears here only when the current viewer is allowed to see it.</p>
+                </div>
 
-            <div class="panel__items">
-                @if (Model.EventHistory.Count == 0)
-                {
-                    <p class="empty-state">No group events yet.</p>
-                }
-                else
-                {
-                    @foreach (var groupEvent in Model.EventHistory)
+                <div class="group-event-history">
+                    @if (Model.EventHistory.Count == 0)
                     {
-                        <article class="summary-card stack">
-                            <div class="member-row__info">
-                                <strong>
-                                    <a asp-controller="Event"
-                                       asp-action="EventDetails"
-                                       asp-route-eventId="@groupEvent.EventId">@groupEvent.Title</a>
-                                </strong>
-                                <span>@groupEvent.EventStartAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
-                                <div class="profile-meta">
-                                    <span class="pill">@groupEvent.EventType</span>
-                                    <span class="pill">@groupEvent.Status</span>
-                                    <span class="pill">@groupEvent.ActiveParticipants / @groupEvent.Capacity joined</span>
-                                    @if (!string.IsNullOrWhiteSpace(groupEvent.CuisineTarget))
-                                    {
-                                        <span class="pill">@groupEvent.CuisineTarget</span>
-                                    }
-                                </div>
-                            </div>
-
-                            <div class="stack">
-                                <h3 style="margin:0;">Feedback</h3>
-                                @if (!groupEvent.IsCompleted)
-                                {
-                                    <p class="empty-state">Feedback opens after the event is completed.</p>
-                                }
-                                else if (groupEvent.Feedback.Count == 0)
-                                {
-                                    <p class="empty-state">No feedback visible yet.</p>
-                                }
-                                else
-                                {
-                                    @if (groupEvent.AverageRating.HasValue)
-                                    {
-                                        <p class="muted-note">Average rating: @groupEvent.AverageRating.Value.ToString("0.0") / 5</p>
-                                    }
-
-                                    @foreach (var feedback in groupEvent.Feedback)
-                                    {
-                                        <div class="summary-card">
-                                            <div class="member-row__info">
-                                                <strong>@feedback.AuthorDisplayName</strong>
-                                                <span>@@@feedback.AuthorUsername</span>
-                                                <span>Rating: @feedback.Rating / 5</span>
-                                            </div>
-                                            <p>@feedback.Text</p>
-                                        </div>
-                                    }
-                                }
-                            </div>
-                        </article>
+                        <p class="empty-state">No group events yet.</p>
                     }
-                }
-            </div>
-        </section>
+                    else
+                    {
+                        @foreach (var groupEvent in Model.EventHistory)
+                        {
+                            <article class="summary-card group-event-card">
+                                <div class="group-event-card__header">
+                                    <div class="group-event-card__date">
+                                        <span class="group-event-card__date-label">@groupEvent.EventDateLabel</span>
+                                        <strong>@groupEvent.EventTimeLabel</strong>
+                                    </div>
 
-        @if (Model.IsCurrentUserOwner)
-        {
-            @if (Model.Visibility == "Private")
+                                    <div class="group-event-card__content">
+                                        <div class="group-event-card__heading">
+                                            <h3>
+                                                <a asp-controller="Event"
+                                                   asp-action="EventDetails"
+                                                   asp-route-eventId="@groupEvent.EventId">@groupEvent.Title</a>
+                                            </h3>
+                                            <div class="profile-meta">
+                                                <span class="pill">@groupEvent.EventType</span>
+                                                <span class="pill">@groupEvent.Status</span>
+                                                <span class="pill">@groupEvent.ParticipationLabel</span>
+                                                @if (!string.IsNullOrWhiteSpace(groupEvent.CuisineTarget))
+                                                {
+                                                    <span class="pill">@groupEvent.CuisineTarget</span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="group-event-card__feedback">
+                                            <div class="group-event-card__feedback-header">
+                                                <h4>Feedback</h4>
+                                                @if (groupEvent.AverageRatingLabel is not null)
+                                                {
+                                                    <span class="group-event-card__rating">@groupEvent.AverageRatingLabel</span>
+                                                }
+                                            </div>
+
+                                            @if (!groupEvent.IsCompleted)
+                                            {
+                                                <p class="empty-state">Feedback opens after the event is completed.</p>
+                                            }
+                                            else if (groupEvent.Feedback.Count == 0)
+                                            {
+                                                <p class="empty-state">No feedback visible yet.</p>
+                                            }
+                                            else
+                                            {
+                                                <div class="group-event-card__feedback-list">
+                                                    @foreach (var feedback in groupEvent.Feedback)
+                                                    {
+                                                        <div class="summary-card group-event-card__feedback-item">
+                                                            <div class="group-event-card__feedback-meta">
+                                                                <strong>@feedback.AuthorDisplayName</strong>
+                                                                <span>@@@feedback.AuthorUsername</span>
+                                                                <span>Rating: @feedback.Rating / 5</span>
+                                                            </div>
+                                                            <p>@feedback.Text</p>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+                        }
+                    }
+                </div>
+            </section>
+        </div>
+
+        <aside class="group-detail-layout__side">
+            @if (Model.IsCurrentUserOwner && Model.Visibility == "Private")
             {
                 <section class="panel stack">
-                    <h2>Invite a Member</h2>
-                    <p class="card__subtitle">Enter a username to send them a group invite.</p>
+                    <div class="group-section__header group-section__header--compact">
+                        <div>
+                            <p class="group-section__eyebrow">Invite</p>
+                            <h2>Add a Member</h2>
+                        </div>
+                    </div>
+
+                    <p class="card__subtitle">Private groups stay curated. Send invites by exact username.</p>
 
                     <form asp-action="Invite" asp-route-groupId="@Model.GroupId" method="post" class="stack">
                         @Html.AntiForgeryToken()
                         <div class="field">
                             <label for="InviteUsername">Username</label>
-                            <input type="text" id="InviteUsername" name="InviteUsername"
-                                   placeholder="e.g. foodlover42" />
+                            <input type="text"
+                                   id="InviteUsername"
+                                   name="InviteUsername"
+                                   placeholder="e.g. foodlover42"
+                                   autocomplete="off" />
                         </div>
-                        <div class="button-row">
-                            <button type="submit" class="button button--primary">Send Invite</button>
-                        </div>
+                        <button type="submit" class="button button--primary">Send Invite</button>
                     </form>
                 </section>
             }
 
             <section class="panel stack">
-                <h2>Group Settings</h2>
-                <p class="card__subtitle">Update your group's name, description, or privacy.</p>
-
-                <form asp-action="UpdateSettings" asp-route-groupId="@Model.GroupId" method="post" class="stack">
-                    @Html.AntiForgeryToken()
-
-                    <div class="field">
-                        <label for="EditName">Group Name</label>
-                        <input type="text" id="EditName" name="EditName" value="@Model.EditName" />
+                <div class="group-section__header group-section__header--compact">
+                    <div>
+                        <p class="group-section__eyebrow">Snapshot</p>
+                        <h2>Group Notes</h2>
                     </div>
+                </div>
 
-                    <div class="field">
-                        <label for="EditDescription">Description</label>
-                        <textarea id="EditDescription" name="EditDescription">@Model.EditDescription</textarea>
+                <div class="group-note-list">
+                    <div class="group-note-list__item">
+                        <span class="group-note-list__label">Visibility</span>
+                        <strong>@Model.JoiningSummary</strong>
                     </div>
-
-                    <div class="field">
-                        <label for="EditVisibility">Privacy</label>
-                        <select id="EditVisibility" name="EditVisibility">
-                            <option value="Public" selected="@(Model.EditVisibility?.ToString() == "Public")">Public - anyone can join</option>
-                            <option value="Private" selected="@(Model.EditVisibility?.ToString() == "Private")">Private - invite only</option>
-                        </select>
+                    <div class="group-note-list__item">
+                        <span class="group-note-list__label">Current owner</span>
+                        <strong>@(owner?.DisplayName ?? "Group owner")</strong>
                     </div>
-
-                    <div class="button-row">
-                        <button type="submit" class="button button--primary">Save Settings</button>
+                    <div class="group-note-list__item">
+                        <span class="group-note-list__label">Chat access</span>
+                        <strong>Available to current active members only.</strong>
                     </div>
-                </form>
+                </div>
             </section>
-        }
 
+            @if (Model.IsCurrentUserOwner)
+            {
+                <section class="panel stack">
+                    <div class="group-section__header group-section__header--compact">
+                        <div>
+                            <p class="group-section__eyebrow">Owner Tools</p>
+                            <h2>Group Settings</h2>
+                        </div>
+                    </div>
+
+                    <p class="card__subtitle">Update the public face of the group without changing the underlying workflow.</p>
+
+                    <form asp-action="UpdateSettings" asp-route-groupId="@Model.GroupId" method="post" class="stack">
+                        @Html.AntiForgeryToken()
+
+                        <div class="field">
+                            <label for="EditName">Group Name</label>
+                            <input type="text" id="EditName" name="EditName" value="@Model.EditName" />
+                        </div>
+
+                        <div class="field">
+                            <label for="EditDescription">Description</label>
+                            <textarea id="EditDescription" name="EditDescription">@Model.EditDescription</textarea>
+                        </div>
+
+                        <div class="field">
+                            <label for="EditVisibility">Privacy</label>
+                            <select id="EditVisibility" name="EditVisibility">
+                                <option value="Public" selected="@(Model.EditVisibility?.ToString() == "Public" ? "selected" : null)">Public - anyone can join</option>
+                                <option value="Private" selected="@(Model.EditVisibility?.ToString() == "Private" ? "selected" : null)">Private - invite only</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="EditWallpaperTheme">Food Background</label>
+                            <select id="EditWallpaperTheme" name="EditWallpaperTheme">
+                                @foreach (var option in Model.WallpaperOptions)
+                                {
+                                    <option value="@option.Value" selected="@(Model.EditWallpaperTheme == option.Value ? "selected" : null)">
+                                        @option.Label - @option.Description
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <button type="submit" class="button button--primary">Save Settings</button>
+                    </form>
+                </section>
+            }
+        </aside>
     </div>
 
 </section>

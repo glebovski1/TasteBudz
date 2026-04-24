@@ -2,79 +2,148 @@
 
 @{
     ViewData["Title"] = "Groups";
+
+    var heroTitle = string.IsNullOrWhiteSpace(Model.SearchQuery)
+        ? "Find your dinner crowd."
+        : $"Results for \"{Model.SearchQuery}\"";
+    var heroCopy = string.IsNullOrWhiteSpace(Model.SearchQuery)
+        ? "Browse public communities, spot the vibe fast, and join the groups already planning their next meal."
+        : "Refine the search or open one of the matching groups to see members, chat, and linked events.";
 }
 
-<section class="profile-shell">
+<section class="profile-shell group-page">
 
-    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
-        <div>
-            <h1>Groups</h1>
-            <p>Find a group that shares your food interests, or start your own.</p>
-        </div>
-        <div class="button-row">
-            <a asp-action="CreateGroup" class="button button--primary">+ Create Group</a>
-        </div>
-    </div>
+    <div class="card group-discovery-hero">
+        <div class="group-discovery-hero__copy">
+            <span class="group-discovery-hero__eyebrow">TasteBudz Groups</span>
+            <h1>@heroTitle</h1>
+            <p>@heroCopy</p>
 
-    <div class="card stack">
-        <h2 class="card__title">Explore Groups</h2>
-
-        <form asp-action="Index" method="get" class="button-row" style="align-items: stretch;">
-            <div class="field" style="flex: 1; gap: 0;">
-                <input type="text"
-                       name="q"
-                       value="@Model.SearchQuery"
-                       placeholder="Search groups by name..."
-                       aria-label="Search groups" />
+            <div class="group-discovery-hero__stats" aria-label="Group browse highlights">
+                <div class="group-discovery-hero__stat">
+                    <strong>@Model.TotalCount</strong>
+                    <span>public groups in this view</span>
+                </div>
+                <div class="group-discovery-hero__stat">
+                    <strong>@Model.TotalMembers</strong>
+                    <span>members across the current results</span>
+                </div>
+                <div class="group-discovery-hero__stat">
+                    <strong>@(Model.LargestGroupSize == 0 ? "--" : Model.LargestGroupSize)</strong>
+                    <span>largest visible group</span>
+                </div>
             </div>
-            <button type="submit" class="button button--primary">Search</button>
-            @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
-            {
-                <a asp-action="Index" class="button button--secondary">Clear</a>
-            }
-        </form>
+        </div>
+
+        <div class="group-discovery-hero__actions">
+            <div class="button-row group-discovery-hero__action-row">
+                <a asp-action="CreateGroup" class="button button--primary">Create Group</a>
+                <a asp-controller="Messaging" asp-action="Chat" class="button button--secondary">Open Chats</a>
+            </div>
+
+            <form asp-action="Index" method="get" class="group-search-panel">
+                <label for="GroupSearchQuery" class="sr-only">Search groups by name</label>
+                <div class="group-search-panel__row">
+                    <input type="text"
+                           id="GroupSearchQuery"
+                           name="q"
+                           value="@Model.SearchQuery"
+                           placeholder="Search groups by name..."
+                           autocomplete="off" />
+                    <button type="submit" class="button button--primary">Search</button>
+                </div>
+
+                <div class="group-search-panel__footer">
+                    <p class="group-search-panel__summary">
+                        @if (string.IsNullOrWhiteSpace(Model.SearchQuery))
+                        {
+                            <span>Browse the public side of TasteBudz. Private groups stay invite-only in MVP.</span>
+                        }
+                        else
+                        {
+                            <span>Showing @Model.Groups.Count match@(Model.Groups.Count == 1 ? string.Empty : "es") for "@Model.SearchQuery".</span>
+                        }
+                    </p>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
+                    {
+                        <a asp-action="Index" class="button button--secondary button--small">Clear Search</a>
+                    }
+                </div>
+            </form>
+        </div>
     </div>
 
     @if (Model.Groups.Count == 0)
     {
-        <div class="panel">
-            <p class="empty-state">
+        <div class="panel group-empty-state">
+            <p class="group-empty-state__eyebrow">No groups to show</p>
+            <h2 class="group-empty-state__title">
                 @if (string.IsNullOrWhiteSpace(Model.SearchQuery))
                 {
-                    <span>No groups yet — be the first to create one!</span>
+                    <span>Start the first dinner circle.</span>
                 }
                 else
                 {
                     <span>No groups matched "@Model.SearchQuery".</span>
                 }
+            </h2>
+            <p class="group-empty-state__copy">
+                @if (string.IsNullOrWhiteSpace(Model.SearchQuery))
+                {
+                    <span>Create a public group for neighborhood dinners or a private one for a curated crew.</span>
+                }
+                else
+                {
+                    <span>Try a broader name, or create a new group and define the vibe yourself.</span>
+                }
             </p>
+
+            <div class="button-row">
+                <a asp-action="CreateGroup" class="button button--primary">Create Group</a>
+                @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
+                {
+                    <a asp-action="Index" class="button button--secondary">Browse All</a>
+                }
+            </div>
         </div>
     }
     else
     {
         <div class="groups-grid">
-            @foreach (var group in Model.Groups)
+            @foreach (var item in Model.Groups.Select((group, index) => new { Group = group, Index = index }))
             {
-                <article class="card group-card">
-                    <div class="group-card__header">
-                        <h3 class="group-card__name">@group.Name</h3>
-                        <span class="pill">@group.Visibility</span>
-                    </div>
+                var group = item.Group;
 
-                    @if (!string.IsNullOrWhiteSpace(group.Description))
-                    {
-                        <p class="group-card__desc">@group.Description</p>
-                    }
+                <article class="group-showcase-card group-showcase-card--tone-@(item.Index % 4)">
+                    <a asp-action="Manage"
+                       asp-route-groupId="@group.GroupId"
+                       class="group-showcase-card__link"
+                       aria-label="Open @group.Name">
+                        <div class="group-showcase-card__masthead">
+                            <span class="group-showcase-card__monogram" aria-hidden="true">@group.Monogram</span>
+                            <div class="group-showcase-card__masthead-copy">
+                                <span class="group-showcase-card__eyebrow">@group.VisibilitySummary</span>
+                                <span class="group-showcase-card__support">@group.BrowseSupportText</span>
+                            </div>
+                            <span class="pill group-showcase-card__visibility">@group.Visibility</span>
+                        </div>
 
-                    <div class="group-card__footer">
-                        <span class="group-card__members">
-                            @group.ActiveMembers @(group.ActiveMembers == 1 ? "member" : "members")
-                        </span>
-                        <a asp-action="Manage" asp-route-groupId="@group.GroupId"
-                           class="button button--secondary group-card__action">
-                            View
-                        </a>
-                    </div>
+                        <div class="group-showcase-card__body">
+                            <div class="group-showcase-card__meta">
+                                <span>@group.MemberLabel</span>
+                                <span>@(group.IsPublic ? "Open now" : "Curated access")</span>
+                            </div>
+
+                            <h2 class="group-showcase-card__name">@group.Name</h2>
+                            <p class="group-showcase-card__desc">@group.DescriptionPreview</p>
+                        </div>
+
+                        <div class="group-showcase-card__footer">
+                            <span class="group-showcase-card__footer-copy">Open group</span>
+                            <span class="group-showcase-card__cta">View Details</span>
+                        </div>
+                    </a>
                 </article>
             }
         </div>

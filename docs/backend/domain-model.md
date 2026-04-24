@@ -258,6 +258,7 @@ Entities tagged as later-only may remain documented for future compatibility, bu
 - `Group`
 - `GroupMember`
 - `GroupInvite`
+- `GroupAnnouncement`
 
 ### Messaging and Notifications
 
@@ -290,6 +291,8 @@ Formalize these in code as closed enums/value sets where appropriate:
 - `EventType`
 - `EventParticipantState`
 - `GroupVisibility`
+- `GroupWallpaperTheme`
+- `GroupAnnouncementType`
 - `GroupLifecycleState`
 - `GroupMemberState`
 - `GroupInviteStatus`
@@ -668,6 +671,7 @@ Core data:
 - name
 - description
 - visibility
+- wallpaper theme
 - lifecycle state
 - `OwnerUserId`
 
@@ -676,7 +680,28 @@ Rules:
 - creating a group auto-creates the owner as an active member
 - owner must always be an active member
 - visibility and lifecycle are separate concepts
+- wallpaper theme is an owner-managed preset value, not an uploaded media asset in MVP
 - groups have no hard member cap in MVP
+
+### GroupAnnouncement
+
+Represents a group-facing announcement shown on the group detail board.
+
+Core data:
+
+- group reference
+- author user
+- announcement type (`OwnerPost`, `EventCreated`)
+- title
+- body
+- optional related event reference
+- created timestamp
+
+Rules:
+
+- only the current group owner can create owner posts
+- event creation creates a system announcement when the event is linked to a group
+- announcement visibility follows group detail visibility
 
 ### GroupMember
 
@@ -888,6 +913,7 @@ Rules:
 - `UserAccount` 1 -> many `EventFeedback`
 - `UserAccount` many <-> many `Group` via `GroupMember`
 - `Group` 1 -> many `GroupInvite`
+- `Group` 1 -> many `GroupAnnouncement`
 - `Restaurant` 1 -> many `Event`
 - `Restaurant` 1 -> many `RestaurantAdminAssignment`
 - `UserAccount` 1 -> many `RestaurantAdminAssignment`

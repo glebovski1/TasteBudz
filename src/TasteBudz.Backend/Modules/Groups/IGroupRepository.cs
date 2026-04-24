@@ -29,4 +29,8 @@ public interface IGroupRepository
     Task<IReadOnlyCollection<GroupInvite>> ListInvitesForUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task SaveInviteAsync(GroupInvite invite, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<GroupAnnouncement>> ListAnnouncementsAsync(Guid groupId, CancellationToken cancellationToken = default);
+
+    Task SaveAnnouncementAsync(GroupAnnouncement announcement, CancellationToken cancellationToken = default);
 }

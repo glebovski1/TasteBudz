@@ -289,11 +289,18 @@ BEGIN
         Name NVARCHAR(160) NOT NULL,
         Description NVARCHAR(MAX) NULL,
         Visibility INT NOT NULL,
+        WallpaperTheme INT NOT NULL CONSTRAINT DF_Groups_WallpaperTheme DEFAULT 0,
         LifecycleState INT NOT NULL,
         CreatedAtUtc DATETIMEOFFSET NOT NULL,
         UpdatedAtUtc DATETIMEOFFSET NOT NULL,
         CONSTRAINT FK_Groups_UserAccounts_OwnerUserId FOREIGN KEY (OwnerUserId) REFERENCES dbo.UserAccounts (Id)
     );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.Groups', N'WallpaperTheme') IS NULL
+BEGIN
+    ALTER TABLE dbo.Groups ADD WallpaperTheme INT NOT NULL CONSTRAINT DF_Groups_WallpaperTheme DEFAULT 0;
 END;
 GO
 
@@ -444,6 +451,28 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Events_GroupId' AND object_id = OBJECT_ID(N'dbo.Events'))
     CREATE INDEX IX_Events_GroupId ON dbo.Events (GroupId);
+GO
+
+IF OBJECT_ID(N'dbo.GroupAnnouncements', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.GroupAnnouncements (
+        Id UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_GroupAnnouncements PRIMARY KEY,
+        GroupId UNIQUEIDENTIFIER NOT NULL,
+        AuthorUserId UNIQUEIDENTIFIER NOT NULL,
+        AnnouncementType INT NOT NULL,
+        Title NVARCHAR(120) NOT NULL,
+        Body NVARCHAR(1000) NOT NULL,
+        RelatedEventId UNIQUEIDENTIFIER NULL,
+        CreatedAtUtc DATETIMEOFFSET NOT NULL,
+        CONSTRAINT FK_GroupAnnouncements_Groups_GroupId FOREIGN KEY (GroupId) REFERENCES dbo.Groups (Id),
+        CONSTRAINT FK_GroupAnnouncements_UserAccounts_AuthorUserId FOREIGN KEY (AuthorUserId) REFERENCES dbo.UserAccounts (Id),
+        CONSTRAINT FK_GroupAnnouncements_Events_RelatedEventId FOREIGN KEY (RelatedEventId) REFERENCES dbo.Events (Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_GroupAnnouncements_GroupId_CreatedAtUtc' AND object_id = OBJECT_ID(N'dbo.GroupAnnouncements'))
+    CREATE INDEX IX_GroupAnnouncements_GroupId_CreatedAtUtc ON dbo.GroupAnnouncements (GroupId, CreatedAtUtc);
 GO
 
 IF OBJECT_ID(N'dbo.EventSlotReservations', N'U') IS NULL

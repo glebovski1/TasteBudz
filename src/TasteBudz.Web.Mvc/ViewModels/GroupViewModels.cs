@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Linq;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
@@ -15,14 +16,19 @@ public sealed class GroupIndexViewModel
 {
     public IReadOnlyList<GroupSummaryItem> Groups { get; init; } = [];
     public string? SearchQuery { get; init; }
+    public int TotalCount { get; init; }
+    public int TotalMembers => Groups.Sum(group => group.ActiveMembers);
+    public int LargestGroupSize => Groups.Count == 0 ? 0 : Groups.Max(group => group.ActiveMembers);
 
     public static GroupIndexViewModel Empty => new();
 
     public static GroupIndexViewModel FromDto(
         IEnumerable<GroupSummaryDto> groups,
+        int totalCount,
         string? searchQuery = null) => new()
         {
             Groups = groups.Select(GroupSummaryItem.FromDto).ToList(),
+            TotalCount = totalCount,
             SearchQuery = searchQuery,
         };
 }
@@ -33,8 +39,18 @@ public sealed class GroupSummaryItem
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
     public string Visibility { get; init; } = string.Empty;
+    public GroupWallpaperTheme WallpaperTheme { get; init; }
     public int ActiveMembers { get; init; }
     public bool IsPublic { get; init; }
+    public string Monogram => GroupCardFormatting.GetInitial(Name);
+    public string MemberLabel => $"{ActiveMembers} {(ActiveMembers == 1 ? "member" : "members")}";
+    public string DescriptionPreview => string.IsNullOrWhiteSpace(Description)
+        ? "Built for neighborhood dinners, shared cravings, and low-friction planning."
+        : GroupCardFormatting.Truncate(Description, 120);
+    public string BrowseSupportText => IsPublic
+        ? "Jump in now and start planning with the current members."
+        : "Private access is curated by the owner through invites.";
+    public string VisibilitySummary => IsPublic ? "Open to join" : "Invite only";
 
     public static GroupSummaryItem FromDto(GroupSummaryDto dto) => new()
     {
@@ -87,28 +103,47 @@ public sealed class GroupManageViewModel
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
     public string Visibility { get; init; } = string.Empty;
+    public GroupWallpaperTheme WallpaperTheme { get; init; }
     public bool IsCurrentUserOwner { get; init; }
     public bool IsCurrentUserMember { get; init; }
     public IReadOnlyList<GroupMemberItem> Members { get; init; } = [];
     public IReadOnlyList<GroupEventHistoryItem> EventHistory { get; init; } = [];
+    public IReadOnlyList<GroupAnnouncementItem> Announcements { get; init; } = [];
 
     // Edit sub-form — pre-populated for the owner settings panel
     public string? EditName { get; set; }
     public string? EditDescription { get; set; }
     public GroupVisibility? EditVisibility { get; set; }
+    public GroupWallpaperTheme? EditWallpaperTheme { get; set; }
 
     // Invite sub-form
     public string? InviteUsername { get; set; }
+    public string? AnnouncementTitle { get; set; }
+    public string? AnnouncementBody { get; set; }
+    public int ActiveMemberCount => Members.Count;
+    public int LinkedEventCount => EventHistory.Count;
+    public int AnnouncementCount => Announcements.Count;
+    public GroupMemberItem? Owner => Members.FirstOrDefault(member => member.IsOwner);
+    public string WallpaperCssClass => $"group-wallpaper--{WallpaperTheme.ToString().ToLowerInvariant()}";
+    public IReadOnlyList<GroupWallpaperOption> WallpaperOptions => GroupWallpaperOptions.All;
+    public string VisibilitySummary => string.Equals(Visibility, "Private", StringComparison.OrdinalIgnoreCase)
+        ? "Private circle"
+        : "Open community";
+    public string JoiningSummary => string.Equals(Visibility, "Private", StringComparison.OrdinalIgnoreCase)
+        ? "New members join by invitation from the owner."
+        : "Anyone on TasteBudz can join while the group is active.";
 
     public static GroupManageViewModel FromDto(
         GroupDetailDto dto,
         Guid currentUserId,
-        IReadOnlyList<GroupEventHistoryItem>? eventHistory = null) => new()
+        IReadOnlyList<GroupEventHistoryItem>? eventHistory = null,
+        IReadOnlyList<GroupAnnouncementItem>? announcements = null) => new()
     {
         GroupId = dto.GroupId,
         Name = dto.Name,
         Description = dto.Description,
         Visibility = dto.Visibility.ToString(),
+        WallpaperTheme = dto.WallpaperTheme,
         IsCurrentUserOwner = dto.OwnerUserId == currentUserId,
         IsCurrentUserMember = dto.IsCurrentUserMember,
         Members = dto.Members
@@ -116,10 +151,56 @@ public sealed class GroupManageViewModel
             .Select(m => GroupMemberItem.FromDto(m, dto.OwnerUserId))
             .ToList(),
         EventHistory = eventHistory ?? [],
+        Announcements = announcements ?? [],
         EditName = dto.Name,
         EditDescription = dto.Description,
         EditVisibility = dto.Visibility,
+        EditWallpaperTheme = dto.WallpaperTheme,
     };
+}
+
+public sealed class GroupAnnouncementItem
+{
+    public Guid AnnouncementId { get; init; }
+    public Guid GroupId { get; init; }
+    public string AuthorDisplayName { get; init; } = string.Empty;
+    public string AuthorUsername { get; init; } = string.Empty;
+    public GroupAnnouncementType AnnouncementType { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Body { get; init; } = string.Empty;
+    public Guid? RelatedEventId { get; init; }
+    public DateTimeOffset CreatedAtUtc { get; init; }
+    public bool IsEventAnnouncement => AnnouncementType == GroupAnnouncementType.EventCreated;
+    public string TypeLabel => IsEventAnnouncement ? "Event update" : "Owner post";
+    public string CreatedLabel => CreatedAtUtc.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture);
+
+    public static GroupAnnouncementItem FromDto(GroupAnnouncementDto dto) => new()
+    {
+        AnnouncementId = dto.AnnouncementId,
+        GroupId = dto.GroupId,
+        AuthorDisplayName = dto.AuthorDisplayName,
+        AuthorUsername = dto.AuthorUsername,
+        AnnouncementType = dto.AnnouncementType,
+        Title = dto.Title,
+        Body = dto.Body,
+        RelatedEventId = dto.RelatedEventId,
+        CreatedAtUtc = dto.CreatedAtUtc,
+    };
+}
+
+public sealed record GroupWallpaperOption(GroupWallpaperTheme Value, string Label, string Description);
+
+file static class GroupWallpaperOptions
+{
+    public static IReadOnlyList<GroupWallpaperOption> All { get; } =
+    [
+        new(GroupWallpaperTheme.Default, "TasteBudz Warm", "Soft neutral cards with a warm table glow."),
+        new(GroupWallpaperTheme.PizzaNight, "Pizza Night", "Tomato, basil, and oven-baked energy."),
+        new(GroupWallpaperTheme.SushiBar, "Sushi Bar", "Clean rice-paper texture with seaweed green."),
+        new(GroupWallpaperTheme.TacoTable, "Taco Table", "Corn, lime, and salsa colors for casual meetups."),
+        new(GroupWallpaperTheme.CoffeeBrunch, "Coffee Brunch", "Cafe tones for morning plans and pastries."),
+        new(GroupWallpaperTheme.GardenFresh, "Garden Fresh", "Herb and market greens for lighter meals."),
+    ];
 }
 
 public sealed class GroupMemberItem
@@ -189,6 +270,12 @@ public sealed class GroupEventHistoryItem
     public IReadOnlyList<EventFeedbackItem> Feedback { get; init; } = [];
     public double? AverageRating { get; init; }
     public bool IsCompleted { get; init; }
+    public string EventDateLabel => EventStartAtUtc.ToLocalTime().ToString("ddd, MMM d", CultureInfo.InvariantCulture);
+    public string EventTimeLabel => EventStartAtUtc.ToLocalTime().ToString("h:mm tt", CultureInfo.InvariantCulture);
+    public string ParticipationLabel => $"{ActiveParticipants} / {Capacity} joined";
+    public string? AverageRatingLabel => AverageRating.HasValue
+        ? $"{AverageRating.Value.ToString("0.0", CultureInfo.InvariantCulture)} / 5 average"
+        : null;
 
     public static GroupEventHistoryItem FromDto(
         EventSummaryDto dto,

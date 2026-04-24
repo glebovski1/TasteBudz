@@ -166,9 +166,22 @@ internal sealed class GroupEntity
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public Domain.GroupVisibility Visibility { get; set; }
+    public Domain.GroupWallpaperTheme WallpaperTheme { get; set; }
     public Domain.GroupLifecycleState LifecycleState { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+}
+
+internal sealed class GroupAnnouncementEntity
+{
+    public Guid Id { get; set; }
+    public Guid GroupId { get; set; }
+    public Guid AuthorUserId { get; set; }
+    public Domain.GroupAnnouncementType AnnouncementType { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+    public Guid? RelatedEventId { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; }
 }
 
 internal sealed class GroupMemberEntity
