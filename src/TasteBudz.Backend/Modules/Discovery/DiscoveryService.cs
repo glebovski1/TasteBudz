@@ -168,7 +168,8 @@ public sealed class DiscoveryService(
 
             if (!await CanDiscoverAsync(currentUserId, account.Id, cancellationToken)) continue;
 
-            results.Add(ToPreview(account, profile));
+            var preferences = await profileRepository.GetPreferencesAsync(account.Id, cancellationToken);
+            results.Add(ToPreview(account, profile, preferences));
         }
 
         return results
@@ -214,7 +215,7 @@ public sealed class DiscoveryService(
             throw ApiException.NotFound("The requested user could not be found.");
         }
 
-        _ = ToPreview(account, profile);
+        _ = ToPreview(account, profile, null);
     }
 
     private async Task<bool> CanDiscoverAsync(Guid currentUserId, Guid subjectUserId, CancellationToken cancellationToken)
@@ -248,8 +249,15 @@ public sealed class DiscoveryService(
             cancellationToken);
     }
 
-    private static DiscoveryProfilePreviewDto ToPreview(UserAccount account, UserProfile profile) =>
-        new(account.Id, account.Username, profile.DisplayName, profile.Bio, profile.SocialGoal);
+    private static DiscoveryProfilePreviewDto ToPreview(UserAccount account, UserProfile profile, UserPreferences? preferences) =>
+        new(
+            account.Id,
+            account.Username,
+            profile.DisplayName,
+            profile.Bio,
+            profile.SocialGoal,
+            preferences?.CuisineTags ?? Array.Empty<string>(),
+            preferences?.DietaryFlags ?? Array.Empty<string>());
 
     private static (Guid Lower, Guid Higher) NormalizePair(Guid first, Guid second) =>
         first.CompareTo(second) <= 0 ? (first, second) : (second, first);

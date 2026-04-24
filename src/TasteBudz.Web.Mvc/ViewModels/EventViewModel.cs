@@ -160,7 +160,23 @@ public sealed record EventCreateViewModel
 
     public Guid? GroupId { get; set; }
     public string? GroupName { get; init; }
+    public GroupVisibility? GroupVisibility { get; init; }
     public bool IsGroupEvent => GroupId.HasValue;
+    public bool HasForcedEventType => IsGroupEvent && GroupVisibility.HasValue;
+    public EventType? ForcedEventType => !HasForcedEventType
+        ? null
+        : GroupVisibility == TasteBudz.Backend.Domain.GroupVisibility.Private
+            ? TasteBudz.Backend.Domain.EventType.Closed
+            : TasteBudz.Backend.Domain.EventType.Open;
+    public string ForcedEventTypeLabel => ForcedEventType switch
+    {
+        TasteBudz.Backend.Domain.EventType.Closed => "Closed - invite only",
+        TasteBudz.Backend.Domain.EventType.Open => "Open - anyone can join",
+        _ => "Choose event type",
+    };
+    public string GroupEventTypeNotice => GroupVisibility == TasteBudz.Backend.Domain.GroupVisibility.Private
+        ? "Private group events are closed and invite-only."
+        : "Public group events are open for direct joins.";
 
     public IReadOnlyList<RestaurantPickerItem> Restaurants { get; init; } = [];
 

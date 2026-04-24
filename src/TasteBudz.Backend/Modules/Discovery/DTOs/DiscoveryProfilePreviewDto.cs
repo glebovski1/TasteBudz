@@ -7,4 +7,6 @@ public sealed record DiscoveryProfilePreviewDto(
     string Username,
     string DisplayName,
     string? Bio,
-    SocialGoal? SocialGoal);
+    SocialGoal? SocialGoal,
+    IReadOnlyCollection<string> CuisineTags,
+    IReadOnlyCollection<string> DietaryFlags);

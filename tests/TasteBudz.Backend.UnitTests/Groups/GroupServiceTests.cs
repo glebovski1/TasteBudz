@@ -84,6 +84,30 @@ public sealed class GroupServiceTests
     }
 
     [Fact]
+    public async Task InviteAsync_CreatesNotificationTargetingInviteResponse()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Private Crew",
+            Visibility = GroupVisibility.Private,
+        });
+
+        var invite = await services.GroupService.InviteAsync(ToCurrentUser(owner), group.GroupId, new InviteUserToGroupRequest
+        {
+            Username = guest.CurrentUser.Username,
+        });
+
+        var notification = Assert.Single(await services.NotificationService.ListForUserAsync(guest.CurrentUser.UserId));
+        Assert.Equal(NotificationType.GroupInviteReceived, notification.NotificationType);
+        Assert.Equal("GroupInvite", notification.ContextType);
+        Assert.Equal(invite.InviteId, notification.ContextId);
+    }
+
+    [Fact]
     public async Task LeaveAsync_OwnerIsRejected()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));

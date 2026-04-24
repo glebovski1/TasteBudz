@@ -36,14 +36,14 @@
                 </div>
                 <div class="group-manage-hero__stat">
                     <span class="group-manage-hero__stat-label">Membership</span>
-                    <strong>@Model.JoiningSummary</strong>
+                    <strong>@(Model.Visibility == "Private" ? "Invite only" : "Open join")</strong>
                 </div>
                 <div class="group-manage-hero__stat">
                     <span class="group-manage-hero__stat-label">Group chat</span>
-                    <strong>@((Model.IsCurrentUserMember || Model.IsCurrentUserOwner) ? "Open now" : "Join to unlock")</strong>
+                    <strong>@((Model.IsCurrentUserMember || Model.IsCurrentUserOwner) ? "Open" : "Locked")</strong>
                 </div>
                 <div class="group-manage-hero__stat">
-                    <span class="group-manage-hero__stat-label">Wallpaper</span>
+                    <span class="group-manage-hero__stat-label">Theme</span>
                     <strong>@Model.WallpaperTheme</strong>
                 </div>
             </div>
@@ -138,7 +138,8 @@
                                     {
                                         <a asp-controller="Event"
                                            asp-action="EventDetails"
-                                           asp-route-eventId="@announcement.RelatedEventId.Value">View event</a>
+                                           asp-route-eventId="@announcement.RelatedEventId.Value"
+                                           class="group-linked-event-action">Open event</a>
                                     }
                                 </div>
                             </article>
@@ -295,15 +296,19 @@
                                                    asp-action="EventDetails"
                                                    asp-route-eventId="@groupEvent.EventId">@groupEvent.Title</a>
                                             </h3>
-                                            <div class="profile-meta">
-                                                <span class="pill">@groupEvent.EventType</span>
-                                                <span class="pill">@groupEvent.Status</span>
+                                            <div class="group-event-card__meta">
+                                                <span class="pill group-event-card__pill group-event-card__pill--access">@groupEvent.EventAccessLabel</span>
+                                                <span class="pill group-event-card__pill group-event-card__pill--status">@groupEvent.EventStatusLabel</span>
                                                 <span class="pill">@groupEvent.ParticipationLabel</span>
                                                 @if (!string.IsNullOrWhiteSpace(groupEvent.CuisineTarget))
                                                 {
                                                     <span class="pill">@groupEvent.CuisineTarget</span>
                                                 }
                                             </div>
+                                            <a asp-controller="Event"
+                                               asp-action="EventDetails"
+                                               asp-route-eventId="@groupEvent.EventId"
+                                               class="group-linked-event-action">Open event</a>
                                         </div>
 
                                         <div class="group-event-card__feedback">

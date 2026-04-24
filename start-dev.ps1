@@ -1,5 +1,6 @@
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$ResetDatabase
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,17 +49,38 @@ if (-not $SkipBuild)
     }
 }
 
+$localDataDirectory = Join-Path $repoRoot ".codex-temp"
+$localDatabase = Join-Path $localDataDirectory "TasteBudz.local.sqlite"
+New-Item -ItemType Directory -Force -Path $localDataDirectory | Out-Null
+
+if ($ResetDatabase)
+{
+    Remove-Item -LiteralPath $localDatabase -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath "$localDatabase-shm" -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath "$localDatabase-wal" -Force -ErrorAction SilentlyContinue
+}
+
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:BackendApi__BaseUrl = ""
+$env:Persistence__Provider = "Sqlite"
+$env:Persistence__InitializeSqliteOnStartup = "true"
+$env:Persistence__SeedTestDataOnStartup = "true"
+$env:ConnectionStrings__TasteBudz = "Data Source=$localDatabase;Foreign Keys=True;Pooling=False"
+
 Write-Host "Starting TasteBudz web host..."
 $web = Start-Process -FilePath "dotnet" -ArgumentList @(
     "run",
     "--project", "src\TasteBudz.Web.Mvc\TasteBudz.Web.Mvc.csproj",
-    "--launch-profile", "TasteBudz SQLite Dev (Single Host)",
-    "--no-build"
+    "--no-launch-profile",
+    "--no-build",
+    "--urls", "https://localhost:7115;http://localhost:5019"
 ) -WorkingDirectory $repoRoot -PassThru
 
 Write-Host ""
 Write-Host "Web host PID: $($web.Id)"
 Write-Host "MVC + API + SignalR: https://localhost:7115"
+Write-Host "Local SQLite database: $localDatabase"
+Write-Host "Seeded test users use password: TasteBudz123!"
 Write-Host ""
 Write-Host "Stop them with:"
 Write-Host "  Stop-Process -Id $($web.Id)"

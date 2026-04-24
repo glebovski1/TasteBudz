@@ -88,17 +88,31 @@
             <section class="panel stack">
                 <div>
                     <h2>Type &amp; Capacity</h2>
-                    <p class="card__subtitle">Open events are public. Closed events are invite-only.</p>
+                    <p class="card__subtitle">
+                        @(Model.IsGroupEvent ? Model.GroupEventTypeNotice : "Open events are public. Closed events are invite-only.")
+                    </p>
                 </div>
-                <div class="field">
-                    <label asp-for="EventType"></label>
-                    <select asp-for="EventType">
-                        <option value="">Select type…</option>
-                        <option value="Open">Open — anyone can join</option>
-                        <option value="Closed">Closed — invite only</option>
-                    </select>
-                    <span asp-validation-for="EventType" class="field-validation-error"></span>
-                </div>
+                @if (Model.HasForcedEventType)
+                {
+                    <input type="hidden" asp-for="EventType" />
+                    <div class="event-type-lock" aria-label="Locked event type">
+                        <span class="event-type-lock__label">Event Type</span>
+                        <strong>@Model.ForcedEventTypeLabel</strong>
+                        <span>@Model.GroupEventTypeNotice</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="field">
+                        <label asp-for="EventType"></label>
+                        <select asp-for="EventType">
+                            <option value="">Select type...</option>
+                            <option value="Open">Open - anyone can join</option>
+                            <option value="Closed">Closed - invite only</option>
+                        </select>
+                        <span asp-validation-for="EventType" class="field-validation-error"></span>
+                    </div>
+                }
                 <div class="field">
                     <label asp-for="Capacity"></label>
                     <input asp-for="Capacity" type="number" min="2" max="8" placeholder="2–8 people" />

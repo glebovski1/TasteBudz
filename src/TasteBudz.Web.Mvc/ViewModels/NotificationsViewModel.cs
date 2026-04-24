@@ -40,6 +40,7 @@ public sealed class NotificationsViewModel
             "Event" => $"/Event/EventDetails?eventId={contextId}",
             "BudConnection" => "/Profile/View",
             "Group" => $"/Group/Manage?groupId={contextId}",
+            "GroupInvite" => null,
             _ => null,
         };
     }
@@ -56,6 +57,11 @@ public sealed class NotificationItem
     public bool IsRead { get; init; }
     public string? Link { get; init; }
     public string Icon { get; init; } = string.Empty;
+    public bool CanRespondToGroupInvite =>
+        !IsRead &&
+        Type == NotificationType.GroupInviteReceived &&
+        string.Equals(ContextType, "GroupInvite", StringComparison.OrdinalIgnoreCase) &&
+        ContextId.HasValue;
 
     public string TimeAgo
     {

@@ -139,6 +139,7 @@ Completed-event feedback is also participant-authored. Each joined participant m
 
 It allows an event to appear in group context, but it does not make group membership equivalent to event participation.
 In MVP, only the current group owner may create or update an event with that `GroupId`.
+Group-linked event type follows group visibility: public groups link only to Open events, and private groups link only to Closed events.
 
 ### 5.8 Chat uses scope-based threads
 
@@ -592,10 +593,11 @@ Core data:
 Rules:
 
 - exactly one of `SelectedRestaurantId` or `CuisineTarget` must be set
+- if `GroupId` is set, event type must match group visibility (`Public` -> `Open`, `Private` -> `Closed`)
 - host counts toward capacity
 - event status is server-controlled
 - `CANCELLED` and `COMPLETED` are terminal
-- closed-event invites do not reserve seats
+- event invites do not reserve seats
 - event can auto-complete by time according to server policy
 - while an active slot reservation exists, host edits must preserve slot restaurant, clear cuisine target, stay within the slot window, and keep capacity within slot capacity
 
@@ -782,6 +784,7 @@ Rules:
 
 - read state is tracked per notification
 - MVP delivery state is effectively persisted/in-app only
+- private-group invite notifications use invite context so the client can accept or decline before group membership exists
 
 ### SwipeDecision
 
@@ -1028,6 +1031,7 @@ Focus: append-only record of sensitive actions.
 - Capacity counts only `JOINED` participants.
 - Event invites do not reserve seats.
 - Exactly one of selected restaurant or cuisine target is set on an event.
+- Group-linked event type must match the linked group's visibility.
 - Active slot-reserved events use the slot restaurant as selected restaurant and have no cuisine target.
 - Active slot reservations are unique per event and per slot.
 - Slot reservation requires the event time and capacity to fit the slot.
@@ -1085,7 +1089,7 @@ Repositories may map it in multiple ways as long as the business guarantees rema
 
 Important mapping notes:
 
-- `EventParticipant` acts as both participation record and closed-event invite lifecycle record.
+- `EventParticipant` acts as both participation record and event invite lifecycle record.
 - `EventFeedback` is unique per `(EventId, AuthorUserId)` and remains separate from restaurant reviews.
 - `EventFeedbackPhoto` links feedback records to database-backed `MediaAsset` bytes for event-feedback images.
 - `BudConnection` is the only required Budz relationship record in MVP.

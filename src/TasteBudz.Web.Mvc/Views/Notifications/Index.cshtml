@@ -58,6 +58,25 @@
                                     <span class="notif-row__message">@notif.Message</span>
                                 }
                                 <span class="notif-row__time">@notif.TimeAgo</span>
+                                @if (notif.CanRespondToGroupInvite)
+                                {
+                                    <div class="notif-row__actions">
+                                        <form asp-action="RespondGroupInvite"
+                                              asp-route-inviteId="@notif.ContextId"
+                                              method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="Status" value="Accepted" />
+                                            <button type="submit" class="button button--primary button--small">Accept</button>
+                                        </form>
+                                        <form asp-action="RespondGroupInvite"
+                                              asp-route-inviteId="@notif.ContextId"
+                                              method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="Status" value="Declined" />
+                                            <button type="submit" class="button button--secondary button--small">Decline</button>
+                                        </form>
+                                    </div>
+                                }
                             </div>
                             <button class="notif-row__dismiss"
                                     aria-label="Mark as read"

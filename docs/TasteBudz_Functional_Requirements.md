@@ -13,7 +13,7 @@ Implement the following MVP items first. Each item references the owning require
 - Restaurant browse + filtering + simple suggestions (FR-007)
 - People discovery core: search + swipe + Budz list (FR-018, FR-019, FR-020)
 - Basic browse/search for open events and public groups (FR-022)
-- Create events (Open + Closed) + closed invites by username (FR-008)
+- Create events (Open + Closed) + event invites by username (FR-008)
 - Join/leave with atomic capacity enforcement + DecisionAt lock (FR-009, FR-010)
 - Groups: create/join/leave + owner management (FR-011, FR-012, FR-013)
 - Event status lifecycle + DecisionAt evaluation (FR-014)
@@ -47,8 +47,8 @@ User wants food -> discovers Budz, a group, or an event -> restaurant is selecte
 
 | Role | Allowed actions (MVP, non-exhaustive) |
 |---|---|
-| User | Register/login/logout and submit or complete password reset flows (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline Closed invites (FR-008 to FR-009), use event chat when participating, group chat when a current member, and support chat with admins (FR-017 to FR-017B), block/report users (FR-024 to FR-025) |
-| Host | Create Open/Closed events (FR-008), invite users to Closed events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
+| User | Register/login/logout and submit or complete password reset flows (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline event invites (FR-008 to FR-009), use event chat when participating, group chat when a current member, and support chat with admins (FR-017 to FR-017B), block/report users (FR-024 to FR-025) |
+| Host | Create Open/Closed events (FR-008), invite users to events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
 | Group Owner | Create group, manage name/description/visibility (FR-011 to FR-012), remove group members (FR-012), transfer ownership or dissolve group later (FR-012A), create/view group-linked events (FR-013), use group chat (FR-017A) |
 | Moderator | View report queue, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
 | Admin | All Moderator actions plus support chat replies, password reset-request review, password reset-token issuance, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-014, FR-017B, FR-026 to FR-028) |
@@ -222,15 +222,17 @@ Priority legend:
 **Acceptance Criteria**
 
 - An event includes optional title, event type (Open/Closed), start time, capacity, and exactly one of selected restaurant or cuisine target.
+- Standalone event creation lets the host choose Open or Closed.
 - The host automatically becomes a `JOINED` participant and counts toward capacity.
 - Open events are discoverable and joinable by eligible users.
 - Closed events are invite-only.
-- Closed-event invites remain actionable until `DecisionAt` in MVP.
-- Closed-event invites do not reserve seats.
+- Hosts may invite users to either Open or Closed events by exact username.
+- Event invites remain actionable until `DecisionAt` in MVP.
+- Event invites do not reserve seats.
 
-**Closed Event Invite Flow**
+**Event Invite Flow**
 
-- Host creates a closed event.
+- Host creates an event or opens an active event they host.
 - Host invites users by exact username.
 - The system creates or updates one `EventParticipant` record per invited user in `INVITED` state.
 - Invitees can accept (`JOINED`) or decline (`DECLINED`) until `DecisionAt`.
@@ -319,9 +321,11 @@ Priority legend:
 
 - An event may store an optional `GroupId`.
 - Only the current group owner can associate an event with that group's context in MVP.
+- Group-linked event type follows group visibility: public groups create Open events, and private groups create Closed events.
 - Group-linked events are viewable in group context.
 - Group event history may display linked-event feedback by reusing event feedback visibility rules.
 - Creating a group-linked event creates a group announcement so members can see the new event from the group board.
+- Group event history and event-created announcements should provide a direct link to the event detail when the viewer is allowed to see it.
 - Group membership does not replace event participation rules.
 
 ### FR-014 Event Status Lifecycle

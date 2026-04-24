@@ -25,7 +25,7 @@ public sealed class DiscoveryApiServiceTests
                 new ListResponse<DiscoveryProfilePreviewDto>(
                     new[]
                     {
-                        new DiscoveryProfilePreviewDto(subjectUserId, "alex", "Alex Carter", "Always down for noodles.", SocialGoal.Friends),
+                        new DiscoveryProfilePreviewDto(subjectUserId, "alex", "Alex Carter", "Always down for noodles.", SocialGoal.Friends, new[] { "Ramen" }, new[] { "Vegetarian" }),
                     },
                     1)));
         context.BackendHandler.Enqueue(
@@ -36,7 +36,7 @@ public sealed class DiscoveryApiServiceTests
                 new ListResponse<DiscoveryProfilePreviewDto>(
                     new[]
                     {
-                        new DiscoveryProfilePreviewDto(subjectUserId, "sam", "Sam Carter", "Sushi fan.", SocialGoal.Networking),
+                        new DiscoveryProfilePreviewDto(subjectUserId, "sam", "Sam Carter", "Sushi fan.", SocialGoal.Networking, new[] { "Sushi" }, Array.Empty<string>()),
                     },
                     1)));
         context.BackendHandler.Enqueue(

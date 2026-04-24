@@ -35,7 +35,7 @@ public sealed class EventService(
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     /// <summary>
-    /// Creates a new event, auto-joins the host, and optionally seeds closed-event invite records.
+    /// Creates a new event, auto-joins the host, and optionally seeds event invite records.
     /// </summary>
     public async Task<EventDetailDto> CreateAsync(CurrentUser currentUser, CreateEventRequest request, CancellationToken cancellationToken = default)
     {
@@ -56,16 +56,11 @@ public sealed class EventService(
         EnsureCapacityInRange(capacity);
         EventPolicy.EnsureValidLocationSelection(request.SelectedRestaurantId, cuisineTarget);
 
-        if (eventType == EventType.Open && request.InviteUsernames.Count > 0)
-        {
-            throw ApiException.BadRequest("Open events do not accept inviteUsernames during creation.");
-        }
-
         await EnsureRestaurantExistsAsync(request.SelectedRestaurantId, cancellationToken);
-        await EnsureCanLinkGroupAsync(currentUser, request.GroupId, cancellationToken);
+        await EnsureCanLinkGroupAsync(currentUser, request.GroupId, eventType, cancellationToken);
 
-        // Closed-event invite usernames are resolved up front so create either succeeds fully or fails early.
-        var invitees = eventType == EventType.Closed && request.InviteUsernames.Count > 0
+        // Invite usernames are resolved up front so create either succeeds fully or fails early.
+        var invitees = request.InviteUsernames.Count > 0
             ? await eventInviteService.ResolveInviteesAsync(currentUser, request.InviteUsernames, cancellationToken)
             : Array.Empty<UserAccount>();
         // `now` is captured once so the event row and host participant share the same creation timestamp.
@@ -183,7 +178,7 @@ public sealed class EventService(
         EventPolicy.EnsureValidLocationSelection(selectedRestaurantId, cuisineTarget);
 
         var groupId = request.GroupId ?? eventRecord.GroupId;
-        await EnsureCanLinkGroupAsync(currentUserId, groupId, cancellationToken);
+        await EnsureCanLinkGroupAsync(currentUserId, groupId, eventRecord.EventType, cancellationToken);
 
         var capacity = request.Capacity ?? eventRecord.Capacity;
 
@@ -431,10 +426,10 @@ public sealed class EventService(
     /// <summary>
     /// Confirms that a referenced group exists and is still active before linking it to an event.
     /// </summary>
-    private async Task EnsureCanLinkGroupAsync(CurrentUser currentUser, Guid? groupId, CancellationToken cancellationToken) =>
-        await EnsureCanLinkGroupAsync(currentUser.UserId, groupId, cancellationToken);
+    private async Task EnsureCanLinkGroupAsync(CurrentUser currentUser, Guid? groupId, EventType eventType, CancellationToken cancellationToken) =>
+        await EnsureCanLinkGroupAsync(currentUser.UserId, groupId, eventType, cancellationToken);
 
-    private async Task EnsureCanLinkGroupAsync(Guid currentUserId, Guid? groupId, CancellationToken cancellationToken)
+    private async Task EnsureCanLinkGroupAsync(Guid currentUserId, Guid? groupId, EventType eventType, CancellationToken cancellationToken)
     {
         if (!groupId.HasValue)
         {
@@ -452,6 +447,16 @@ public sealed class EventService(
         if (group.OwnerUserId != currentUserId)
         {
             throw ApiException.Forbidden("Only the group owner can link an event to that group.");
+        }
+
+        if (group.Visibility == GroupVisibility.Private && eventType == EventType.Open)
+        {
+            throw ApiException.Conflict("Private groups can only be linked to closed events.");
+        }
+
+        if (group.Visibility == GroupVisibility.Public && eventType == EventType.Closed)
+        {
+            throw ApiException.Conflict("Public groups can only be linked to open events.");
         }
     }
 

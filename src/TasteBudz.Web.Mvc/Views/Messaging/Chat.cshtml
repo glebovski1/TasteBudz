@@ -7,11 +7,17 @@
 
 <section class="profile-shell">
 
-    <div class="card profile-banner profile-banner--full">
+    <div class="card profile-banner profile-banner--full chat-banner">
         <div>
             <h1>@Model.Title</h1>
-            <p>Messages are delivered in real time.</p>
+            <p>@Model.Subtitle</p>
         </div>
+        @if (Model.BackLinkUrl is not null)
+        {
+            <div class="chat-banner__actions">
+                <a href="@Model.BackLinkUrl" class="button button--secondary">@Model.BackLinkText</a>
+            </div>
+        }
     </div>
 
     <div class="chat-shell" id="chatShell">
@@ -37,13 +43,13 @@
         <div class="chat-status empty-state" id="chatStatus"></div>
 
         <form class="chat-compose" id="chatForm" autocomplete="off">
-            <input class="chat-compose__input"
-                   id="messageInput"
-                   type="text"
-                   maxlength="500"
-                   placeholder="Type a message..."
-                   aria-label="Message input"
-                   required />
+            <textarea class="chat-compose__input"
+                      id="messageInput"
+                      maxlength="500"
+                      rows="3"
+                      placeholder="Type a message..."
+                      aria-label="Message input"
+                      required></textarea>
             <button class="chat-compose__send" type="submit" id="sendBtn" disabled>Send</button>
         </form>
 
@@ -171,6 +177,15 @@
             input.addEventListener("input", () => {
                 sendBtn.disabled = input.value.trim().length === 0 ||
                     connection.state !== signalR.HubConnectionState.Connected;
+            });
+
+            input.addEventListener("keydown", async e => {
+                if (e.key !== "Enter" || e.shiftKey || sendBtn.disabled) {
+                    return;
+                }
+
+                e.preventDefault();
+                form.requestSubmit();
             });
         }());
     </script>

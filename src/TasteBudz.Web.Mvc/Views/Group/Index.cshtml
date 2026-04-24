@@ -74,6 +74,70 @@
         </div>
     </div>
 
+    @if (Model.MyGroups.Count > 0)
+    {
+        <section class="panel stack group-my-groups">
+            <div class="group-section__header">
+                <div>
+                    <p class="group-section__eyebrow">My Groups</p>
+                    <h2>Your dinner circles</h2>
+                </div>
+                <p class="card__subtitle">
+                    Private groups only appear here for current members.
+                    @if (Model.PrivateMyGroupCount > 0)
+                    {
+                        <span>@Model.PrivateMyGroupCount private @(Model.PrivateMyGroupCount == 1 ? "group is" : "groups are") visible to you.</span>
+                    }
+                </p>
+            </div>
+
+            <div class="panel__items interest-card-list group-my-groups__list">
+                @foreach (var group in Model.MyGroups)
+                {
+                    <article class="summary-card interest-card group-my-card">
+                        <div class="interest-card__header">
+                            <span class="interest-card__avatar-shell" aria-hidden="true">
+                                <span class="interest-card__avatar">@group.Initial</span>
+                            </span>
+
+                            <div class="interest-card__body">
+                                <a asp-action="Manage"
+                                   asp-route-groupId="@group.GroupId"
+                                   class="interest-card__identity interest-card__identity--button"
+                                   aria-label="Open @group.Name">
+                                    <span class="interest-card__title">@group.Name</span>
+                                    <span class="interest-card__subtitle">@group.DescriptionPreview</span>
+                                </a>
+
+                                <div class="interest-card__chips">
+                                    <span class="interest-card__chip">@group.VisibilityLabel</span>
+                                    <span class="interest-card__chip">@group.MemberLabel</span>
+                                    <span class="interest-card__chip interest-card__chip--muted">@group.AccessLabel</span>
+                                </div>
+                            </div>
+
+                            <div class="interest-card__actions interest-card__actions--top">
+                                <a asp-action="Manage"
+                                   asp-route-groupId="@group.GroupId"
+                                   class="interest-card__icon-action"
+                                   aria-label="Open @group.Name">
+                                    Open
+                                </a>
+                                <a asp-controller="Messaging"
+                                   asp-action="GroupChat"
+                                   asp-route-groupId="@group.GroupId"
+                                   class="interest-card__icon-action"
+                                   aria-label="Open @group.Name chat">
+                                    Chat
+                                </a>
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
     @if (Model.Groups.Count == 0)
     {
         <div class="panel group-empty-state">
@@ -110,40 +174,44 @@
     }
     else
     {
-        <div class="groups-grid">
+        <div class="groups-grid groups-grid--public">
             @foreach (var item in Model.Groups.Select((group, index) => new { Group = group, Index = index }))
             {
                 var group = item.Group;
 
-                <article class="group-showcase-card group-showcase-card--tone-@(item.Index % 4)">
-                    <a asp-action="Manage"
-                       asp-route-groupId="@group.GroupId"
-                       class="group-showcase-card__link"
-                       aria-label="Open @group.Name">
-                        <div class="group-showcase-card__masthead">
-                            <span class="group-showcase-card__monogram" aria-hidden="true">@group.Monogram</span>
-                            <div class="group-showcase-card__masthead-copy">
-                                <span class="group-showcase-card__eyebrow">@group.VisibilitySummary</span>
-                                <span class="group-showcase-card__support">@group.BrowseSupportText</span>
+                <article class="summary-card interest-card group-public-card group-showcase-card--tone-@(item.Index % 4)">
+                    <div class="interest-card__header">
+                        <span class="interest-card__avatar-shell group-public-card__avatar" aria-hidden="true">
+                            <span class="interest-card__avatar">@group.Monogram</span>
+                        </span>
+
+                        <div class="interest-card__body">
+                            <a asp-action="Manage"
+                               asp-route-groupId="@group.GroupId"
+                               class="interest-card__identity interest-card__identity--button"
+                               aria-label="Open @group.Name">
+                                <span class="interest-card__title">@group.Name</span>
+                                <span class="interest-card__subtitle">@group.DescriptionPreview</span>
+                            </a>
+
+                            <p class="group-public-card__support">@group.BrowseSupportText</p>
+
+                            <div class="interest-card__chips">
+                                <span class="interest-card__chip">@group.Visibility</span>
+                                <span class="interest-card__chip">@group.MemberLabel</span>
+                                <span class="interest-card__chip interest-card__chip--muted">@group.VisibilitySummary</span>
                             </div>
-                            <span class="pill group-showcase-card__visibility">@group.Visibility</span>
                         </div>
 
-                        <div class="group-showcase-card__body">
-                            <div class="group-showcase-card__meta">
-                                <span>@group.MemberLabel</span>
-                                <span>@(group.IsPublic ? "Open now" : "Curated access")</span>
-                            </div>
-
-                            <h2 class="group-showcase-card__name">@group.Name</h2>
-                            <p class="group-showcase-card__desc">@group.DescriptionPreview</p>
+                        <div class="interest-card__actions interest-card__actions--top group-public-card__actions">
+                            <a asp-action="Manage"
+                               asp-route-groupId="@group.GroupId"
+                               class="interest-card__text-action"
+                               aria-label="View details for @group.Name">
+                                View Details
+                            </a>
                         </div>
-
-                        <div class="group-showcase-card__footer">
-                            <span class="group-showcase-card__footer-copy">Open group</span>
-                            <span class="group-showcase-card__cta">View Details</span>
-                        </div>
-                    </a>
+                    </div>
                 </article>
             }
         </div>

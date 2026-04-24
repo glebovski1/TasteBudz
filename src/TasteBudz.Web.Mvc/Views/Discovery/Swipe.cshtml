@@ -38,19 +38,35 @@
                                 <h2 class="swipecard__name">@candidate.DisplayName</h2>
                                 <span class="pill">@@@candidate.Username</span>
 
-                                @if (!string.IsNullOrWhiteSpace(candidate.Bio))
-                                {
-                                    <p class="swipecard__bio">@candidate.Bio</p>
-                                }
-                                else
-                                {
-                                    <p class="swipecard__bio swipecard__bio--empty">No bio yet.</p>
-                                }
+                                <div class="swipecard__chips" aria-label="Public food preferences">
+                                    @if (candidate.PreviewFoodTags.Count == 0)
+                                    {
+                                        <span class="swipecard__chip swipecard__chip--muted">Food preferences not shared yet</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var tag in candidate.PreviewFoodTags)
+                                        {
+                                            <span class="swipecard__chip">@tag</span>
+                                        }
 
-                                @if (candidate.SocialGoal is not null)
-                                {
-                                    <span class="pill" style="margin-top: 0.5rem;">@candidate.SocialGoal</span>
-                                }
+                                        @if (candidate.HiddenFoodTagCount > 0)
+                                        {
+                                            <span class="swipecard__chip swipecard__chip--muted">+@candidate.HiddenFoodTagCount more</span>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="swipecard__details">
+                                    <div class="swipecard__fact">
+                                        <span>Goal</span>
+                                        <strong>@candidate.GoalsText</strong>
+                                    </div>
+                                    <div class="swipecard__fact">
+                                        <span>Note</span>
+                                        <strong>@candidate.PersonalityText</strong>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -88,11 +104,26 @@
         return cards[cards.length - 1] ?? null;
     }
 
+    function refreshStack() {
+        const cards = Array.from(container.querySelectorAll(".swipecard:not(.swipecard--gone)"));
+
+        container.querySelectorAll(".swipecard").forEach(card => {
+            card.classList.remove("swipecard--top", "swipecard--back-1", "swipecard--back-2");
+        });
+
+        cards.at(-1)?.classList.add("swipecard--top");
+        cards.at(-2)?.classList.add("swipecard--back-1");
+        cards.at(-3)?.classList.add("swipecard--back-2");
+    }
+
+    refreshStack();
+
     function dismissCard(card, direction) {
         const userId = card.dataset.userId;
-            const decision = direction === "like" ? 0 : 1;
+        const decision = direction === "like" ? 0 : 1;
 
         card.classList.add("swipecard--gone", `swipecard--exit-${direction}`);
+        refreshStack();
 
         postSwipe(userId, decision).then(result => {
             if (result?.isBudMatch) {
@@ -102,6 +133,7 @@
 
         // After the CSS exit animation finishes, check whether the stack is empty.
         card.addEventListener("animationend", () => {
+            refreshStack();
             if (!topCard()) {
                 showStatus("You've seen everyone for now — check back soon!");
                 if (document.getElementById("swipeButtons")) {

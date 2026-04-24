@@ -12,7 +12,7 @@
         "Persistence__Provider": "Sqlite",
         "Persistence__InitializeSqliteOnStartup": "true",
         "Persistence__SeedTestDataOnStartup": "true",
-        "ConnectionStrings__TasteBudz": "Data Source=..\\TasteBudz.Database\\TasteBudz.sqlite;Foreign Keys=True;Pooling=False"
+        "ConnectionStrings__TasteBudz": "Data Source=.codex-temp\\TasteBudz.local.sqlite;Foreign Keys=True;Pooling=False"
       }
     },
     "TasteBudz Azure Production": {

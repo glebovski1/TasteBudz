@@ -119,6 +119,39 @@ public sealed class EventWorkflowTests
         Assert.Contains(participants, participant => participant.UserId == sam.UserId && participant.State == EventParticipantState.Invited);
     }
 
+    [Fact]
+    public async Task InviteAsync_PublicEventInviteCanBeAccepted()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var hostSession = await RegisterAsync(services.AuthService, "host", "host@example.com");
+        var guestSession = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var host = ToCurrentUser(hostSession);
+        var guest = ToCurrentUser(guestSession);
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Open dinner",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(2),
+            Capacity = 4,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+
+        await services.EventInviteService.InviteAsync(host, detail.EventId, new InviteUsersRequest
+        {
+            Usernames = new[] { "guest" },
+        });
+        var accepted = await services.EventParticipationService.UpdateMyParticipationAsync(guest, detail.EventId, new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Joined,
+        });
+
+        Assert.Equal(EventParticipantState.Joined, accepted.State);
+        var participant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+        Assert.Equal(EventParticipantState.Joined, participant!.State);
+    }
+
     /// <summary>
     /// Update flows must enforce the same hard size bounds as create flows.
     /// </summary>
@@ -189,7 +222,7 @@ public sealed class EventWorkflowTests
         var owner = ToCurrentUser(ownerSession);
         var groupId = Guid.NewGuid();
 
-        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{host.UserId:N}"] = new GroupMember(groupId, host.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
 
@@ -216,7 +249,7 @@ public sealed class EventWorkflowTests
         var owner = ToCurrentUser(ownerSession);
         var groupId = Guid.NewGuid();
 
-        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Private, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, GroupVisibility.Public, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
         services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
 
         var detail = await services.EventService.CreateAsync(owner, new CreateEventRequest
@@ -230,6 +263,64 @@ public sealed class EventWorkflowTests
         });
 
         Assert.Equal(groupId, detail.GroupId);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithOwnerPrivateGroupAndClosedEvent_Succeeds()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var ownerSession = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var owner = ToCurrentUser(ownerSession);
+        var groupId = Guid.NewGuid();
+
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Private dinner club", null, GroupVisibility.Private, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
+
+        var detail = await services.EventService.CreateAsync(owner, new CreateEventRequest
+        {
+            Title = "Owner linked private event",
+            EventType = EventType.Closed,
+            EventStartAtUtc = clock.UtcNow.AddDays(2),
+            Capacity = 4,
+            CuisineTarget = "Ramen",
+            GroupId = groupId,
+        });
+
+        Assert.Equal(groupId, detail.GroupId);
+        Assert.Equal(EventType.Closed, detail.EventType);
+    }
+
+    [Theory]
+    [InlineData(GroupVisibility.Private, EventType.Open, "Private groups can only be linked to closed events.")]
+    [InlineData(GroupVisibility.Public, EventType.Closed, "Public groups can only be linked to open events.")]
+    public async Task CreateAsync_WithGroupVisibilityEventTypeMismatch_ReturnsConflict(
+        GroupVisibility groupVisibility,
+        EventType eventType,
+        string expectedMessage)
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var ownerSession = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var owner = ToCurrentUser(ownerSession);
+        var groupId = Guid.NewGuid();
+
+        services.Store.Groups[groupId] = new Group(groupId, owner.UserId, "Dinner club", null, groupVisibility, GroupWallpaperTheme.Default, GroupLifecycleState.Active, clock.UtcNow, clock.UtcNow);
+        services.Store.GroupMembers[$"{groupId:N}:{owner.UserId:N}"] = new GroupMember(groupId, owner.UserId, GroupMemberState.Active, clock.UtcNow, clock.UtcNow);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventService.CreateAsync(owner, new CreateEventRequest
+            {
+                Title = "Mismatched linked event",
+                EventType = eventType,
+                EventStartAtUtc = clock.UtcNow.AddDays(2),
+                Capacity = 4,
+                CuisineTarget = "Ramen",
+                GroupId = groupId,
+            }));
+
+        Assert.Equal(409, exception.StatusCode);
+        Assert.Equal(expectedMessage, exception.Message);
     }
 
     [Fact]
@@ -453,7 +544,7 @@ public sealed class EventWorkflowTests
         var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, inviteService, keyedLockProvider, clock);
         var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, keyedLockProvider, clock);
 
-        return new TestServices(store, authService, eventService, participationService, eventRepository, restrictionService);
+        return new TestServices(store, authService, eventService, inviteService, participationService, eventRepository, restrictionService);
     }
 
     /// <summary>
@@ -463,6 +554,7 @@ public sealed class EventWorkflowTests
         InMemoryTasteBudzStore Store,
         AuthService AuthService,
         EventService EventService,
+        EventInviteService EventInviteService,
         EventParticipationService EventParticipationService,
         IEventRepository EventRepository,
         RestrictionService RestrictionService);

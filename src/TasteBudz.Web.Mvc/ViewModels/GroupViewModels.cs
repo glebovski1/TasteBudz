@@ -4,6 +4,7 @@ using System.Linq;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
 
@@ -15,19 +16,25 @@ namespace TasteBudz.Web.Mvc.ViewModels;
 public sealed class GroupIndexViewModel
 {
     public IReadOnlyList<GroupSummaryItem> Groups { get; init; } = [];
+    public IReadOnlyList<MyGroupSummaryItem> MyGroups { get; init; } = [];
     public string? SearchQuery { get; init; }
     public int TotalCount { get; init; }
     public int TotalMembers => Groups.Sum(group => group.ActiveMembers);
     public int LargestGroupSize => Groups.Count == 0 ? 0 : Groups.Max(group => group.ActiveMembers);
+    public int PrivateMyGroupCount => MyGroups.Count(group => !group.IsPublic);
 
     public static GroupIndexViewModel Empty => new();
 
     public static GroupIndexViewModel FromDto(
         IEnumerable<GroupSummaryDto> groups,
         int totalCount,
-        string? searchQuery = null) => new()
+        string? searchQuery = null,
+        IEnumerable<DashboardGroupSummaryDto>? myGroups = null) => new()
         {
             Groups = groups.Select(GroupSummaryItem.FromDto).ToList(),
+            MyGroups = (myGroups ?? Array.Empty<DashboardGroupSummaryDto>())
+                .Select(MyGroupSummaryItem.FromDto)
+                .ToList(),
             TotalCount = totalCount,
             SearchQuery = searchQuery,
         };
@@ -66,8 +73,34 @@ public sealed class GroupSummaryItem
 // ── Create ───────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Form model for creating a new group.
+/// Card model for the signed-in user's active groups.
 /// </summary>
+public sealed class MyGroupSummaryItem
+{
+    public Guid GroupId { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public GroupVisibility Visibility { get; init; }
+    public int ActiveMembers { get; init; }
+    public bool IsPublic => Visibility == GroupVisibility.Public;
+    public string Initial => GroupCardFormatting.GetInitial(Name);
+    public string VisibilityLabel => IsPublic ? "Public" : "Private";
+    public string AccessLabel => IsPublic ? "Open group" : "Invite-only group";
+    public string MemberLabel => $"{ActiveMembers} {(ActiveMembers == 1 ? "member" : "members")}";
+    public string DescriptionPreview => string.IsNullOrWhiteSpace(Description)
+        ? "No description yet."
+        : GroupCardFormatting.Truncate(Description, 120);
+
+    public static MyGroupSummaryItem FromDto(DashboardGroupSummaryDto dto) => new()
+    {
+        GroupId = dto.GroupId,
+        Name = dto.Name,
+        Description = dto.Description,
+        Visibility = dto.Visibility,
+        ActiveMembers = dto.ActiveMemberCount,
+    };
+}
+
 public sealed class GroupCreateViewModel
 {
     [Required(ErrorMessage = "Group name is required.")]
@@ -273,6 +306,10 @@ public sealed class GroupEventHistoryItem
     public string EventDateLabel => EventStartAtUtc.ToLocalTime().ToString("ddd, MMM d", CultureInfo.InvariantCulture);
     public string EventTimeLabel => EventStartAtUtc.ToLocalTime().ToString("h:mm tt", CultureInfo.InvariantCulture);
     public string ParticipationLabel => $"{ActiveParticipants} / {Capacity} joined";
+    public string EventAccessLabel => string.Equals(EventType, nameof(TasteBudz.Backend.Domain.EventType.Closed), StringComparison.OrdinalIgnoreCase)
+        ? "Closed (private)"
+        : "Open (public)";
+    public string EventStatusLabel => $"Status: {Status}";
     public string? AverageRatingLabel => AverageRating.HasValue
         ? $"{AverageRating.Value.ToString("0.0", CultureInfo.InvariantCulture)} / 5 average"
         : null;

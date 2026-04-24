@@ -5,6 +5,7 @@ using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -173,7 +174,7 @@ public sealed class EventController : Controller
                     return RedirectToAction(nameof(GroupController.Manage), "Group", new { groupId = groupId.Value });
                 }
 
-                model = model with { GroupName = group.Name };
+                model = ApplyGroupEventPolicy(model, group);
             }
             catch (BackendAuthenticationExpiredException)
             {
@@ -195,6 +196,32 @@ public sealed class EventController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateEvent(EventCreateViewModel model, CancellationToken cancellationToken)
     {
+        if (model.GroupId.HasValue)
+        {
+            try
+            {
+                var group = await groupApiService.GetAsync(model.GroupId.Value, cancellationToken);
+
+                if (group.OwnerUserId != GetCurrentUserId())
+                {
+                    TempData["StatusMessage"] = "Only the group owner can create a group event.";
+                    return RedirectToAction(nameof(GroupController.Manage), "Group", new { groupId = model.GroupId.Value });
+                }
+
+                model = ApplyGroupEventPolicy(model, group);
+                ModelState.Remove(nameof(EventCreateViewModel.EventType));
+            }
+            catch (BackendAuthenticationExpiredException)
+            {
+                return await RedirectToLoginAsync(cancellationToken);
+            }
+            catch
+            {
+                TempData["StatusMessage"] = "That group could not be found.";
+                return RedirectToAction(nameof(GroupController.Index), "Group");
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             model = await BuildCreateViewModelAsync(model, cancellationToken);
@@ -235,13 +262,12 @@ public sealed class EventController : Controller
             var reservableSlots = detail.HostUserId == currentUserId
                 ? await TryGetReservableSlotsAsync(detail, selectedRestaurant, cancellationToken)
                 : [];
-            var isHostOfClosedEvent = detail.HostUserId == currentUserId &&
-                                      detail.EventType == EventType.Closed &&
+            var isHostOfActiveEvent = detail.HostUserId == currentUserId &&
                                       detail.Status is not EventStatus.Cancelled and not EventStatus.Completed;
             IReadOnlyList<BudConnectionDto> budz = [];
             IReadOnlyList<InvitableGroup> invitableGroups = [];
 
-            if (isHostOfClosedEvent)
+            if (isHostOfActiveEvent)
             {
                 try
                 {
@@ -311,7 +337,13 @@ public sealed class EventController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Invite(Guid eventId, List<string> usernames, CancellationToken cancellationToken)
     {
-        if (usernames is null || usernames.Count == 0)
+        var selectedUsernames = usernames?
+            .Where(username => !string.IsNullOrWhiteSpace(username))
+            .Select(username => username.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+        if (selectedUsernames.Count == 0)
         {
             TempData["StatusMessage"] = "Please select at least one person to invite.";
             return RedirectToAction(nameof(EventDetails), new { eventId });
@@ -321,10 +353,10 @@ public sealed class EventController : Controller
         {
             await eventApiService.InviteAsync(
                 eventId,
-                new InviteUsersRequest { Usernames = usernames },
+                new InviteUsersRequest { Usernames = selectedUsernames },
                 cancellationToken);
 
-            TempData["StatusMessage"] = $"{usernames.Count} invitation(s) sent.";
+            TempData["StatusMessage"] = $"{selectedUsernames.Count} invitation(s) sent.";
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -630,18 +662,33 @@ public sealed class EventController : Controller
         CancellationToken cancellationToken)
     {
         var groupName = model.GroupName;
+        var groupVisibility = model.GroupVisibility;
 
-        if (model.GroupId.HasValue && string.IsNullOrWhiteSpace(groupName))
+        if (model.GroupId.HasValue && (string.IsNullOrWhiteSpace(groupName) || !groupVisibility.HasValue))
         {
             try
             {
                 var group = await groupApiService.GetAsync(model.GroupId.Value, cancellationToken);
                 groupName = group.Name;
+                groupVisibility = group.Visibility;
             }
             catch
             {
                 groupName = null;
+                groupVisibility = null;
             }
+        }
+
+        if (model.GroupId.HasValue && groupVisibility.HasValue)
+        {
+            model = model with
+            {
+                GroupName = groupName,
+                GroupVisibility = groupVisibility,
+                EventType = groupVisibility == GroupVisibility.Private
+                    ? EventType.Closed
+                    : EventType.Open,
+            };
         }
 
         try
@@ -651,6 +698,7 @@ public sealed class EventController : Controller
             return model with
             {
                 GroupName = groupName,
+                GroupVisibility = groupVisibility,
                 Restaurants = restaurants
                     .Select(RestaurantPickerItem.FromDto)
                     .ToList(),
@@ -658,8 +706,22 @@ public sealed class EventController : Controller
         }
         catch
         {
-            return model with { GroupName = groupName, Restaurants = [] };
+            return model with { GroupName = groupName, GroupVisibility = groupVisibility, Restaurants = [] };
         }
+    }
+
+    private static EventCreateViewModel ApplyGroupEventPolicy(EventCreateViewModel model, GroupDetailDto group)
+    {
+        var forcedType = group.Visibility == GroupVisibility.Private
+            ? EventType.Closed
+            : EventType.Open;
+
+        return model with
+        {
+            GroupName = group.Name,
+            GroupVisibility = group.Visibility,
+            EventType = forcedType,
+        };
     }
 
     private static List<EventSummaryDto> FilterVisibleEvents(ListResponse<EventSummaryDto> result)

@@ -72,7 +72,14 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountControlle
             Directory.Exists(directory) &&
             !Directory.EnumerateFileSystemEntries(directory).Any())
         {
-            Directory.Delete(directory);
+            try
+            {
+                Directory.Delete(directory);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Parallel test cleanup can remove the shared temp folder first.
+            }
         }
     }
 

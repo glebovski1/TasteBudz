@@ -1,8 +1,10 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
@@ -10,6 +12,80 @@ namespace TasteBudz.Web.Mvc.IntegrationTests.Api;
 
 public sealed class GroupMvcTests
 {
+    [Fact]
+    public async Task Notifications_GroupInvite_RendersAcceptAndDeclineActions()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var inviteId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/notifications",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new NotificationDto(
+                        Guid.NewGuid(),
+                        NotificationType.GroupInviteReceived,
+                        "GroupInvite",
+                        inviteId,
+                        "Casey invited you to Quiet Table.",
+                        DateTimeOffset.UtcNow,
+                        null),
+                }));
+
+        using var response = await client.GetAsync("/Notifications/Index");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains($"/Notifications/RespondGroupInvite?inviteId={inviteId}", html);
+        Assert.Contains("Accept", html);
+        Assert.Contains("Decline", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task RespondGroupInvite_PostsInviteStatusAndRedirectsToGroupWhenAccepted()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var inviteId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/notifications",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<NotificationDto>()));
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Notifications/Index");
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Patch,
+            $"/api/v1/groups/invites/{inviteId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new GroupInviteDto(inviteId, groupId, userId, "alex", GroupInviteStatus.Accepted, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)));
+
+        using var response = await client.PostAsync(
+            $"/Notifications/RespondGroupInvite?inviteId={inviteId}",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Status"] = "Accepted",
+            }));
+
+        var body = factory.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/groups/invites/{inviteId}").Body;
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains($"/Group/Manage?groupId={groupId}", response.Headers.Location?.ToString());
+        Assert.Contains("\"status\":\"Accepted\"", body);
+        factory.BackendHandler.AssertDrained();
+    }
+
     [Fact]
     public async Task Manage_ForOwner_RendersGroupEventCreationAndFeedbackHistory()
     {
@@ -132,6 +208,7 @@ public sealed class GroupMvcTests
 
         EnqueueGroupEventCreatePage(factory, groupId, session.CurrentUser.UserId);
         var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, $"/Event/CreateEvent?groupId={groupId}");
+        EnqueueGroupDetail(factory, groupId, session.CurrentUser.UserId, GroupVisibility.Public);
         factory.BackendHandler.Enqueue(
             HttpMethod.Post,
             "/api/v1/events",
@@ -171,32 +248,82 @@ public sealed class GroupMvcTests
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains($"/Event/EventDetails?eventId={eventId}", response.Headers.Location?.ToString());
         Assert.Contains($"\"groupId\":\"{groupId}", body);
+        Assert.Contains("\"eventType\":\"Open\"", body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task CreateGroupEvent_ForPrivateGroup_ForcesClosedEventType()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var groupId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        EnqueueGroupEventCreatePage(factory, groupId, session.CurrentUser.UserId, GroupVisibility.Private);
+        using var pageResponse = await client.GetAsync($"/Event/CreateEvent?groupId={groupId}");
+        var html = await pageResponse.Content.ReadAsStringAsync();
+        var tokenMatch = Regex.Match(html, "name=\"__RequestVerificationToken\".*?value=\"(?<token>[^\"]+)\"", RegexOptions.Singleline);
+        var token = WebUtility.HtmlDecode(tokenMatch.Groups["token"].Value);
+
+        Assert.Equal(HttpStatusCode.OK, pageResponse.StatusCode);
+        Assert.True(tokenMatch.Success);
+        Assert.Contains("Private group events are closed and invite-only.", html);
+        Assert.Contains("Closed - invite only", html);
+
+        EnqueueGroupDetail(factory, groupId, session.CurrentUser.UserId, GroupVisibility.Private);
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/events",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Private group ramen",
+                    EventType.Closed,
+                    EventStatus.Open,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                    6,
+                    2,
+                    1,
+                    session.CurrentUser.UserId,
+                    null,
+                    "Ramen",
+                    groupId,
+                    null)));
+
+        using var response = await client.PostAsync(
+            "/Event/CreateEvent",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["GroupId"] = groupId.ToString(),
+                ["Title"] = "Private group ramen",
+                ["EventType"] = "Open",
+                ["EventStartAt"] = "2026-05-01T19:00",
+                ["Capacity"] = "6",
+                ["CuisineTarget"] = "Ramen",
+            }));
+
+        var body = factory.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/events").Body;
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("\"eventType\":\"Closed\"", body);
+        Assert.Contains($"\"groupId\":\"{groupId}", body);
         factory.BackendHandler.AssertDrained();
     }
 
     private static void EnqueueGroupEventCreatePage(
         TasteBudzMvcFactory factory,
         Guid groupId,
-        Guid ownerUserId)
+        Guid ownerUserId,
+        GroupVisibility visibility = GroupVisibility.Public)
     {
-        factory.BackendHandler.Enqueue(
-            HttpMethod.Get,
-            $"/api/v1/groups/{groupId}",
-            (_, _) => StubBackendApiHandler.Json(
-                HttpStatusCode.OK,
-                new GroupDetailDto(
-                    groupId,
-                    ownerUserId,
-                    "Cincy Foodies",
-                    "Dinner club",
-                    GroupVisibility.Public,
-                    GroupWallpaperTheme.Default,
-                    GroupLifecycleState.Active,
-                    true,
-                    new[]
-                    {
-                        new GroupMemberDto(ownerUserId, "alex", "Alex Carter", null, null, null, null, Array.Empty<string>(), Array.Empty<string>(), GroupMemberState.Active, DateTimeOffset.UtcNow),
-                    })));
+        EnqueueGroupDetail(factory, groupId, ownerUserId, visibility);
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/restaurants?page=1&pageSize=2000",
@@ -208,5 +335,31 @@ public sealed class GroupMvcTests
                         new RestaurantDto(Guid.NewGuid(), "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, 1.2),
                     },
                     1)));
+    }
+
+    private static void EnqueueGroupDetail(
+        TasteBudzMvcFactory factory,
+        Guid groupId,
+        Guid ownerUserId,
+        GroupVisibility visibility)
+    {
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/groups/{groupId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new GroupDetailDto(
+                    groupId,
+                    ownerUserId,
+                    "Cincy Foodies",
+                    "Dinner club",
+                    visibility,
+                    GroupWallpaperTheme.Default,
+                    GroupLifecycleState.Active,
+                    true,
+                    new[]
+                    {
+                        new GroupMemberDto(ownerUserId, "alex", "Alex Carter", null, null, null, null, Array.Empty<string>(), Array.Empty<string>(), GroupMemberState.Active, DateTimeOffset.UtcNow),
+                    })));
     }
 }

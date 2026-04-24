@@ -132,7 +132,7 @@ The following areas are the highest priority for backend testing.
 - host auto-joins and counts toward capacity
 - capacity remains within the allowed range and active participants never exceed it
 - open events allow instant join when seats are available
-- closed-event invites do not reserve seats
+- event invites do not reserve seats
 - `DecisionAt` locks participant changes except approved override paths
 - lifecycle transitions remain server-controlled
 - completed-event feedback is accepted only from joined participants
@@ -155,6 +155,7 @@ The following areas are the highest priority for backend testing.
 
 - group owner remains canonical and active
 - only the current group owner can associate an event with that group's `GroupId`
+- group-linked event tests should prove public groups only link Open events and private groups only link Closed events
 - only active group members can access group chat
 - only joined event participants can access event chat
 - only the supported user and admins can access support chat
@@ -279,13 +280,13 @@ These scenarios should anchor early backend testing work.
 | BT-02 | User updates profile, preferences, and privacy settings | High | Current-user boundaries and persistence flow behave correctly |
 | BT-03 | Host creates an open event and is auto-counted as joined | High | Host participant and capacity math are correct |
 | BT-04 | Two users race for the final seat in an event | Critical | Only one succeeds and stored state remains valid |
-| BT-05 | Closed invite is accepted after the event fills | Critical | Accept fails because invites do not reserve seats |
+| BT-05 | Event invite is accepted after the event fills | Critical | Accept fails because invites do not reserve seats |
 | BT-06 | `DecisionAt` passes and participant changes are blocked | Critical | Server enforces lifecycle timing rules |
 | BT-07 | Removed participant immediately loses event-chat access | High | Chat authorization reflects current participation |
 | BT-08 | Private group invite is accepted and membership is created | High | Private-group membership rules are enforced |
 | BT-09 | Reciprocal Like creates one Bud connection | Medium | Matching logic respects the accepted MVP rule |
 | BT-10 | Moderator applies a scoped restriction that blocks a forbidden action | High | Restriction enforcement is active and auditable |
-| BT-11 | Non-owner cannot link an event to group context | High | Group-linked events stay owner-managed |
+| BT-11 | Non-owner cannot link an event to group context, and group-linked event type must match group visibility | High | Group-linked events stay owner-managed and visibility-consistent |
 | BT-12 | Discovery search excludes a user with an active `DiscoveryVisibility` restriction | High | Discovery filtering respects moderation scope |
 | BT-13 | Profile avatar upload replaces the previous avatar and serves stored bytes | High | Media storage and profile contracts stay aligned |
 | BT-14 | Report evidence attachment is hidden from unrelated users but visible to moderators | High | Media authorization respects moderation context |

@@ -45,6 +45,29 @@ public sealed class DiscoveryServiceTests
     }
 
     [Fact]
+    public async Task SearchAsync_IncludesPublicFoodPreferenceMetadata()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var caller = await RegisterAsync(services.AuthService, "caller", "caller@example.com");
+        var visible = await RegisterAsync(services.AuthService, "visible", "visible@example.com");
+
+        await services.ProfileRepository.SavePreferencesAsync(new UserPreferences(
+            visible.CurrentUser.UserId,
+            new[] { "Indian", "Pizza" },
+            SpiceTolerance.Medium,
+            new[] { "Vegetarian" },
+            new[] { "Peanuts" },
+            clock.UtcNow));
+
+        var result = await services.DiscoveryService.SearchAsync(caller.CurrentUser.UserId, new SearchPeopleQuery { PageSize = 10 });
+        var item = Assert.Single(result.Items);
+
+        Assert.Equal(new[] { "Indian", "Pizza" }, item.CuisineTags);
+        Assert.Equal(new[] { "Vegetarian" }, item.DietaryFlags);
+    }
+
+    [Fact]
     public async Task RecordSwipeAsync_ReciprocalLikeCreatesBudAndNotifications()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));

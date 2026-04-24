@@ -325,8 +325,8 @@
                 <h2>Host Controls</h2>
                 <p class="muted-note">You are hosting this event.</p>
 
-                @* ── Invite panel — closed events only ── *@
-                @if (Model.EventType == "Closed" && isActive)
+                @* ── Invite panel ── *@
+                @if (isActive)
                 {
                     <details class="invite-details">
                         <summary class="button button--secondary" style="display:inline-block; cursor:pointer;">
@@ -336,9 +336,19 @@
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="eventId" value="@Model.EventId" />
 
+                            <div class="field invite-username-field">
+                                <label for="DirectInviteUsername">Invite by username</label>
+                                <input type="text"
+                                       id="DirectInviteUsername"
+                                       name="usernames"
+                                       placeholder="e.g. emery"
+                                       autocomplete="off" />
+                                <p class="muted-note">Use an exact username, or pick from Budz and group members below.</p>
+                            </div>
+
                             @if (!Model.Budz.Any() && !Model.InvitableGroups.Any())
                             {
-                                <p class="muted-note">You don't have any Budz or group members to invite yet.</p>
+                                <p class="muted-note">No Budz or group member suggestions yet. You can still invite someone by exact username.</p>
                             }
                             else
                             {
@@ -408,14 +418,14 @@
                                         </div>
                                     </div>
                                 }
-
-                                <div class="button-row">
-                                    <button type="submit" class="button button--primary">
-                                        Send Invites
-                                    </button>
-                                    <span id="inviteCount" class="muted-note"></span>
-                                </div>
                             }
+
+                            <div class="button-row">
+                                <button type="submit" class="button button--primary">
+                                    Send Invites
+                                </button>
+                                <span id="inviteCount" class="muted-note"></span>
+                            </div>
                         </form>
                     </details>
                 }
@@ -518,7 +528,7 @@
         }
 
         @* ── Join panel — open-type events only ── *@
-        @if (!Model.IsHost && !Model.IsParticipant && Model.Status == "Open" && Model.EventType == "Open")
+        @if (!Model.IsHost && !Model.IsParticipant && !Model.IsInvited && Model.Status == "Open" && Model.EventType == "Open")
         {
             <section class="panel stack">
                 <h2>Join this Event</h2>
@@ -547,12 +557,15 @@
 
         // Live count of selected invitees
         function updateInviteCount() {
-            const count = document.querySelectorAll('#inviteForm input[type="checkbox"]:checked').length;
+            const checkboxCount = document.querySelectorAll('#inviteForm input[type="checkbox"]:checked').length;
+            const directInvite = document.getElementById('DirectInviteUsername')?.value.trim() ? 1 : 0;
+            const count = checkboxCount + directInvite;
             const el = document.getElementById('inviteCount');
             if (el) el.textContent = count > 0 ? `${count} person${count === 1 ? '' : 's'} selected` : '';
         }
 
         document.querySelectorAll('#inviteForm input[type="checkbox"]')
             .forEach(cb => cb.addEventListener('change', updateInviteCount));
+        document.getElementById('DirectInviteUsername')?.addEventListener('input', updateInviteCount);
     </script>
 }

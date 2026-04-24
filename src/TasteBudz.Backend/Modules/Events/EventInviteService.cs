@@ -1,4 +1,4 @@
-// Invite workflows for closed events.
+// Invite workflows for event hosts.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
@@ -12,7 +12,7 @@ using TasteBudz.Backend.Modules.Profiles;
 namespace TasteBudz.Backend.Modules.Events;
 
 /// <summary>
-/// Resolves invitees, enforces invite policy, and creates closed-event invite records.
+/// Resolves invitees, enforces invite policy, and creates event invite records.
 /// </summary>
 public sealed class EventInviteService(
     IEventRepository eventRepository,
@@ -134,11 +134,6 @@ public sealed class EventInviteService(
         if (eventRecord.HostUserId != currentUser.UserId)
         {
             throw ApiException.Forbidden("Only the event host can invite users.");
-        }
-
-        if (eventRecord.EventType != EventType.Closed)
-        {
-            throw ApiException.Conflict("Only closed events accept invites.");
         }
 
         if (eventRecord.Status is EventStatus.Cancelled or EventStatus.Completed)

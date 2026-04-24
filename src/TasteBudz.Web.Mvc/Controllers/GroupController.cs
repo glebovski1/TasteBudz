@@ -4,6 +4,7 @@ using System.Net;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
 
@@ -18,15 +19,18 @@ public sealed class GroupController : Controller
 {
     private readonly GroupApiService groupApiService;
     private readonly EventApiService eventApiService;
+    private readonly ProfileApiService profileApiService;
     private readonly UserSessionService userSessionService;
 
     public GroupController(
         GroupApiService groupApiService,
         EventApiService eventApiService,
+        ProfileApiService profileApiService,
         UserSessionService userSessionService)
     {
         this.groupApiService = groupApiService;
         this.eventApiService = eventApiService;
+        this.profileApiService = profileApiService;
         this.userSessionService = userSessionService;
     }
 
@@ -35,13 +39,24 @@ public sealed class GroupController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(string? q, CancellationToken cancellationToken)
     {
+        IReadOnlyCollection<DashboardGroupSummaryDto> myGroups;
+
+        try
+        {
+            myGroups = await TryListMyGroupsAsync(cancellationToken);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+
         try
         {
             var result = await groupApiService.BrowseAsync(
                 new BrowseGroupsQuery { Q = q, PageSize = 20 },
                 cancellationToken);
 
-            return View(GroupIndexViewModel.FromDto(result.Items, result.TotalCount, q));
+            return View(GroupIndexViewModel.FromDto(result.Items, result.TotalCount, q, myGroups));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -49,7 +64,7 @@ public sealed class GroupController : Controller
         }
         catch
         {
-            return View(GroupIndexViewModel.Empty);
+            return View(GroupIndexViewModel.FromDto(Array.Empty<GroupSummaryDto>(), 0, q, myGroups));
         }
     }
 
@@ -279,6 +294,22 @@ public sealed class GroupController : Controller
     {
         var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+    }
+
+    private async Task<IReadOnlyCollection<DashboardGroupSummaryDto>> TryListMyGroupsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await profileApiService.ListMyGroupsAsync(cancellationToken);
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            return [];
+        }
     }
 
     private async Task<IReadOnlyCollection<EventSummaryDto>> TryListGroupEventsAsync(

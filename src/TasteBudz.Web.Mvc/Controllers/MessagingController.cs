@@ -12,17 +12,20 @@ namespace TasteBudz.Web.Mvc.Controllers;
 public sealed class MessagingController : Controller
 {
     private readonly MessagingApiService messagingApiService;
+    private readonly GroupApiService groupApiService;
     private readonly ProfileApiService profileApiService;
     private readonly UserSessionService userSessionService;
     private readonly IBackendApiBaseAddressProvider backendApiBaseAddressProvider;
 
     public MessagingController(
         MessagingApiService messagingApiService,
+        GroupApiService groupApiService,
         ProfileApiService profileApiService,
         UserSessionService userSessionService,
         IBackendApiBaseAddressProvider backendApiBaseAddressProvider)
     {
         this.messagingApiService = messagingApiService;
+        this.groupApiService = groupApiService;
         this.profileApiService = profileApiService;
         this.userSessionService = userSessionService;
         this.backendApiBaseAddressProvider = backendApiBaseAddressProvider;
@@ -75,8 +78,9 @@ public sealed class MessagingController : Controller
     {
         try
         {
+            var group = await groupApiService.GetAsync(groupId, cancellationToken);
             var history = await messagingApiService.ListGroupMessagesAsync(groupId, cancellationToken: cancellationToken);
-            return View("Chat", ChatViewModel.ForGroup(groupId, history.Items, BuildHubUrl(), GetAccessToken()));
+            return View("Chat", ChatViewModel.ForGroup(groupId, history.Items, BuildHubUrl(), GetAccessToken(), group.Name, group.Members.Count));
         }
         catch (BackendAuthenticationExpiredException)
         {

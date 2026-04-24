@@ -12,6 +12,9 @@ obj/
 *.DS_Store
 artifacts/coverage/
 artifacts/publish/
+.codex-temp/
+.playwright-mcp/
+tastebudz-*.png
 .superpowers/
 tests/**/TestResults/
 src/TasteBudz.Web.Mvc/appsettings.Production.json

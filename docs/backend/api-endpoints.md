@@ -119,7 +119,7 @@ Password reset request submission returns a generic accepted response and does n
 | Get My Dashboard | GET | `/api/v1/me/dashboard` | Return profile/dashboard summary | Yes |
 | List My Events | GET | `/api/v1/me/events` | Return hosted/joined events | Yes |
 | List My Groups | GET | `/api/v1/me/groups` | Return active groups | Yes |
-| List My Event Invites | GET | `/api/v1/me/event-invites` | Return pending closed-event invites | Yes |
+| List My Event Invites | GET | `/api/v1/me/event-invites` | Return pending event invites | Yes |
 | Request Account Deletion | POST | `/api/v1/account/deletion` | Soft-delete the current account | Yes |
 | Get My Preferences | GET | `/api/v1/preferences/me` | Return current food preferences | Yes |
 | Replace My Preferences | PUT | `/api/v1/preferences/me` | Replace food preferences | Yes |
@@ -229,7 +229,7 @@ Contract notes:
 | Join Event | POST | `/api/v1/events/{eventId}/participants` | Join an open event | Yes |
 | Update My Participation | PATCH | `/api/v1/events/{eventId}/participants/me` | Leave / accept / decline | Yes |
 | Remove Participant | POST | `/api/v1/events/{eventId}/participants/{userId}/removal` | Host or moderator removes participant | Yes |
-| Invite Users to Closed Event | POST | `/api/v1/events/{eventId}/invites` | Invite users by username | Yes |
+| Invite Users to Event | POST | `/api/v1/events/{eventId}/invites` | Host invites users by username | Yes |
 | Cancel Event | POST | `/api/v1/events/{eventId}/cancellation` | Cancel event | Yes |
 | List Event Feedback | GET | `/api/v1/events/{eventId}/feedback` | List feedback for an event when visible to the caller | Yes |
 | Upsert My Event Feedback | PUT | `/api/v1/events/{eventId}/feedback/me` | Create or update the current user's feedback for a completed event | Yes |
@@ -250,6 +250,14 @@ Representative create/update request shapes:
   "inviteUsernames": []
 }
 ```
+
+Create/update contract notes:
+
+- `groupId` is optional. When present, only the current group owner may link the event to that group.
+- Group-linked event type must match group visibility: public groups use `Open`, private groups use `Closed`.
+- Standalone events with `groupId = null` may choose either `Open` or `Closed`.
+- Optional `inviteUsernames` can seed invites during create for either event type.
+- Event invites can be submitted by exact username through `/api/v1/events/{eventId}/invites` for active Open or Closed events hosted by the caller.
 
 ```json
 {
@@ -321,8 +329,8 @@ Event contract rules:
 - Host is auto-created as a `JOINED` participant and counts toward capacity.
 - Exactly one of `selectedRestaurantId` or `cuisineTarget` must be set.
 - Clients cannot set `status` directly.
-- Open-event joins and closed-event accepts must be atomic/concurrency-safe.
-- Closed-event invites do not reserve seats.
+- Open-event joins and invite accepts must be atomic/concurrency-safe.
+- Event invites do not reserve seats.
 - `DecisionAt` locks participant state changes except support/moderator override.
 - Material event edits should trigger notifications to affected participants.
 - Event feedback can be created or updated only after the event is `Completed`.
@@ -417,6 +425,7 @@ Group contract rules:
 - Private groups require invitation in MVP.
 - Private-group invites are owner-initiated in MVP.
 - Only the current group owner may create or update an event with that group's `GroupId`.
+- Group-linked event type must match group visibility: public groups use Open events, and private groups use Closed events.
 - `GroupId` on an event is context only and does not replace event participation rules.
 - Group owner is auto-created as an active member.
 
@@ -441,6 +450,7 @@ Representative request shape:
 Contract notes:
 
 - Search respects privacy settings, blocks, and moderation restrictions such as `DiscoveryVisibility`.
+- Discovery preview DTOs may expose public profile bio/social goal plus cuisine and dietary preference tags; allergies and availability remain private.
 - One effective directional swipe decision exists per actor/subject pair.
 - People search hides an actor's one-sided outbound Like/Pass target until that subject records a reciprocal swipe decision about the actor.
 - Reciprocal effective Like decisions create Budz.
@@ -526,7 +536,7 @@ MVP notification contract:
 | `EventParticipantChanged` | Participant joins or leaves an event | event host and affected participant | `eventId`, `participantUserId`, `changeType` |
 | `EventStatusChanged` | Event transitions to `CONFIRMED` or `CANCELLED` | active event participants | `eventId`, `status`, `decisionAt` |
 | `EventUpdated` | Host makes a material event edit | active event participants | `eventId`, `changedFields` |
-| `GroupInviteReceived` | User is invited to a private group | invited user | `groupId`, `groupName`, `inviterUserId` |
+| `GroupInviteReceived` | User is invited to a private group | invited user | `inviteId` as `ContextId`, `groupName`, `inviterUserId` |
 | `BudMatchCreated` | Reciprocal Like creates a Bud connection | both Bud users | `otherUserId`, `connectionId` |
 
 ### 3.10 Moderation and Audit

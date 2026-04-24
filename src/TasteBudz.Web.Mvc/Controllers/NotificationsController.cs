@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
@@ -10,13 +12,16 @@ namespace TasteBudz.Web.Mvc.Controllers;
 public sealed class NotificationsController : Controller
 {
     private readonly NotificationApiService notificationApiService;
+    private readonly GroupApiService groupApiService;
     private readonly UserSessionService userSessionService;
 
     public NotificationsController(
         NotificationApiService notificationApiService,
+        GroupApiService groupApiService,
         UserSessionService userSessionService)
     {
         this.notificationApiService = notificationApiService;
+        this.groupApiService = groupApiService;
         this.userSessionService = userSessionService;
     }
 
@@ -36,6 +41,42 @@ public sealed class NotificationsController : Controller
         catch
         {
             return View(NotificationsViewModel.Empty);
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RespondGroupInvite(Guid inviteId, GroupInviteStatus? status, CancellationToken cancellationToken)
+    {
+        if (status is not GroupInviteStatus.Accepted and not GroupInviteStatus.Declined)
+        {
+            TempData["StatusMessage"] = "Choose Accept or Decline for the group invite.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            var invite = await groupApiService.RespondToInviteAsync(
+                inviteId,
+                new RespondToGroupInviteRequest { Status = status },
+                cancellationToken);
+
+            TempData["StatusMessage"] = status == GroupInviteStatus.Accepted
+                ? "Group invite accepted."
+                : "Group invite declined.";
+
+            return status == GroupInviteStatus.Accepted
+                ? RedirectToAction(nameof(GroupController.Manage), "Group", new { groupId = invite.GroupId })
+                : RedirectToAction(nameof(Index));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Could not update group invite: {ex.Message}";
+            return RedirectToAction(nameof(Index));
         }
     }
 

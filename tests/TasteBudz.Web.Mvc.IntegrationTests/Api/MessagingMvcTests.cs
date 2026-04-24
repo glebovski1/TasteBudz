@@ -1,5 +1,7 @@
 using System.Net;
+using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Contracts;
+using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Messaging;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
@@ -69,6 +71,56 @@ public sealed class MessagingMvcTests
         Assert.Contains(directChatId.ToString(), html, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("const HUB_URL = \"https://backend.test/hubs/chat\";", html);
         Assert.Contains("const ACCESS_TOKEN = \"access-token\";", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task GroupChat_RendersGroupContextAndBackLink()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var groupId = Guid.NewGuid();
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/groups/{groupId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new GroupDetailDto(
+                    groupId,
+                    session.CurrentUser.UserId,
+                    "Clifton Supper Club",
+                    "Public dinner planning",
+                    GroupVisibility.Public,
+                    GroupWallpaperTheme.Default,
+                    GroupLifecycleState.Active,
+                    true,
+                    new[]
+                    {
+                        new GroupMemberDto(session.CurrentUser.UserId, "alex", "Alex Carter", null, null, null, null, Array.Empty<string>(), Array.Empty<string>(), GroupMemberState.Active, DateTimeOffset.UtcNow),
+                    })));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/groups/{groupId}/messages?pageSize=20",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CursorPageResponse<ChatMessageDto>(
+                    new[]
+                    {
+                        new ChatMessageDto(Guid.NewGuid(), session.CurrentUser.UserId, "alex", "Alex Carter", "Hello group", DateTimeOffset.UtcNow),
+                    },
+                    null)));
+
+        using var response = await client.GetAsync($"/Messaging/GroupChat?groupId={groupId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Clifton Supper Club", html);
+        Assert.Contains("1 active member", html);
+        Assert.Contains($"/Group/Manage?groupId={groupId}", html);
+        Assert.Contains("Back to Group", html);
+        Assert.Contains("const SCOPE_TYPE = 1;", html);
         factory.BackendHandler.AssertDrained();
     }
 

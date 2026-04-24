@@ -258,7 +258,7 @@ Inviting a user to an event does not reserve a seat. Capacity is consumed only w
 
 ### Consequences
 - Accept/join operations must be transactional.
-- Closed-event invite acceptance can fail if the event is already full.
+- Event invite acceptance can fail if the event is already full.
 
 ## [ADR-013] Leaving an Event Frees the Seat
 
@@ -628,3 +628,43 @@ Groups store a preset `GroupWallpaperTheme` selected by the current group owner.
 - The Groups module owns announcement persistence and owner authorization.
 - The Events module may write a group event announcement as part of event creation after group-link authorization succeeds.
 - Wallpaper customization is limited to enum-backed presets in MVP; uploaded group backgrounds can reuse media infrastructure in a later slice after moderation and lifecycle rules are defined.
+
+## [ADR-033] Group-Linked Event Type Follows Group Visibility
+
+- Date: 2026-04-24
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+
+Group-linked events use `GroupId` as owner-managed context, but allowing a private group to create a public event or a public group to create an invite-only group event makes group visibility expectations unclear.
+
+### Decision
+
+When an event is linked to a group, event type is derived from group visibility. Public groups may create only Open linked events. Private groups may create only Closed linked events. Standalone events with no `GroupId` still let the host choose Open or Closed.
+
+### Consequences
+
+- MVC should lock the event type selector for group event creation.
+- Backend event creation and update must reject group/event visibility mismatches.
+- Event invitation behavior remains owned by the event host; private group membership does not automatically create event participation.
+
+## [ADR-034] Event Hosts Can Invite Users to Open or Closed Events
+
+- Date: 2026-04-24
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+
+Open events are discoverable and directly joinable, but hosts still need a directed way to ask specific Budz or group members to attend. Restricting the invite workflow to Closed events makes public event coordination feel incomplete.
+
+### Decision
+
+Event invites are available to the current host for active Open and Closed events. Invites create or update `EventParticipant` records in `INVITED` state and notify invitees. Invites do not reserve seats; accepting an invite still runs the same capacity and `DecisionAt` checks as direct join/accept flows.
+
+### Consequences
+
+- MVC should show host invite controls for active Open and Closed events.
+- Backend invite policy is based on host ownership, active lifecycle state, blocking, capacity-on-acceptance, and `DecisionAt`, not on event type alone.
+- Open event browse and direct join remain unchanged.

@@ -315,6 +315,184 @@ public sealed class EventMvcTests
     }
 
     [Fact]
+    public async Task EventDetails_ForClosedHost_RendersDirectUsernameInvite()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Invite-only ramen",
+                    EventType.Closed,
+                    EventStatus.Open,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                    6,
+                    2,
+                    1,
+                    session.CurrentUser.UserId,
+                    null,
+                    "Ramen",
+                    null,
+                    null)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/participants",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventParticipantDto(session.CurrentUser.UserId, "alex", "Alex Carter", EventParticipantState.Joined, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/budz",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<BudConnectionDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/groups",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<DashboardGroupSummaryDto>()));
+
+        using var response = await client.GetAsync($"/Event/EventDetails?eventId={eventId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Invite by username", html);
+        Assert.Contains("id=\"DirectInviteUsername\"", html);
+        Assert.Contains("You can still invite someone by exact username.", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task EventDetails_ForPublicHost_RendersDirectUsernameInvite()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Open sushi night",
+                    EventType.Open,
+                    EventStatus.Open,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                    6,
+                    2,
+                    1,
+                    session.CurrentUser.UserId,
+                    null,
+                    "Sushi",
+                    null,
+                    null)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/participants",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventParticipantDto(session.CurrentUser.UserId, "alex", "Alex Carter", EventParticipantState.Joined, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/budz",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<BudConnectionDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/groups",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<DashboardGroupSummaryDto>()));
+
+        using var response = await client.GetAsync($"/Event/EventDetails?eventId={eventId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Invite by username", html);
+        Assert.Contains("id=\"DirectInviteUsername\"", html);
+        Assert.Contains("You can still invite someone by exact username.", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task EventDetails_ForPublicInvitee_RendersInviteActionWithoutDuplicateJoinPanel()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+
+        var session = await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Open invited dinner",
+                    EventType.Open,
+                    EventStatus.Open,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                    6,
+                    2,
+                    1,
+                    hostUserId,
+                    null,
+                    "Sushi",
+                    null,
+                    null)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/participants",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new EventParticipantDto(session.CurrentUser.UserId, "alex", "Alex Carter", EventParticipantState.Invited, DateTimeOffset.UtcNow, null, null),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/feedback",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+
+        using var response = await client.GetAsync($"/Event/EventDetails?eventId={eventId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Accept Invitation", html);
+        Assert.DoesNotContain("Join this Event", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task EventDetails_ForHostWithReservableSlots_RendersReservationAction()
     {
         using var factory = new TasteBudzMvcFactory();
@@ -369,6 +547,14 @@ public sealed class EventMvcTests
                 {
                     new RestaurantSlotDto(slotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 4, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), 2, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
                 }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/budz",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<BudConnectionDto>()));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/groups",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<DashboardGroupSummaryDto>()));
 
         using var response = await client.GetAsync($"/Event/EventDetails?eventId={eventId}");
         var html = await response.Content.ReadAsStringAsync();

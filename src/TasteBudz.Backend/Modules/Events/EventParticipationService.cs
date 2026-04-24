@@ -136,7 +136,7 @@ public sealed class EventParticipationService(
                     "You are currently restricted from joining events.",
                     cancellationToken);
 
-                if (eventRecord.EventType != EventType.Closed)
+                if (eventRecord.EventType == EventType.Open && participant.State != EventParticipantState.Invited)
                 {
                     throw ApiException.BadRequest("Use the join endpoint for open events.");
                 }
@@ -153,7 +153,7 @@ public sealed class EventParticipationService(
 
                 var participants = await eventRepository.ListParticipantsAsync(eventId, cancellationToken);
 
-                // Closed-event invite acceptance still checks capacity at acceptance time.
+                // Invite acceptance still checks capacity at acceptance time.
                 if (participants.Count(existing => existing.State == EventParticipantState.Joined) >= eventRecord.Capacity)
                 {
                     throw ApiException.Conflict("This event is already full.");
