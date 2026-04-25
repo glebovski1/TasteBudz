@@ -79,6 +79,24 @@ The probe:
 
 Treat `ready=false` as a release blocker.
 
+## Rollback Planning
+
+For a release that also publishes the app, prefer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\release-with-rollback.ps1 `
+  -ScriptPath .\src\TasteBudz.Database\sqlserver\patches\<forward>.sql `
+  -DatabaseRollbackScriptPath .\src\TasteBudz.Database\sqlserver\patches\rollback\<rollback>.sql `
+  -AllowClientIp
+```
+
+Rollback rules:
+
+- Additive, backward-compatible SQL can be marked forward-only, but the release report must say database rollback is not available.
+- Data migrations, column drops, table drops, type changes, and non-idempotent updates need an explicit rollback script or an approved database copy/restore plan.
+- Rollback scripts should be idempotent where practical and should write their own schema-version marker when they materially change schema or data state.
+- Do not run rollback scripts speculatively. They are for failed verification or explicitly approved recovery.
+
 ## Parameters
 
 Useful parameters:

@@ -31,6 +31,8 @@ public sealed class BrowseEventsQuery
 
     public Guid? GroupId { get; init; }
 
+    public bool? GroupLinked { get; init; }
+
     [Range(1, int.MaxValue)]
     public int Page { get; init; } = 1;
 

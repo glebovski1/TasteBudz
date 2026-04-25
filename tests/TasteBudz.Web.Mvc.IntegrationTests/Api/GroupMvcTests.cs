@@ -187,6 +187,7 @@ public sealed class GroupMvcTests
         Assert.Contains("Create Group Event", html);
         Assert.Contains($"/Event/CreateEvent?groupId={groupId}", html);
         Assert.Contains("Community Board", html);
+        Assert.Contains("group-announcement-form--vertical", html);
         Assert.Contains("Ramen plan", html);
         Assert.Contains("Linked Events", html);
         Assert.Contains("Completed noodles", html);

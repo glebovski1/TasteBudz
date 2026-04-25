@@ -220,7 +220,7 @@ Key responsibilities:
 - support moderator/admin participant removal as a safety/support override
 - maintain server-controlled event status
 - cancel events and automatically complete them after the scheduled time passes
-- browse/search open events
+- browse/search events visible to the caller, with Quick Search constrained to active open events that still have available seats
 
 Suggested services:
 

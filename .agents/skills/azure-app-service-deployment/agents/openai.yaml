@@ -1,4 +1,4 @@
 interface:
   display_name: "Azure App Service Deployment"
-  short_description: "Deploy/update TasteBudz on Azure App Service."
-  default_prompt: "Use $azure-app-service-deployment to deploy or update the TasteBudz single-host ASP.NET Core app on Azure App Service with Azure SQL, manual database scripts, and zip deployment."
+  short_description: "Deploy/update TasteBudz on Azure with verification and rollback."
+  default_prompt: "Use $azure-app-service-deployment to deploy or update the TasteBudz single-host ASP.NET Core app on Azure App Service with Azure SQL, manual database/data migration scripts, production verification, and rollback handling."

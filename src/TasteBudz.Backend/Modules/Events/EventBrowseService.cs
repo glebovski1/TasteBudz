@@ -1,4 +1,4 @@
-// Browse logic for open events, including search, availability, distance, and lifecycle filtering.
+// Browse logic for visible events, including search, availability, distance, and lifecycle filtering.
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
@@ -9,7 +9,7 @@ using TasteBudz.Backend.Modules.Restaurants;
 namespace TasteBudz.Backend.Modules.Events;
 
 /// <summary>
-/// Builds the open-event browse response from event, profile, and restaurant data.
+/// Builds the event browse response from event, profile, and restaurant data.
 /// </summary>
 public sealed class EventBrowseService(
     IEventRepository eventRepository,
@@ -54,12 +54,6 @@ public sealed class EventBrowseService(
 
         foreach (var eventRecord in synchronized)
         {
-            // The current MVP browse surface only exposes open events.
-            if (eventRecord.EventType != EventType.Open)
-            {
-                continue;
-            }
-
             if (!await EventVisibilityPolicy.CanViewAsync(
                     currentUserId,
                     isPrivileged: false,
@@ -70,7 +64,17 @@ public sealed class EventBrowseService(
                 continue;
             }
 
-            if (query.EventType.HasValue && query.EventType.Value != EventType.Open)
+            if (query.Recommended && eventRecord.EventType != EventType.Open)
+            {
+                continue;
+            }
+
+            if (query.EventType.HasValue && eventRecord.EventType != query.EventType.Value)
+            {
+                continue;
+            }
+
+            if (query.Recommended && eventRecord.Status != EventStatus.Open)
             {
                 continue;
             }
@@ -91,6 +95,11 @@ public sealed class EventBrowseService(
             }
 
             if (query.GroupId.HasValue && eventRecord.GroupId != query.GroupId.Value)
+            {
+                continue;
+            }
+
+            if (query.GroupLinked.HasValue && eventRecord.GroupId.HasValue != query.GroupLinked.Value)
             {
                 continue;
             }
@@ -117,6 +126,12 @@ public sealed class EventBrowseService(
 
             var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
             var activeParticipants = participants.Count(participant => participant.State == EventParticipantState.Joined);
+
+            if (query.Recommended && activeParticipants >= eventRecord.Capacity)
+            {
+                continue;
+            }
+
             var distanceMiles = await GetDistanceMilesAsync(eventRecord, restaurants, referencePoint, currentProfile, cancellationToken);
 
             if (query.RadiusMiles.HasValue &&

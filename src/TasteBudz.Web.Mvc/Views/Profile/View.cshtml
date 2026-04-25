@@ -13,7 +13,7 @@
     <div class="profile-menu">
         <button onclick="showSection('profile-info')" class="active">Profile Info</button>
         <button onclick="showSection('friends')">Friends</button>
-        <button onclick="showSection('events')">Current Events</button>
+        <button onclick="showSection('events')">My Events</button>
         <button onclick="showSection('groups')">Groups</button>
     </div>
 
@@ -108,17 +108,30 @@
         </div>
 
         <div id="events" class="section">
-            <h2>Your Events</h2>
+            <h2>My Events</h2>
+            <div class="my-events-filter-bar" aria-label="My events filters">
+                <button type="button" class="my-events-filter is-active" data-my-events-filter="all">All</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="group">Group events</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="ordinary">Ordinary events</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="open">Active/Open</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="full">Full</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="confirmed">Confirmed</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="completed">Completed</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="cancelled">Cancelled</button>
+            </div>
             <div class="panel__items interest-card-list">
-                @if (Model.ActiveEvents.Count == 0)
+                @if (Model.MyEvents.Count == 0)
                 {
-                    <p class="empty-state">No active events yet.</p>
+                    <p class="empty-state">No events tied to you yet.</p>
                 }
                 else
                 {
-                    @foreach (var item in Model.ActiveEvents)
+                    @foreach (var item in Model.MyEvents)
                     {
-                        <article class="summary-card interest-card interest-card--event">
+                        <article class="summary-card interest-card interest-card--event"
+                                 data-my-event-card
+                                 data-event-scope="@item.ScopeFilterValue"
+                                 data-event-status="@item.StatusFilterValue">
                             <div class="interest-card__header">
                                 <div class="interest-card__stamp" aria-hidden="true">
                                     <span class="interest-card__stamp-month">@item.MonthLabel</span>
@@ -135,7 +148,12 @@
 
                                     <div class="interest-card__chips">
                                         <span class="@StatusChipClass(item.Status)">@item.Status</span>
+                                        <span class="interest-card__chip">@item.ScopeLabel</span>
                                         <span class="interest-card__chip">@item.EventTypeLabel</span>
+                                        @foreach (var relationship in item.RelationshipLabels)
+                                        {
+                                            <span class="interest-card__chip interest-card__chip--muted">@relationship</span>
+                                        }
                                         @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
                                         {
                                             <span class="interest-card__chip">@item.CuisineTarget</span>
@@ -151,16 +169,20 @@
                                        asp-action="EventDetails"
                                        asp-route-eventId="@item.EventId"
                                        class="interest-card__text-action">Open</a>
-                                    <a asp-controller="Messaging"
-                                       asp-action="EventChat"
-                                       asp-route-eventId="@item.EventId"
-                                       class="interest-card__text-action">Chat</a>
+                                    @if ((item.IsHosted || item.IsJoined) && item.Status is not TasteBudz.Backend.Domain.EventStatus.Cancelled and not TasteBudz.Backend.Domain.EventStatus.Completed)
+                                    {
+                                        <a asp-controller="Messaging"
+                                           asp-action="EventChat"
+                                           asp-route-eventId="@item.EventId"
+                                           class="interest-card__text-action">Chat</a>
+                                    }
                                 </div>
                             </div>
 
                             <div class="interest-card__facts">
                                 <span class="interest-card__fact">@item.ScheduleLabel</span>
                                 <span class="interest-card__fact">@item.TimeLabel</span>
+                                <span class="interest-card__fact">@item.ScopeLabel</span>
                                 <span class="interest-card__fact">@item.EventTypeLabel</span>
                                 @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
                                 {
@@ -286,4 +308,20 @@
         document.getElementById(sectionId).classList.add("active");
         event.target.classList.add("active");
     }
+
+    document.querySelectorAll("[data-my-events-filter]").forEach(button => {
+        button.addEventListener("click", () => {
+            const filter = button.dataset.myEventsFilter;
+            document.querySelectorAll("[data-my-events-filter]").forEach(item => item.classList.remove("is-active"));
+            button.classList.add("is-active");
+
+            document.querySelectorAll("[data-my-event-card]").forEach(card => {
+                const matches = filter === "all" ||
+                    card.dataset.eventScope === filter ||
+                    card.dataset.eventStatus === filter;
+
+                card.hidden = !matches;
+            });
+        });
+    });
 </script>

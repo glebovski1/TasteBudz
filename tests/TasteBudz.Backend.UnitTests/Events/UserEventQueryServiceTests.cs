@@ -63,6 +63,52 @@ public sealed class UserEventQueryServiceTests
     }
 
     [Fact]
+    public async Task ListForUserAsync_IncludesHostedJoinedInvitedAndGroupLinkedEventsAcrossStatuses()
+    {
+        var now = new DateTimeOffset(2026, 3, 9, 18, 0, 0, TimeSpan.Zero);
+        var clock = new TestClock(now);
+        var store = new InMemoryTasteBudzStore();
+        store.Reset();
+        var eventRepository = new InMemoryEventRepository(store);
+        var notificationService = new InMemoryNotificationService(store);
+        var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
+        var queryService = new UserEventQueryService(eventRepository, lifecycleService);
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+
+        var hosted = CreateEvent(currentUserId, "Hosted completed", EventType.Open, EventStatus.Completed, now.AddDays(-2), null);
+        var joined = CreateEvent(hostUserId, "Joined cancelled", EventType.Open, EventStatus.Cancelled, now.AddDays(-1), null);
+        var invited = CreateEvent(hostUserId, "Invited full", EventType.Closed, EventStatus.Full, now.AddDays(1), null) with
+        {
+            Capacity = 2,
+        };
+        var groupLinked = CreateEvent(hostUserId, "Group linked open", EventType.Open, EventStatus.Open, now.AddDays(2), groupId);
+        var unrelated = CreateEvent(hostUserId, "Unrelated open", EventType.Open, EventStatus.Open, now.AddDays(3), null);
+
+        foreach (var eventRecord in new[] { hosted, joined, invited, groupLinked, unrelated })
+        {
+            await eventRepository.SaveAsync(eventRecord);
+            await eventRepository.SaveParticipantAsync(new EventParticipant(eventRecord.Id, eventRecord.HostUserId, EventParticipantState.Joined, null, now.AddDays(-4), now.AddDays(-4), null, null));
+        }
+
+        await eventRepository.SaveParticipantAsync(new EventParticipant(joined.Id, currentUserId, EventParticipantState.Joined, null, now.AddDays(-3), now.AddDays(-3), null, null));
+        await eventRepository.SaveParticipantAsync(new EventParticipant(invited.Id, currentUserId, EventParticipantState.Invited, now.AddDays(-1), null, null, null, null));
+        await eventRepository.SaveParticipantAsync(new EventParticipant(invited.Id, Guid.NewGuid(), EventParticipantState.Joined, null, now.AddDays(-2), now.AddDays(-2), null, null));
+
+        var events = await queryService.ListForUserAsync(currentUserId, new[] { groupId });
+
+        Assert.Equal(
+            new[] { "Hosted completed", "Joined cancelled", "Invited full", "Group linked open" },
+            events.Select(item => item.Title));
+        Assert.Contains(events, item => item.Title == "Hosted completed" && item.IsHosted && item.Status == EventStatus.Completed);
+        Assert.Contains(events, item => item.Title == "Joined cancelled" && item.IsJoined && item.Status == EventStatus.Cancelled);
+        Assert.Contains(events, item => item.Title == "Invited full" && item.IsInvited && item.Status == EventStatus.Full);
+        Assert.Contains(events, item => item.Title == "Group linked open" && item.IsGroupLinked && item.GroupId == groupId);
+        Assert.DoesNotContain(events, item => item.Title == "Unrelated open");
+    }
+
+    [Fact]
     public async Task ListPendingInvitesForUserAsync_ExcludesInvitesAfterDecisionAt()
     {
         var now = new DateTimeOffset(2026, 3, 9, 18, 0, 0, TimeSpan.Zero);
@@ -160,4 +206,30 @@ public sealed class UserEventQueryServiceTests
         Assert.Equal(pendingInviteEventId, invite.EventId);
         Assert.Equal(EventStatus.Cancelled, staleInviteEvent!.Status);
     }
+
+    private static Event CreateEvent(
+        Guid hostUserId,
+        string title,
+        EventType eventType,
+        EventStatus status,
+        DateTimeOffset startAtUtc,
+        Guid? groupId) =>
+        new(
+            Guid.NewGuid(),
+            hostUserId,
+            title,
+            eventType,
+            status,
+            startAtUtc,
+            startAtUtc.AddHours(-1),
+            4,
+            2,
+            null,
+            "Sushi",
+            groupId,
+            status == EventStatus.Cancelled ? "Called off" : null,
+            startAtUtc.AddDays(-5),
+            startAtUtc.AddDays(-5),
+            status == EventStatus.Cancelled ? startAtUtc.AddHours(-2) : null,
+            status == EventStatus.Completed ? startAtUtc.AddHours(2) : null);
 }

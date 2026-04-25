@@ -158,6 +158,55 @@ public sealed class EventMvcTests
     }
 
     [Fact]
+    public async Task EventIndex_PassesStatusAndGroupScopeFiltersToBackend()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var eventId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/profiles/me",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateProfile(zipCode: "45220")));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/events?status=Completed&groupLinked=true&page=1&pageSize=100",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<EventSummaryDto>(
+                    new[]
+                    {
+                        new EventSummaryDto(
+                            eventId,
+                            "Completed group noodles",
+                            EventType.Open,
+                            EventStatus.Completed,
+                            new DateTimeOffset(2026, 4, 20, 19, 0, 0, TimeSpan.Zero),
+                            new DateTimeOffset(2026, 4, 20, 17, 0, 0, TimeSpan.Zero),
+                            6,
+                            4,
+                            Guid.NewGuid(),
+                            null,
+                            "Noodles",
+                            groupId),
+                    },
+                    1)));
+
+        using var response = await client.GetAsync("/Event/Index?status=Completed&eventScope=group");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Completed group noodles", html);
+        Assert.Contains("Completed events", html);
+        Assert.Contains("Group events", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task EventIndex_WhenAvailabilityFilterHasNoSavedWindows_ShowsSetupCtaAndSkipsBrowse()
     {
         using var factory = new TasteBudzMvcFactory();
@@ -191,7 +240,7 @@ public sealed class EventMvcTests
     }
 
     [Fact]
-    public async Task QuickSearch_UsesRecommendationModeAndShowsMatchReasons()
+    public async Task QuickSearch_UsesRecommendationModeAndOnlyShowsOpenEventsWithSeats()
     {
         using var factory = new TasteBudzMvcFactory();
         using var client = MvcTestHelpers.CreateClient(factory);
@@ -206,7 +255,7 @@ public sealed class EventMvcTests
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, MvcTestHelpers.CreateProfile(zipCode: "45220")));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
-            "/api/v1/events?recommended=true&page=1&pageSize=100",
+            "/api/v1/events?status=Open&eventType=Open&recommended=true&page=1&pageSize=100",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
                 new ListResponse<EventSummaryDto>(
@@ -228,8 +277,21 @@ public sealed class EventMvcTests
                             2.1,
                             1,
                             1),
+                        new EventSummaryDto(
+                            Guid.NewGuid(),
+                            "Full table should not appear",
+                            EventType.Open,
+                            EventStatus.Full,
+                            new DateTimeOffset(2026, 5, 2, 20, 0, 0, TimeSpan.Zero),
+                            new DateTimeOffset(2026, 5, 2, 18, 0, 0, TimeSpan.Zero),
+                            2,
+                            2,
+                            Guid.NewGuid(),
+                            null,
+                            "Ramen",
+                            null),
                     },
-                    1)));
+                    2)));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/preferences/me",
@@ -254,6 +316,7 @@ public sealed class EventMvcTests
         Assert.Contains("2.1 mi away", html);
         Assert.Contains("Matches 1 food preference", html);
         Assert.Contains("1 Bud already joined", html);
+        Assert.DoesNotContain("Full table should not appear", html);
         factory.BackendHandler.AssertDrained();
     }
 

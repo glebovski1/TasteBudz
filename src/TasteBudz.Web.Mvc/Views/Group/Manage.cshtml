@@ -70,7 +70,7 @@
 
                 @if (Model.IsCurrentUserOwner)
                 {
-                    <form asp-action="CreateAnnouncement" asp-route-groupId="@Model.GroupId" method="post" class="group-announcement-form group-announcement-form--hero">
+                    <form asp-action="CreateAnnouncement" asp-route-groupId="@Model.GroupId" method="post" class="group-announcement-form group-announcement-form--hero group-announcement-form--vertical">
                         @Html.AntiForgeryToken()
                         <div class="field">
                             <label for="AnnouncementTitle">Post Title</label>

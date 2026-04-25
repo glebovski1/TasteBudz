@@ -593,6 +593,31 @@ main {
     justify-content: center;
 }
 
+.my-events-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin: 0.85rem 0 1rem;
+}
+
+.my-events-filter {
+    min-height: 2.35rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(197, 149, 112, 0.18);
+    background: rgba(255, 255, 255, 0.82);
+    color: #7a6657;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.my-events-filter.is-active {
+    color: white;
+    background: linear-gradient(135deg, var(--accent), #ff9a5f);
+    border-color: transparent;
+}
+
 .section {
     display: none;
     width: 100%;
@@ -4702,6 +4727,15 @@ img, video, iframe, table {
     border-radius: 1.25rem;
     background: rgba(255, 248, 243, 0.86);
     border: 1px solid rgba(193, 126, 81, 0.14);
+}
+
+.group-announcement-form--vertical {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+}
+
+.group-announcement-form--vertical .button {
+    justify-self: start;
 }
 
 .group-announcement-form textarea {

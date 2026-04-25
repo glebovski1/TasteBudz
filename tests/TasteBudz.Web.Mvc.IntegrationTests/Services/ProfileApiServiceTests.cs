@@ -115,7 +115,7 @@ public sealed class ProfileApiServiceTests
         Assert.Equal("alex", profile.Username);
         Assert.Equal(2, preferences.CuisineTags.Count);
         Assert.True(privacy.DiscoveryEnabled);
-        Assert.Single(dashboard.ActiveEvents);
+        Assert.Single(dashboard.MyEvents);
         Assert.Single(events);
         Assert.Single(groups);
         Assert.Single(invites);

@@ -12,7 +12,7 @@ Implement the following MVP items first. Each item references the owning require
 - Seeded restaurant catalog + Restaurant entity (FR-006)
 - Restaurant browse + filtering + simple suggestions (FR-007)
 - People discovery core: search + swipe + Budz list (FR-018, FR-019, FR-020)
-- Basic browse/search for open events and public groups (FR-022)
+- Basic browse/search for visible events plus public groups, with Quick Search limited to active open events that still have seats (FR-022)
 - Create events (Open + Closed) + event invites by username (FR-008)
 - Join/leave with atomic capacity enforcement + DecisionAt lock (FR-009, FR-010)
 - Groups: create/join/leave + owner management (FR-011, FR-012, FR-013)
@@ -141,7 +141,7 @@ Priority legend:
 
 - Users can edit profile fields including display name/username, public profile note (`bio`), ZIP code, and social goal.
 - Users can upload or replace one profile avatar image stored in the application database.
-- Users can view a personal dashboard with profile info plus summaries of active events, groups, and Budz.
+- Users can view a personal dashboard with profile info plus My Events, groups, and Budz.
 - Users can request account deletion.
 - Profile changes only affect the current user's data.
 - Public people cards and profile previews may surface the user's personality note (`bio`), social goal, cuisine tags, and dietary flags; allergies and availability remain non-public by default.
@@ -521,10 +521,13 @@ Priority legend:
 
 **Acceptance Criteria**
 
-- Users can browse open events that match cuisine, time window, distance, price tier, and availability filters.
+- Users can browse visible events that match cuisine, time window, distance, price tier, status, event category, and availability filters.
+- Visible event browse includes open public events plus closed events the signed-in user is allowed to view through hosting, invite, or participation context.
 - Event browse can explicitly use the signed-in user's home ZIP code and saved availability windows when the user turns those filters on.
-- Event browse may expose an explicit Quick Search mode/tab that ranks open events using home ZIP distance, saved cuisine preferences, and Budz already joined; this personalization happens only when the user selects that mode.
+- Event browse may expose an explicit Quick Search mode/tab that ranks active Open events with available seats using home ZIP distance, saved cuisine preferences, and Budz already joined; this personalization happens only when the user selects that mode.
+- Quick Search excludes Full, Completed, Cancelled, and Closed events.
 - Users can filter events by status.
+- Users can distinguish group-linked events from ordinary standalone events.
 - Users can browse/search public groups by name and visibility.
 - Blank browse/search state does not silently personalize event results from profile data.
 - MVP implementation may be pure database queries without a dedicated cached feed.

@@ -56,6 +56,9 @@ public sealed class EventController : Controller
         bool useMyZip,
         int? radiusMiles,
         bool availabilityOnly,
+        EventStatus? status,
+        EventType? eventType,
+        string? eventScope,
         CancellationToken cancellationToken)
     {
         var selectedRadiusMiles = radiusMiles is 5 or 10 or 25
@@ -80,6 +83,9 @@ public sealed class EventController : Controller
                         useMyZip,
                         selectedRadiusMiles,
                         availabilityOnly,
+                        status,
+                        eventType,
+                        eventScope,
                         profile.HomeAreaZipCode,
                         showAvailabilitySetupCta: true,
                         isQuickSearch: false));
@@ -93,17 +99,22 @@ public sealed class EventController : Controller
                     ZipCode = useMyZip ? profile.HomeAreaZipCode : null,
                     RadiusMiles = useMyZip ? selectedRadiusMiles : null,
                     AvailabilityOnly = availabilityOnly,
+                    Status = status,
+                    EventType = eventType,
+                    GroupLinked = EventIndexViewModel.ToGroupLinkedFilter(eventScope),
                     PageSize = 100,
                 },
                 cancellationToken);
-            var visibleEvents = FilterVisibleEvents(result);
 
             return View(EventIndexViewModel.FromDto(
-                visibleEvents,
+                result.Items,
                 q,
                 useMyZip,
                 selectedRadiusMiles,
                 availabilityOnly,
+                status,
+                eventType,
+                eventScope,
                 profile.HomeAreaZipCode,
                 isQuickSearch: false));
         }
@@ -118,6 +129,9 @@ public sealed class EventController : Controller
                 useMyZip,
                 selectedRadiusMiles,
                 availabilityOnly,
+                status,
+                eventType,
+                eventScope,
                 null,
                 isQuickSearch: false));
         }
@@ -132,11 +146,13 @@ public sealed class EventController : Controller
             var result = await eventApiService.BrowseAsync(
                 new BrowseEventsQuery
                 {
+                    Status = EventStatus.Open,
+                    EventType = EventType.Open,
                     Recommended = true,
                     PageSize = 100,
                 },
                 cancellationToken);
-            var visibleEvents = FilterVisibleEvents(result);
+            var visibleEvents = FilterQuickSearchEvents(result);
             var recommendationSummary = await BuildQuickSearchSummaryAsync(profile, cancellationToken);
 
             return View("Index", EventIndexViewModel.FromDto(
@@ -156,6 +172,9 @@ public sealed class EventController : Controller
                 false,
                 EventIndexViewModel.DefaultRadiusMiles,
                 false,
+                null,
+                null,
+                null,
                 null,
                 isQuickSearch: true,
                 recommendationSummary: "Automatic quick search is temporarily unavailable."));
@@ -737,12 +756,12 @@ public sealed class EventController : Controller
         };
     }
 
-    private static List<EventSummaryDto> FilterVisibleEvents(ListResponse<EventSummaryDto> result)
+    private static List<EventSummaryDto> FilterQuickSearchEvents(ListResponse<EventSummaryDto> result)
     {
-        var completedCutoff = DateTimeOffset.UtcNow.AddDays(-7);
         return result.Items
-            .Where(item => item.Status != EventStatus.Cancelled)
-            .Where(item => item.Status != EventStatus.Completed || item.EventStartAtUtc >= completedCutoff)
+            .Where(item => item.EventType == EventType.Open)
+            .Where(item => item.Status == EventStatus.Open)
+            .Where(item => item.ActiveParticipants < item.Capacity)
             .ToList();
     }
 

@@ -116,8 +116,8 @@ Password reset request submission returns a generic accepted response and does n
 | Get My Profile | GET | `/api/v1/profiles/me` | Return current-user profile | Yes |
 | Update My Profile | PATCH | `/api/v1/profiles/me` | Update profile fields | Yes |
 | Upload My Profile Avatar | POST | `/api/v1/profiles/me/avatar` | Upload or replace the current user's avatar image | Yes |
-| Get My Dashboard | GET | `/api/v1/me/dashboard` | Return profile/dashboard summary | Yes |
-| List My Events | GET | `/api/v1/me/events` | Return hosted/joined events | Yes |
+| Get My Dashboard | GET | `/api/v1/me/dashboard` | Return profile/dashboard summary with My Events, groups, and Budz | Yes |
+| List My Events | GET | `/api/v1/me/events` | Return hosted, joined, invited, and group-linked events visible to the user | Yes |
 | List My Groups | GET | `/api/v1/me/groups` | Return active groups | Yes |
 | List My Event Invites | GET | `/api/v1/me/event-invites` | Return pending event invites | Yes |
 | Request Account Deletion | POST | `/api/v1/account/deletion` | Soft-delete the current account | Yes |
@@ -221,7 +221,7 @@ Contract notes:
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
-| Browse Events | GET | `/api/v1/events` | Browse/search open events | Yes |
+| Browse Events | GET | `/api/v1/events` | Browse/search events visible to the signed-in user | Yes |
 | Create Event | POST | `/api/v1/events` | Create open or closed event | Yes |
 | Get Event Detail | GET | `/api/v1/events/{eventId}` | Return event detail | Yes |
 | Update Event | PATCH | `/api/v1/events/{eventId}` | Host edits material event details before cancellation/completion | Yes |
@@ -354,13 +354,17 @@ Representative browse query parameters:
 - `availabilityOnly`
 - `recommended`
 - `groupId`
+- `groupLinked`
 - `page`
 - `pageSize`
 
 Contract note:
 
 - The backend event browse contract remains explicit. MVC quick filters may choose to populate `zipCode`, `radiusMiles`, and `availabilityOnly` from the signed-in user's saved profile data, but the backend does not silently personalize blank requests.
-- When `recommended=true`, the backend may rank results using the caller's home ZIP distance, saved cuisine preferences, and Budz already joined in each event. In that explicit mode, `EventSummaryDto` may populate optional recommendation metadata such as `distanceMiles`, `matchingCuisineCount`, and `matchingBudzCount`.
+- Normal event browse returns events the caller is allowed to view: Open events plus Closed events where visibility is granted by host, invite/participation, or privileged role.
+- `groupLinked=true` returns group-linked events, `groupLinked=false` returns ordinary standalone events, and an omitted value returns both.
+- When `recommended=true`, the backend ranks only active Open events with available seats using the caller's home ZIP distance, saved cuisine preferences, and Budz already joined in each event. In that explicit mode, `EventSummaryDto` may populate optional recommendation metadata such as `distanceMiles`, `matchingCuisineCount`, and `matchingBudzCount`.
+- Quick Search clients must not show Full, Completed, Cancelled, or Closed events.
 
 ### 3.5 Groups
 

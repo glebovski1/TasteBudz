@@ -222,6 +222,11 @@ public sealed class EventApiService
             builder.Add("groupId", query.GroupId.Value.ToString());
         }
 
+        if (query.GroupLinked.HasValue)
+        {
+            builder.Add("groupLinked", query.GroupLinked.Value.ToString().ToLowerInvariant());
+        }
+
         builder.Add("page", query.Page.ToString(CultureInfo.InvariantCulture));
         builder.Add("pageSize", query.PageSize.ToString(CultureInfo.InvariantCulture));
 

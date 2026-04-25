@@ -3,12 +3,60 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Messaging;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
 namespace TasteBudz.Web.Mvc.IntegrationTests.Api;
 
 public sealed class MessagingMvcTests
 {
+    [Fact]
+    public async Task ChatInbox_OnlyShowsJoinedActiveEventChats()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var joinedEventId = Guid.NewGuid();
+        var invitedEventId = Guid.NewGuid();
+        var groupLinkedEventId = Guid.NewGuid();
+        var completedEventId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/events",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new DashboardEventSummaryDto(joinedEventId, "Joined dinner", EventType.Open, EventStatus.Open, DateTimeOffset.UtcNow.AddDays(1), "Ramen", null, false, true, false, false),
+                    new DashboardEventSummaryDto(invitedEventId, "Invite only", EventType.Closed, EventStatus.Open, DateTimeOffset.UtcNow.AddDays(2), "Sushi", null, false, false, true, false),
+                    new DashboardEventSummaryDto(groupLinkedEventId, "Group linked not joined", EventType.Open, EventStatus.Open, DateTimeOffset.UtcNow.AddDays(3), "Tacos", groupId, false, false, false, true),
+                    new DashboardEventSummaryDto(completedEventId, "Past joined dinner", EventType.Open, EventStatus.Completed, DateTimeOffset.UtcNow.AddDays(-1), "Pizza", null, false, true, false, false),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/groups",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new DashboardGroupSummaryDto(groupId, "Clifton Supper Club", "Group chat", GroupVisibility.Public, 3),
+                }));
+
+        using var response = await client.GetAsync("/Messaging/Chat");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Joined dinner", html);
+        Assert.Contains("Clifton Supper Club", html);
+        Assert.DoesNotContain("Invite only", html);
+        Assert.DoesNotContain("Group linked not joined", html);
+        Assert.DoesNotContain("Past joined dinner", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
     [Fact]
     public async Task EventChat_RendersBackendHubUrlAndAccessTokenForRealtimeConnection()
     {

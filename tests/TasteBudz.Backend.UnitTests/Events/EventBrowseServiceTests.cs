@@ -17,11 +17,12 @@ namespace TasteBudz.Backend.UnitTests.Events;
 public sealed class EventBrowseServiceTests
 {
     [Fact]
-    public async Task BrowseAsync_WhenClosedEventsAreRequested_ReturnsNoItemsBecauseBrowseIsOpenOnly()
+    public async Task BrowseAsync_ReturnsVisibleClosedEventsForCurrentUserWhenRequested()
     {
         var services = CreateServices();
         var currentUserId = Guid.NewGuid();
         var hostUserId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
 
         await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
         await SaveProfileAsync(services.ProfileRepository, hostUserId, "45220", "host", services.Clock);
@@ -29,7 +30,7 @@ public sealed class EventBrowseServiceTests
         await SaveEventAsync(
             services.EventRepository,
             new Event(
-                Guid.NewGuid(),
+                eventId,
                 hostUserId,
                 "Closed dinner",
                 EventType.Closed,
@@ -48,6 +49,15 @@ public sealed class EventBrowseServiceTests
                 null),
             hostUserId,
             services.Clock);
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(
+            eventId,
+            currentUserId,
+            EventParticipantState.Invited,
+            services.Clock.UtcNow,
+            null,
+            null,
+            null,
+            null));
 
         var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
         {
@@ -55,8 +65,9 @@ public sealed class EventBrowseServiceTests
             PageSize = 10,
         });
 
-        Assert.Empty(result.Items);
-        Assert.Equal(0, result.TotalCount);
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Closed dinner", item.Title);
+        Assert.Equal(EventType.Closed, item.EventType);
     }
 
     [Fact]
@@ -134,6 +145,34 @@ public sealed class EventBrowseServiceTests
 
         Assert.Equal(2, result.TotalCount);
         Assert.Equal(new[] { "Matching early", "Matching late" }, result.Items.Select(item => item.Title));
+    }
+
+    [Fact]
+    public async Task BrowseAsync_FiltersGroupLinkedAndOrdinaryEvents()
+    {
+        var services = CreateServices();
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var groupId = Guid.NewGuid();
+
+        await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, hostUserId, "45220", "host", services.Clock);
+        await SaveEventAsync(services.EventRepository, CreateOpenEvent(hostUserId, "Group event", services.Clock.UtcNow.AddDays(1), groupId: groupId), hostUserId, services.Clock);
+        await SaveEventAsync(services.EventRepository, CreateOpenEvent(hostUserId, "Ordinary event", services.Clock.UtcNow.AddDays(1).AddHours(1)), hostUserId, services.Clock);
+
+        var groupEvents = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
+        {
+            GroupLinked = true,
+            PageSize = 10,
+        });
+        var ordinaryEvents = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
+        {
+            GroupLinked = false,
+            PageSize = 10,
+        });
+
+        Assert.Equal(new[] { "Group event" }, groupEvents.Items.Select(item => item.Title));
+        Assert.Equal(new[] { "Ordinary event" }, ordinaryEvents.Items.Select(item => item.Title));
     }
 
     [Fact]
@@ -353,6 +392,50 @@ public sealed class EventBrowseServiceTests
         Assert.True(items[0].MatchingCuisineCount > 0);
         Assert.True(items[0].DistanceMiles.HasValue);
         Assert.Equal(0, items[2].MatchingCuisineCount);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_RecommendedModeOnlyReturnsOpenEventsWithAvailableSeats()
+    {
+        var services = CreateServices();
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var closedInviteId = Guid.NewGuid();
+
+        await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, hostUserId, "45220", "host", services.Clock);
+
+        var openAvailable = CreateOpenEvent(hostUserId, "Open seat", services.Clock.UtcNow.AddDays(2));
+        var full = openAvailable with { Id = Guid.NewGuid(), Title = "Full table", Status = EventStatus.Full, Capacity = 1 };
+        var completed = openAvailable with { Id = Guid.NewGuid(), Title = "Completed table", Status = EventStatus.Completed, CompletedAtUtc = services.Clock.UtcNow };
+        var cancelled = openAvailable with { Id = Guid.NewGuid(), Title = "Cancelled table", Status = EventStatus.Cancelled, CancellationReason = "Called off", CancelledAtUtc = services.Clock.UtcNow };
+        var closedInvite = openAvailable with { Id = closedInviteId, Title = "Closed invite", EventType = EventType.Closed };
+
+        foreach (var eventRecord in new[] { openAvailable, full, completed, cancelled, closedInvite })
+        {
+            await SaveEventAsync(services.EventRepository, eventRecord, hostUserId, services.Clock);
+        }
+
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(
+            closedInviteId,
+            currentUserId,
+            EventParticipantState.Invited,
+            services.Clock.UtcNow,
+            null,
+            null,
+            null,
+            null));
+
+        var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
+        {
+            Recommended = true,
+            PageSize = 10,
+        });
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Open seat", item.Title);
+        Assert.Equal(EventStatus.Open, item.Status);
+        Assert.True(item.ActiveParticipants < item.Capacity);
     }
 
     private static Event CreateOpenEvent(

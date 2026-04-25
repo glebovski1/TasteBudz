@@ -668,3 +668,23 @@ Event invites are available to the current host for active Open and Closed event
 - MVC should show host invite controls for active Open and Closed events.
 - Backend invite policy is based on host ownership, active lifecycle state, blocking, capacity-on-acceptance, and `DecisionAt`, not on event type alone.
 - Open event browse and direct join remain unchanged.
+
+## [ADR-035] Event Browse Shows Visible Event History While Quick Search Stays Joinable-Only
+
+- Date: 2026-04-25
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+
+The Events tab needs to support status review and filtering for completed, cancelled, full, group-linked, and ordinary events instead of acting only as an upcoming open-event discovery list. At the same time, Quick Search should remain a joinable-event shortcut and must not recommend events that are full or terminal.
+
+### Decision
+
+The normal event browse endpoint returns all events the caller is allowed to view, including Open events and Closed events where visibility is granted by host or participant/invite context. It supports status filtering plus group-linked versus ordinary filtering. Quick Search is represented by `recommended=true` and is constrained to Open events in `OPEN` status where joined participants are still below capacity.
+
+### Consequences
+
+- The Events tab can show full, completed, cancelled, group-linked, and ordinary event history without weakening Closed-event privacy.
+- Quick Search remains focused on active Open events with available seats.
+- Clients must not treat `recommended=true` as a generic browse mode for historical or full events.

@@ -21,9 +21,30 @@ public sealed class EventIndexViewModel
     public bool UseMyZip { get; init; }
     public int RadiusMiles { get; init; } = DefaultRadiusMiles;
     public bool AvailabilityOnly { get; init; }
+    public EventStatus? SelectedStatus { get; init; }
+    public EventType? SelectedEventType { get; init; }
+    public string EventScope { get; init; } = EventScopeAll;
     public string? HomeAreaZipCode { get; init; }
     public bool ShowAvailabilitySetupCta { get; init; }
     public string? RecommendationSummary { get; init; }
+    public const string EventScopeAll = "all";
+    public const string EventScopeGroup = "group";
+    public const string EventScopeOrdinary = "ordinary";
+    public static IReadOnlyList<(EventStatus? Value, string Label)> AvailableStatusFilters { get; } =
+    [
+        (null, "All statuses"),
+        (EventStatus.Open, "Active/Open"),
+        (EventStatus.Full, "Full events"),
+        (EventStatus.Confirmed, "Confirmed events"),
+        (EventStatus.Completed, "Completed events"),
+        (EventStatus.Cancelled, "Cancelled events"),
+    ];
+    public static IReadOnlyList<(EventType? Value, string Label)> AvailableEventTypeFilters { get; } =
+    [
+        (null, "All event types"),
+        (EventType.Open, "Open events"),
+        (EventType.Closed, "Closed events"),
+    ];
 
     public static EventIndexViewModel Empty => new();
 
@@ -32,6 +53,9 @@ public sealed class EventIndexViewModel
         bool useMyZip,
         int radiusMiles,
         bool availabilityOnly,
+        EventStatus? selectedStatus,
+        EventType? selectedEventType,
+        string? eventScope,
         string? homeAreaZipCode,
         bool showAvailabilitySetupCta = false,
         bool isQuickSearch = false,
@@ -43,6 +67,9 @@ public sealed class EventIndexViewModel
             UseMyZip = useMyZip,
             RadiusMiles = radiusMiles,
             AvailabilityOnly = availabilityOnly,
+            SelectedStatus = selectedStatus,
+            SelectedEventType = selectedEventType,
+            EventScope = NormalizeEventScope(eventScope),
             HomeAreaZipCode = homeAreaZipCode,
             ShowAvailabilitySetupCta = showAvailabilitySetupCta,
             RecommendationSummary = recommendationSummary,
@@ -54,6 +81,9 @@ public sealed class EventIndexViewModel
         bool useMyZip = false,
         int radiusMiles = DefaultRadiusMiles,
         bool availabilityOnly = false,
+        EventStatus? selectedStatus = null,
+        EventType? selectedEventType = null,
+        string? eventScope = null,
         string? homeAreaZipCode = null,
         bool showAvailabilitySetupCta = false,
         bool isQuickSearch = false,
@@ -65,10 +95,27 @@ public sealed class EventIndexViewModel
             UseMyZip = useMyZip,
             RadiusMiles = radiusMiles,
             AvailabilityOnly = availabilityOnly,
+            SelectedStatus = selectedStatus,
+            SelectedEventType = selectedEventType,
+            EventScope = NormalizeEventScope(eventScope),
             HomeAreaZipCode = homeAreaZipCode,
             ShowAvailabilitySetupCta = showAvailabilitySetupCta,
             RecommendationSummary = recommendationSummary,
         };
+
+    public static bool? ToGroupLinkedFilter(string? eventScope) => NormalizeEventScope(eventScope) switch
+    {
+        EventScopeGroup => true,
+        EventScopeOrdinary => false,
+        _ => null,
+    };
+
+    private static string NormalizeEventScope(string? eventScope) =>
+        string.Equals(eventScope, EventScopeGroup, StringComparison.OrdinalIgnoreCase)
+            ? EventScopeGroup
+            : string.Equals(eventScope, EventScopeOrdinary, StringComparison.OrdinalIgnoreCase)
+                ? EventScopeOrdinary
+                : EventScopeAll;
 }
 
 public sealed class EventSummaryItem
@@ -81,6 +128,7 @@ public sealed class EventSummaryItem
     public int Capacity { get; init; }
     public int ActiveParticipants { get; init; }
     public string? CuisineTarget { get; init; }
+    public Guid? GroupId { get; init; }
     public double? DistanceMiles { get; init; }
     public int MatchingCuisineCount { get; init; }
     public int MatchingBudzCount { get; init; }
@@ -114,6 +162,8 @@ public sealed class EventSummaryItem
         }
     }
 
+    public string ScopeLabel => GroupId.HasValue ? "Group event" : "Ordinary event";
+
     public static EventSummaryItem FromDto(EventSummaryDto dto) => new()
     {
         EventId = dto.EventId,
@@ -124,6 +174,7 @@ public sealed class EventSummaryItem
         Capacity = dto.Capacity,
         ActiveParticipants = dto.ActiveParticipants,
         CuisineTarget = dto.CuisineTarget,
+        GroupId = dto.GroupId,
         DistanceMiles = dto.DistanceMiles,
         MatchingCuisineCount = dto.MatchingCuisineCount,
         MatchingBudzCount = dto.MatchingBudzCount,

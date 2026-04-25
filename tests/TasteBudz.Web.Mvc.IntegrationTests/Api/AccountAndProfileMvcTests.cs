@@ -481,6 +481,13 @@ public sealed class AccountAndProfileMvcTests
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("My Events", html);
+        Assert.Contains("Group events", html);
+        Assert.Contains("Ordinary events", html);
+        Assert.Contains("Active/Open", html);
+        Assert.Contains("Full", html);
+        Assert.Contains("Completed", html);
+        Assert.Contains("Cancelled", html);
         Assert.Contains("Friday Sushi Night", html);
         Assert.Contains("Cincy Foodies", html);
         Assert.Contains("Sam Carter", html);

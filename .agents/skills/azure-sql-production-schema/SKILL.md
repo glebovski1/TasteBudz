@@ -1,6 +1,6 @@
 ---
 name: azure-sql-production-schema
-description: Apply and verify TasteBudz production Azure SQL schema updates from the source-controlled SQL Server scripts. Use when asked to patch, migrate, bootstrap, or validate the production database before or after Azure App Service publish, especially when the current branch adds tables, columns, or schema-version changes that the app publish script will not apply.
+description: Apply and verify TasteBudz production Azure SQL schema updates from the source-controlled SQL Server scripts. Use when asked to patch, migrate data, bootstrap, validate, or roll back the production database before or after Azure App Service publish, especially when the current branch adds tables, columns, data changes, or schema-version changes.
 ---
 
 # Azure SQL Production Schema
@@ -16,6 +16,7 @@ Use this skill when the task is about production database schema deployment, not
 - Read `AGENTS.md`, `docs/deployment/azure-app-service.md`, and `src/TasteBudz.Database/sqlserver/README.md` before applying schema changes.
 - Keep production SQL deployment manual and explicit. Do not add startup migrations or fold schema updates into the app publish script.
 - Prefer incremental patch scripts for existing production databases. Use the full ordered bootstrap (`000`, `010`, `020`) only for new databases or when re-applying those files is confirmed safe.
+- For release rollback support, pair each risky forward patch with an explicit rollback script. Do not claim database rollback is available unless a rollback script or approved database copy/restore point exists.
 - Do not print SQL passwords, access tokens, or full connection strings.
 - Verify the database after applying scripts. The skill bundles a readiness probe that checks the live database against the current backend-required tables and columns.
 - Use dry runs before touching Azure when the target script set or firewall access is uncertain.
@@ -26,10 +27,11 @@ Use this skill when the task is about production database schema deployment, not
 2. Choose the script set:
    - Existing production database: pass one or more explicit patch scripts with `-ScriptPath`.
    - New database bootstrap: omit `-ScriptPath` and let the script apply `000_schema_versions.sql`, `010_schema.sql`, and `020_seed_reference_data.sql` in order.
-3. Run a dry run first when confirming defaults, firewall handling, or script selection.
-4. Run `scripts/apply-azure-sql-schema.ps1`.
-5. Review the reported script list, schema versions, and readiness summary.
-6. Only after readiness passes, run the Azure App Service publish skill for the app package.
+3. For data migrations or destructive schema changes, identify rollback SQL before applying the forward script.
+4. Run a dry run first when confirming defaults, firewall handling, or script selection.
+5. Run `scripts/apply-azure-sql-schema.ps1`.
+6. Review the reported script list, schema versions, and readiness summary.
+7. Only after readiness passes, run the Azure App Service publish skill for the app package.
 
 ## Commands
 

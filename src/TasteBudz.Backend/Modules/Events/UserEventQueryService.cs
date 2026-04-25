@@ -12,28 +12,41 @@ public sealed class UserEventQueryService(
 {
     public async Task<IReadOnlyCollection<UserEventSummary>> ListActiveForUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var participations = await eventRepository.ListParticipantsForUserAsync(userId, cancellationToken);
-        var eventIds = participations
-            .Where(participant => participant.State is EventParticipantState.Joined or EventParticipantState.Invited)
-            .Select(participant => participant.EventId)
-            .ToHashSet();
+        var items = await ListForUserAsync(userId, Array.Empty<Guid>(), cancellationToken);
+        return items
+            .Where(item => item.Status is not EventStatus.Cancelled and not EventStatus.Completed)
+            .ToArray();
+    }
 
-        if (eventIds.Count == 0)
-        {
-            return Array.Empty<UserEventSummary>();
-        }
+    public async Task<IReadOnlyCollection<UserEventSummary>> ListForUserAsync(
+        Guid userId,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        CancellationToken cancellationToken = default)
+    {
+        var participations = await eventRepository.ListParticipantsForUserAsync(userId, cancellationToken);
+        var participationByEventId = participations
+            .Where(participant => participant.State is EventParticipantState.Joined or EventParticipantState.Invited)
+            .GroupBy(participant => participant.EventId)
+            .ToDictionary(group => group.Key, group => group.First());
+        var groupIds = activeGroupIds.ToHashSet();
 
         var events = await eventRepository.ListAsync(cancellationToken);
-        var items = new List<UserEventSummary>(eventIds.Count);
+        var items = new List<UserEventSummary>();
 
-        foreach (var eventRecord in events.Where(candidate => eventIds.Contains(candidate.Id)))
+        foreach (var eventRecord in events)
         {
-            var synchronized = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+            participationByEventId.TryGetValue(eventRecord.Id, out var participation);
+            var isHosted = eventRecord.HostUserId == userId;
+            var isJoined = participation?.State == EventParticipantState.Joined;
+            var isInvited = participation?.State == EventParticipantState.Invited;
+            var isGroupLinked = eventRecord.GroupId.HasValue && groupIds.Contains(eventRecord.GroupId.Value);
 
-            if (synchronized.Status is EventStatus.Cancelled or EventStatus.Completed)
+            if (!isHosted && !isJoined && !isInvited && !isGroupLinked)
             {
                 continue;
             }
+
+            var synchronized = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
 
             items.Add(new UserEventSummary(
                 synchronized.Id,
@@ -41,7 +54,12 @@ public sealed class UserEventQueryService(
                 synchronized.EventType,
                 synchronized.Status,
                 synchronized.EventStartAtUtc,
-                synchronized.CuisineTarget));
+                synchronized.CuisineTarget,
+                synchronized.GroupId,
+                isHosted,
+                isJoined,
+                isInvited,
+                isGroupLinked));
         }
 
         return items
@@ -94,7 +112,12 @@ public sealed record UserEventSummary(
     EventType EventType,
     EventStatus Status,
     DateTimeOffset EventStartAtUtc,
-    string? CuisineTarget);
+    string? CuisineTarget,
+    Guid? GroupId = null,
+    bool IsHosted = false,
+    bool IsJoined = false,
+    bool IsInvited = false,
+    bool IsGroupLinked = false);
 
 public sealed record UserEventInviteSummary(
     Guid EventId,

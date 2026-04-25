@@ -31,9 +31,25 @@ public sealed class DashboardService(
 
     public async Task<IReadOnlyCollection<DashboardEventSummaryDto>> ListMyEventsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var summaries = await userEventQueryService.ListActiveForUserAsync(userId, cancellationToken);
+        var groups = await userGroupQueryService.ListActiveForUserAsync(userId, cancellationToken);
+        var summaries = await userEventQueryService.ListForUserAsync(
+            userId,
+            groups.Select(group => group.GroupId).ToArray(),
+            cancellationToken);
+
         return summaries
-            .Select(summary => new DashboardEventSummaryDto(summary.EventId, summary.Title, summary.EventType, summary.Status, summary.EventStartAtUtc, summary.CuisineTarget))
+            .Select(summary => new DashboardEventSummaryDto(
+                summary.EventId,
+                summary.Title,
+                summary.EventType,
+                summary.Status,
+                summary.EventStartAtUtc,
+                summary.CuisineTarget,
+                summary.GroupId,
+                summary.IsHosted,
+                summary.IsJoined,
+                summary.IsInvited,
+                summary.IsGroupLinked))
             .ToArray();
     }
 

@@ -1,4 +1,5 @@
 ﻿using TasteBudz.Backend.Modules.Profiles;
+using TasteBudz.Backend.Domain;
 
 namespace TasteBudz.Web.Mvc.ViewModels;
 
@@ -26,7 +27,7 @@ public sealed class ChatInboxViewModel
     {
         var items = new List<ChatInboxItemViewModel>();
 
-        foreach (var e in events)
+        foreach (var e in events.Where(CanShowEventChat))
         {
             items.Add(new ChatInboxItemViewModel
             {
@@ -50,6 +51,9 @@ public sealed class ChatInboxViewModel
 
         return new ChatInboxViewModel { Items = items };
     }
+
+    private static bool CanShowEventChat(DashboardEventSummaryDto e) =>
+        e.IsJoined && e.Status is not EventStatus.Cancelled and not EventStatus.Completed;
 
     public static ChatInboxViewModel Empty => new();
 }

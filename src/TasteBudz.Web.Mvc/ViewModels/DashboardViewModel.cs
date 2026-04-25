@@ -22,7 +22,7 @@ public sealed class DashboardViewModel
 
     public IReadOnlyCollection<string> DietaryFlags { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyCollection<DashboardEventCardViewModel> ActiveEvents { get; init; } = Array.Empty<DashboardEventCardViewModel>();
+    public IReadOnlyCollection<DashboardEventCardViewModel> MyEvents { get; init; } = Array.Empty<DashboardEventCardViewModel>();
 
     public IReadOnlyCollection<DashboardGroupCardViewModel> ActiveGroups { get; init; } = Array.Empty<DashboardGroupCardViewModel>();
 
@@ -45,8 +45,19 @@ public sealed class DashboardViewModel
             SocialGoal = dto.Profile.SocialGoal,
             CuisineTags = dto.Profile.CuisineTags,
             DietaryFlags = dto.Profile.DietaryFlags,
-            ActiveEvents = dto.ActiveEvents
-                .Select(item => new DashboardEventCardViewModel(item.EventId, item.Title ?? "Untitled Event", item.EventType, item.Status, item.EventStartAtUtc, item.CuisineTarget))
+            MyEvents = dto.MyEvents
+                .Select(item => new DashboardEventCardViewModel(
+                    item.EventId,
+                    item.Title ?? "Untitled Event",
+                    item.EventType,
+                    item.Status,
+                    item.EventStartAtUtc,
+                    item.CuisineTarget,
+                    item.GroupId,
+                    item.IsHosted,
+                    item.IsJoined,
+                    item.IsInvited,
+                    item.IsGroupLinked))
                 .ToArray(),
             ActiveGroups = dto.ActiveGroups
                 .Select(item => new DashboardGroupCardViewModel(item.GroupId, item.Name, item.Description, item.Visibility, item.ActiveMemberCount))
@@ -63,7 +74,12 @@ public sealed record DashboardEventCardViewModel(
     EventType EventType,
     EventStatus Status,
     DateTimeOffset EventStartAtUtc,
-    string? CuisineTarget)
+    string? CuisineTarget,
+    Guid? GroupId,
+    bool IsHosted,
+    bool IsJoined,
+    bool IsInvited,
+    bool IsGroupLinked)
 {
     public string MonthLabel => EventStartAtUtc.ToLocalTime().ToString("MMM", CultureInfo.InvariantCulture).ToUpperInvariant();
 
@@ -76,6 +92,42 @@ public sealed record DashboardEventCardViewModel(
     public string TimingChipLabel => DashboardCardFormatting.GetRelativeDayLabel(EventStartAtUtc);
 
     public string EventTypeLabel => EventType == EventType.Open ? "Open event" : "Invite event";
+
+    public string ScopeLabel => IsGroupLinked || GroupId.HasValue ? "Group event" : "Ordinary event";
+
+    public string ScopeFilterValue => IsGroupLinked || GroupId.HasValue ? "group" : "ordinary";
+
+    public string StatusFilterValue => Status.ToString().ToLowerInvariant();
+
+    public IReadOnlyList<string> RelationshipLabels
+    {
+        get
+        {
+            var labels = new List<string>();
+
+            if (IsHosted)
+            {
+                labels.Add("Hosted");
+            }
+
+            if (IsJoined)
+            {
+                labels.Add("Joined");
+            }
+
+            if (IsInvited)
+            {
+                labels.Add("Invited");
+            }
+
+            if (IsGroupLinked)
+            {
+                labels.Add("Group-linked");
+            }
+
+            return labels.Count == 0 ? Array.Empty<string>() : labels;
+        }
+    }
 
     public string TimingFactLabel => $"{ScheduleLabel} at {TimeLabel}";
 

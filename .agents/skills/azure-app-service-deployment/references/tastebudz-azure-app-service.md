@@ -35,6 +35,47 @@ Generated publish artifacts are deleted unless `-KeepArtifacts` is passed.
 
 Schema changes remain manual. When production schema changes, apply the ordered scripts from `src/TasteBudz.Database/sqlserver` as an explicit release step; do not rely on the app update script to apply SQL.
 
+## Reliable Database + App Release
+
+For releases that include SQL schema patches, data migrations, or higher rollback risk, use the reliable release script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\release-with-rollback.ps1 `
+  -ScriptPath .\src\TasteBudz.Database\sqlserver\patches\20260425_example.sql `
+  -DatabaseRollbackScriptPath .\src\TasteBudz.Database\sqlserver\patches\rollback\20260425_example_rollback.sql `
+  -AllowClientIp
+```
+
+Dry run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\release-with-rollback.ps1 `
+  -ScriptPath .\src\TasteBudz.Database\sqlserver\patches\20260425_example.sql `
+  -DatabaseRollbackScriptPath .\src\TasteBudz.Database\sqlserver\patches\rollback\20260425_example_rollback.sql `
+  -DryRun
+```
+
+Behavior:
+
+- runs Release restore, build, tests, and `git diff --check`
+- downloads the current Kudu `site/wwwroot` package as a rollback snapshot before changes
+- validates that the rollback snapshot and new zip package are non-empty and contain expected app files
+- blocks publish output that includes environment-specific appsettings or local secret/profile files
+- applies SQL scripts through the Azure SQL schema skill script
+- publishes and deploys the MVC host package
+- waits for synchronous Kudu zipdeploy completion when using the fallback deploy path or app rollback path
+- verifies homepage `200`, unauthenticated restaurants API `401`, and unauthenticated SignalR negotiate `401`
+- runs `-PostDeployVerificationScript` when supplied, with `TASTEBUDZ_BASE_URL`, `TASTEBUDZ_RESOURCE_GROUP`, and `TASTEBUDZ_WEB_APP_NAME` set for that process
+- on failure, applies rollback SQL scripts when supplied and redeploys the previous app snapshot
+- keeps generated artifacts after a failed release for diagnosis or manual recovery
+
+Database rollback limits:
+
+- App package rollback is automatic when the pre-release Kudu snapshot is captured successfully.
+- Database rollback is automatic only when `-DatabaseRollbackScriptPath` is supplied.
+- If a migration is intentionally forward-only, pass `-AllowForwardOnlyDatabaseChange`; the script will permit the release but can only roll back the app package if verification fails.
+- For destructive or hard-to-reverse migrations, create an Azure SQL database copy or backup before release and confirm any Azure cost impact before doing so.
+
 ## Authenticate
 
 ```powershell

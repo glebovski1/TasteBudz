@@ -8,4 +8,9 @@ public sealed record DashboardEventSummaryDto(
     EventType EventType,
     EventStatus Status,
     DateTimeOffset EventStartAtUtc,
-    string? CuisineTarget);
+    string? CuisineTarget,
+    Guid? GroupId = null,
+    bool IsHosted = false,
+    bool IsJoined = false,
+    bool IsInvited = false,
+    bool IsGroupLinked = false);

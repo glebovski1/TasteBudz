@@ -55,6 +55,16 @@ public sealed class MeApiTests(TasteBudzApiFactory factory) : IClassFixture<Tast
             InviteUsernames = new[] { "guest" },
         });
         createClosedEventResponse.EnsureSuccessStatusCode();
+        var groupLinkedEventResponse = await ownerClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Group-linked event",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(3),
+            Capacity = 4,
+            CuisineTarget = "Ramen",
+            GroupId = group.GroupId,
+        });
+        var groupLinkedEvent = await groupLinkedEventResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
 
         var dashboardResponse = await guestClient.GetAsync("/api/v1/me/dashboard");
         var dashboard = await dashboardResponse.Content.ReadFromJsonAsync<DashboardDto>(ApiTestHelpers.JsonOptions);
@@ -70,8 +80,10 @@ public sealed class MeApiTests(TasteBudzApiFactory factory) : IClassFixture<Tast
         Assert.Equal(HttpStatusCode.OK, groupsResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, invitesResponse.StatusCode);
         Assert.Equal(guestSession.CurrentUser.UserId, dashboard!.Profile.UserId);
-        Assert.Contains(dashboard.ActiveEvents, item => item.EventId == joinedEvent.EventId);
+        Assert.Contains(dashboard.MyEvents, item => item.EventId == joinedEvent.EventId && item.IsJoined);
+        Assert.Contains(dashboard.MyEvents, item => item.EventId == groupLinkedEvent!.EventId && item.IsGroupLinked && item.GroupId == group.GroupId);
         Assert.Contains(events!, item => item.EventId == joinedEvent.EventId);
+        Assert.Contains(events!, item => item.EventId == groupLinkedEvent!.EventId && item.IsGroupLinked && item.GroupId == group.GroupId);
         Assert.Contains(groups!, item => item.GroupId == group.GroupId);
         Assert.Contains(invites!, item => item.Title == "Pending invite");
     }

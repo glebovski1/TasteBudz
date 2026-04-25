@@ -16,6 +16,7 @@ This skill orchestrates validation and deployment. For the actual App Service up
 - Read `AGENTS.md` before starting, then read the authoritative docs relevant to the touched areas.
 - Always read `docs/deployment/azure-app-service.md` and `src/TasteBudz.Database/sqlserver/README.md` before publishing.
 - Use `.agents/skills/azure-app-service-deployment/scripts/update-published-app.ps1` for normal code-only updates to the existing App Service.
+- Use `.agents/skills/azure-app-service-deployment/scripts/release-with-rollback.ps1` for releases that include production SQL schema patches, data migrations, or explicit rollback expectations.
 - Do not deploy if the build fails, tests fail, high-confidence blocking review findings remain, production schema changes are unapplied, or secrets would be included in the package.
 - Do not print SQL passwords, publish credentials, access tokens, or full connection strings in updates or final answers.
 - Do not treat generated publish output, local TestResults, or local environment-specific appsettings as source artifacts.
@@ -71,21 +72,35 @@ Expected package appsettings output is `appsettings.json` only.
 
 ### 4. Check Deployment Safety
 
-Determine whether recent changes include production SQL Server schema or seed changes under `src/TasteBudz.Database/sqlserver`.
+Determine whether recent changes include production SQL Server schema, seed, or data migration changes under `src/TasteBudz.Database/sqlserver`.
 
 - If no schema changes are present, use the normal update script.
-- If schema changes are present, apply and verify SQL scripts manually before the app update. The update script does not apply schema changes.
+- If schema/data changes are present, prefer the reliable release script with explicit `-ScriptPath` and `-DatabaseRollbackScriptPath`.
+- If a database change is intentionally forward-only, pass `-AllowForwardOnlyDatabaseChange` and report that database rollback is not available.
 - If schema state cannot be verified safely, stop before publishing and report the blocker.
 
 ### 5. Publish To Azure
 
-Load `.agents/skills/azure-app-service-deployment/SKILL.md`, then run the normal update script:
+Load `.agents/skills/azure-app-service-deployment/SKILL.md`.
+
+For code-only releases, run the normal update script:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1
 ```
 
 The script performs Release restore, build, tests, publish, zip deploy with Kudu fallback, artifact cleanup, and smoke checks. Capture and report its restore/build/test/deploy/smoke status.
+
+For database/data migration releases, run the reliable release script instead:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\release-with-rollback.ps1 `
+  -ScriptPath <forward-patch.sql> `
+  -DatabaseRollbackScriptPath <rollback-patch.sql> `
+  -AllowClientIp
+```
+
+The reliable release script snapshots the current app package, applies SQL scripts, deploys the new package, verifies production, and rolls back the app plus database rollback scripts when verification fails.
 
 ### 6. Verify Production
 
