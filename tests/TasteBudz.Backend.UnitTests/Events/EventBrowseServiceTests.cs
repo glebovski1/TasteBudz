@@ -137,7 +137,7 @@ public sealed class EventBrowseServiceTests
     }
 
     [Fact]
-    public async Task BrowseAsync_FiltersOpenEventsWhenHostPrivacyOrBlockingPreventsDiscovery()
+    public async Task BrowseAsync_DoesNotHideOpenEventsForHostPrivacyOrBlocking()
     {
         var services = CreateServices();
         var currentUserId = Guid.NewGuid();
@@ -161,8 +161,8 @@ public sealed class EventBrowseServiceTests
             PageSize = 10,
         });
 
-        var item = Assert.Single(result.Items);
-        Assert.Equal("Visible dinner", item.Title);
+        Assert.Equal(3, result.TotalCount);
+        Assert.Equal(new[] { "Visible dinner", "Private host dinner", "Blocked host dinner" }, result.Items.Select(item => item.Title));
     }
 
     [Fact]

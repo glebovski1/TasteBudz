@@ -116,7 +116,7 @@ public sealed class EventFeedbackServiceTests
     }
 
     [Fact]
-    public async Task ListAsync_ForOpenCompletedEvent_UsesEventVisibilityAfterEventEnds()
+    public async Task ListAsync_ForOpenCompletedEvent_DoesNotHideFeedbackForHostPrivacy()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero));
         var services = CreateServices(clock);
@@ -132,10 +132,10 @@ public sealed class EventFeedbackServiceTests
             Text = "Glad I joined.",
         });
 
-        var outsiderException = await Assert.ThrowsAsync<ApiException>(() => services.FeedbackService.ListAsync(outsider, eventId));
+        var outsiderFeedback = await services.FeedbackService.ListAsync(outsider, eventId);
         var guestFeedback = await services.FeedbackService.ListAsync(guest, eventId);
 
-        Assert.Equal(403, outsiderException.StatusCode);
+        Assert.Single(outsiderFeedback);
         Assert.Single(guestFeedback);
     }
 

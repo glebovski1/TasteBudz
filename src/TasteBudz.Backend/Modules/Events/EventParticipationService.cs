@@ -51,7 +51,6 @@ public sealed class EventParticipationService(
                 EventPolicy.IsPrivileged(currentUser),
                 eventRecord,
                 eventRepository,
-                profileRepository,
                 cancellationToken))
         {
             throw ApiException.NotFound("The requested event could not be found.");

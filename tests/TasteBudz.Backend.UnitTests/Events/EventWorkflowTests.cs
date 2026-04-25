@@ -358,7 +358,7 @@ public sealed class EventWorkflowTests
     }
 
     [Fact]
-    public async Task OpenEventDetailAndJoin_RespectHostPrivacyBeforeEventEnds()
+    public async Task OpenEventDetailAndJoin_DoNotHidePublicEventForHostPrivacy()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
         var services = CreateServices(clock);
@@ -375,13 +375,11 @@ public sealed class EventWorkflowTests
         });
         services.Store.PrivacySettings[host.UserId] = new PrivacySettings(host.UserId, false, clock.UtcNow);
 
-        var detailException = await Assert.ThrowsAsync<ApiException>(() =>
-            services.EventService.GetAsync(guest.UserId, detail.EventId));
-        var joinException = await Assert.ThrowsAsync<ApiException>(() =>
-            services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId));
+        var visibleDetail = await services.EventService.GetAsync(guest.UserId, detail.EventId);
+        var joined = await services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId);
 
-        Assert.Equal(404, detailException.StatusCode);
-        Assert.Equal(404, joinException.StatusCode);
+        Assert.Equal(detail.EventId, visibleDetail.EventId);
+        Assert.Equal(EventParticipantState.Joined, joined.State);
     }
 
     [Fact]

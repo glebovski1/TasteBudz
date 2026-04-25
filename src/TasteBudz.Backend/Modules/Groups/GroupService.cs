@@ -505,7 +505,6 @@ public sealed class GroupService(
             isPrivileged: false,
             eventRecord,
             eventRepository,
-            profileRepository,
             cancellationToken);
 
     private async Task EnsureNotBlockedAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken)

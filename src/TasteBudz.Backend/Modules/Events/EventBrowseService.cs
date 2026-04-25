@@ -65,7 +65,6 @@ public sealed class EventBrowseService(
                     isPrivileged: false,
                     eventRecord,
                     eventRepository,
-                    profileRepository,
                     cancellationToken))
             {
                 continue;

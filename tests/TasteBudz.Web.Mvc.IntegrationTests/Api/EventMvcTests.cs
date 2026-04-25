@@ -3,6 +3,7 @@ using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Messaging;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -357,6 +358,7 @@ public sealed class EventMvcTests
             HttpMethod.Get,
             $"/api/v1/events/{eventId}/feedback",
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+        EnqueueEmptyEventMessages(factory, eventId);
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/budz",
@@ -419,6 +421,7 @@ public sealed class EventMvcTests
             HttpMethod.Get,
             $"/api/v1/events/{eventId}/feedback",
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<EventFeedbackDto>()));
+        EnqueueEmptyEventMessages(factory, eventId);
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/budz",
@@ -547,6 +550,7 @@ public sealed class EventMvcTests
                 {
                     new RestaurantSlotDto(slotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 4, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), 2, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
                 }));
+        EnqueueEmptyEventMessages(factory, eventId);
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/budz",
@@ -617,7 +621,7 @@ public sealed class EventMvcTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Closed ramen", html);
         Assert.Contains("Attendees", html);
-        Assert.Contains("No feedback yet.", html);
+        Assert.Contains("Accept Invitation", html);
         factory.BackendHandler.AssertDrained();
     }
 
@@ -832,5 +836,15 @@ public sealed class EventMvcTests
                         DateTimeOffset.UtcNow,
                         DateTimeOffset.UtcNow),
                 }));
+    }
+
+    private static void EnqueueEmptyEventMessages(TasteBudzMvcFactory factory, Guid eventId)
+    {
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/events/{eventId}/messages?pageSize=20",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new CursorPageResponse<ChatMessageDto>(Array.Empty<ChatMessageDto>(), null)));
     }
 }

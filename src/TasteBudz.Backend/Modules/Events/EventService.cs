@@ -315,7 +315,6 @@ public sealed class EventService(
                 isPrivileged: false,
                 eventRecord,
                 eventRepository,
-                profileRepository,
                 cancellationToken))
         {
             return;

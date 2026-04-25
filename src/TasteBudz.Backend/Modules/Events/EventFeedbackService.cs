@@ -142,7 +142,6 @@ public sealed class EventFeedbackService(
                 isPrivileged,
                 eventRecord,
                 eventRepository,
-                profileRepository,
                 cancellationToken))
         {
             return false;
