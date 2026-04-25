@@ -59,12 +59,8 @@ public sealed class DashboardService(
             ?? throw ApiException.NotFound("The current account could not be found.");
         var profile = await profileRepository.GetProfileAsync(userId, cancellationToken)
             ?? throw ApiException.NotFound("The current profile could not be found.");
-        var avatarTask = mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
-        var preferencesTask = profileRepository.GetPreferencesAsync(userId, cancellationToken);
-        await Task.WhenAll(avatarTask, preferencesTask);
-
-        var avatar = await avatarTask;
-        var preferences = await preferencesTask;
+        var avatar = await mediaRepository.GetProfileAvatarAsync(userId, cancellationToken);
+        var preferences = await profileRepository.GetPreferencesAsync(userId, cancellationToken);
 
         return new ProfileDto(
             account.Id,
@@ -93,12 +89,8 @@ public sealed class DashboardService(
         foreach (var bud in budz)
         {
             var profile = profiles.GetValueOrDefault(bud.UserId);
-            var avatarTask = mediaRepository.GetProfileAvatarAsync(bud.UserId, cancellationToken);
-            var preferencesTask = profileRepository.GetPreferencesAsync(bud.UserId, cancellationToken);
-            await Task.WhenAll(avatarTask, preferencesTask);
-
-            var avatar = await avatarTask;
-            var preferences = await preferencesTask;
+            var avatar = await mediaRepository.GetProfileAvatarAsync(bud.UserId, cancellationToken);
+            var preferences = await profileRepository.GetPreferencesAsync(bud.UserId, cancellationToken);
 
             items.Add(new DashboardBudSummaryDto(
                 bud.UserId,

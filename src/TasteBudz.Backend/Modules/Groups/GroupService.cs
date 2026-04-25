@@ -446,12 +446,8 @@ public sealed class GroupService(
         foreach (var member in orderedMembers)
         {
             var profile = profiles.GetValueOrDefault(member.UserId);
-            var avatarTask = mediaRepository.GetProfileAvatarAsync(member.UserId, cancellationToken);
-            var preferencesTask = profileRepository.GetPreferencesAsync(member.UserId, cancellationToken);
-            await Task.WhenAll(avatarTask, preferencesTask);
-
-            var avatar = await avatarTask;
-            var preferences = await preferencesTask;
+            var avatar = await mediaRepository.GetProfileAvatarAsync(member.UserId, cancellationToken);
+            var preferences = await profileRepository.GetPreferencesAsync(member.UserId, cancellationToken);
 
             memberDtos.Add(new GroupMemberDto(
                 member.UserId,

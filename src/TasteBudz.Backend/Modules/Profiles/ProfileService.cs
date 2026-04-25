@@ -97,12 +97,8 @@ public sealed class ProfileService(
         bool includeEmail,
         CancellationToken cancellationToken)
     {
-        var avatarTask = mediaRepository.GetProfileAvatarAsync(account.Id, cancellationToken);
-        var preferencesTask = profileRepository.GetPreferencesAsync(account.Id, cancellationToken);
-        await Task.WhenAll(avatarTask, preferencesTask);
-
-        var avatar = await avatarTask;
-        var preferences = await preferencesTask;
+        var avatar = await mediaRepository.GetProfileAvatarAsync(account.Id, cancellationToken);
+        var preferences = await profileRepository.GetPreferencesAsync(account.Id, cancellationToken);
 
         return new ProfileDto(
             account.Id,

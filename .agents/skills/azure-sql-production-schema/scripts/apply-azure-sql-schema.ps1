@@ -219,14 +219,22 @@ function Ensure-ClientFirewallRule {
     $script:firewallRuleName = "CodexClient-$([DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))"
 
     Write-Host "Using temporary Azure SQL firewall rule '$script:firewallRuleName' for client IP $script:clientIp."
-    Invoke-RequiredCommand "az" @(
-        "sql", "server", "firewall-rule", "create",
-        "--resource-group", $ResourceGroupName,
-        "--server", $ServerName,
-        "--name", $script:firewallRuleName,
-        "--start-ip-address", $script:clientIp,
-        "--end-ip-address", $script:clientIp
-    )
+    $subscriptionId = Invoke-CapturedCommand "az" @("account", "show", "--query", "id", "--output", "tsv")
+    $accessToken = Invoke-CapturedCommand "az" @("account", "get-access-token", "--resource", "https://management.azure.com/", "--query", "accessToken", "--output", "tsv") -Sensitive
+    $uri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Sql/servers/$ServerName/firewallRules/$($script:firewallRuleName)?api-version=2021-11-01"
+    $body = @{
+        properties = @{
+            startIpAddress = $script:clientIp
+            endIpAddress = $script:clientIp
+        }
+    } | ConvertTo-Json -Depth 4
+
+    Invoke-RestMethod `
+        -Method Put `
+        -Uri $uri `
+        -Headers @{ Authorization = "Bearer $accessToken" } `
+        -ContentType "application/json" `
+        -Body $body | Out-Null
 }
 
 function Remove-ClientFirewallRule {
@@ -240,11 +248,27 @@ function Remove-ClientFirewallRule {
     }
 
     Write-Host "Removing temporary Azure SQL firewall rule '$script:firewallRuleName'."
-    & az sql server firewall-rule delete `
-        --resource-group $ResourceGroupName `
-        --server $ServerName `
-        --name $script:firewallRuleName `
-        --yes | Out-Null
+    $subscriptionId = Invoke-CapturedCommand "az" @("account", "show", "--query", "id", "--output", "tsv")
+    $accessToken = Invoke-CapturedCommand "az" @("account", "get-access-token", "--resource", "https://management.azure.com/", "--query", "accessToken", "--output", "tsv") -Sensitive
+    $uri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Sql/servers/$ServerName/firewallRules/$($script:firewallRuleName)?api-version=2021-11-01"
+
+    try {
+        Invoke-RestMethod `
+            -Method Delete `
+            -Uri $uri `
+            -Headers @{ Authorization = "Bearer $accessToken" } | Out-Null
+    }
+    catch {
+        $statusCode = if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $_.Exception.Response.StatusCode.value__
+        } else {
+            $null
+        }
+
+        if ($statusCode -ne 404) {
+            throw
+        }
+    }
 }
 
 function Invoke-SqlScript {

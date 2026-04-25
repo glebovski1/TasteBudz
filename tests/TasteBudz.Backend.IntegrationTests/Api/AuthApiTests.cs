@@ -31,6 +31,60 @@ public sealed class AuthApiTests(TasteBudzApiFactory factory) : IClassFixture<Ta
     }
 
     [Fact]
+    public async Task Register_ThenGetMyProfile_Succeeds()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+
+        var session = await ApiTestHelpers.RegisterAsync(client, username: "new-user", email: "new-user@example.com");
+        ApiTestHelpers.SetBearer(client, session.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/profiles/me");
+        var profile = await response.Content.ReadFromJsonAsync<ProfileDto>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(session.CurrentUser.UserId, profile!.UserId);
+        Assert.Equal("new-user", profile.Username);
+        Assert.Equal("new-user@example.com", profile.Email);
+    }
+
+    [Fact]
+    public async Task Register_CompleteProfile_ThenGetDashboard_Succeeds()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+
+        var session = await ApiTestHelpers.RegisterAsync(client, username: "dashboard-user", email: "dashboard-user@example.com");
+        ApiTestHelpers.SetBearer(client, session.AccessToken);
+        await client.PatchAsJsonAsync("/api/v1/profiles/me", new UpdateMyProfileRequest
+        {
+            Username = "dashboard-user",
+            DisplayName = "Dashboard User",
+            Bio = "Sushi first.",
+            HomeAreaZipCode = "45220",
+            SocialGoal = SocialGoal.Friends,
+        });
+        await client.PutAsJsonAsync("/api/v1/preferences/me", new ReplacePreferencesRequest
+        {
+            CuisineTags = new[] { "Italian" },
+            SpiceTolerance = SpiceTolerance.Medium,
+            DietaryFlags = Array.Empty<string>(),
+            Allergies = Array.Empty<string>(),
+        });
+        await client.PatchAsJsonAsync("/api/v1/privacy-settings/me", new UpdatePrivacySettingsRequest
+        {
+            DiscoveryEnabled = true,
+        });
+
+        var response = await client.GetAsync("/api/v1/me/dashboard");
+        var dashboard = await response.Content.ReadFromJsonAsync<DashboardDto>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(session.CurrentUser.UserId, dashboard!.Profile.UserId);
+        Assert.Equal("dashboard-user", dashboard.Profile.Username);
+    }
+
+    [Fact]
     public async Task ProtectedEndpoint_DoesNotAcceptQueryStringAccessToken()
     {
         factory.ResetState();

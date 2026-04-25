@@ -12,6 +12,7 @@ For an existing production database, apply only the explicit patch scripts neede
 Current incremental repair scripts include:
 
 - `patches/20260422_password_reset_requests_and_restaurant_catalog.sql`
+- `patches/20260425_group_announcements_wallpaper.sql`
 
 Operational checklist:
 
