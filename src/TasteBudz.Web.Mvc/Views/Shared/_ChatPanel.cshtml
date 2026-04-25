@@ -1,0 +1,34 @@
+@model ChatViewModel
+
+<div class="chat-shell" id="chatShell">
+    <div class="chat-history" id="chatHistory" aria-live="polite" aria-label="Chat messages">
+        @if (!Model.History.Any())
+        {
+            <p class="empty-state" id="emptyState">No messages yet - say hello!</p>
+        }
+        else
+        {
+            @foreach (var msg in Model.History)
+            {
+                <div class="chat-message" data-message-id="@msg.MessageId">
+                    <span class="chat-message__author">@msg.SenderDisplayName</span>
+                    <span class="chat-message__time">@msg.CreatedAtUtc.ToLocalTime().ToString("HH:mm")</span>
+                    <p class="chat-message__body">@msg.Body</p>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="chat-status empty-state" id="chatStatus"></div>
+
+    <form class="chat-compose" id="chatForm" autocomplete="off">
+        <textarea class="chat-compose__input"
+                  id="messageInput"
+                  maxlength="500"
+                  rows="3"
+                  placeholder="Type a message..."
+                  aria-label="Message input"
+                  required></textarea>
+        <button class="chat-compose__send" type="submit" id="sendBtn" disabled>Send</button>
+    </form>
+</div>

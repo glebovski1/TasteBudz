@@ -60,6 +60,17 @@ public sealed class EventBrowseService(
                 continue;
             }
 
+            if (!await EventVisibilityPolicy.CanViewAsync(
+                    currentUserId,
+                    isPrivileged: false,
+                    eventRecord,
+                    eventRepository,
+                    profileRepository,
+                    cancellationToken))
+            {
+                continue;
+            }
+
             if (query.EventType.HasValue && query.EventType.Value != EventType.Open)
             {
                 continue;

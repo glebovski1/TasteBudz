@@ -310,18 +310,18 @@ public sealed class EventService(
     /// </summary>
     private async Task EnsureCanViewAsync(Guid currentUserId, Event eventRecord, CancellationToken cancellationToken)
     {
-        if (eventRecord.EventType == EventType.Open || eventRecord.HostUserId == currentUserId)
+        if (await EventVisibilityPolicy.CanViewAsync(
+                currentUserId,
+                isPrivileged: false,
+                eventRecord,
+                eventRepository,
+                profileRepository,
+                cancellationToken))
         {
             return;
         }
 
-        // Closed events are hidden unless the caller is the host or still has a visible participation record.
-        var participant = await eventRepository.GetParticipantAsync(eventRecord.Id, currentUserId, cancellationToken);
-
-        if (participant is null || participant.State == EventParticipantState.Removed)
-        {
-            throw ApiException.NotFound("The requested event could not be found.");
-        }
+        throw ApiException.NotFound("The requested event could not be found.");
     }
 
     /// <summary>

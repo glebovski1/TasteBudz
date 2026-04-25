@@ -358,6 +358,33 @@ public sealed class EventWorkflowTests
     }
 
     [Fact]
+    public async Task OpenEventDetailAndJoin_RespectHostPrivacyBeforeEventEnds()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Hidden host dinner",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        services.Store.PrivacySettings[host.UserId] = new PrivacySettings(host.UserId, false, clock.UtcNow);
+
+        var detailException = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventService.GetAsync(guest.UserId, detail.EventId));
+        var joinException = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId));
+
+        Assert.Equal(404, detailException.StatusCode);
+        Assert.Equal(404, joinException.StatusCode);
+    }
+
+    [Fact]
     public async Task JoinOpenEventAsync_LastSeatContentionAllowsOnlyOneWinner()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));

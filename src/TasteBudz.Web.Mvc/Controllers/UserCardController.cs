@@ -46,6 +46,7 @@ public sealed class UserCardController : Controller
                 bio = profile.Bio,
                 socialGoal = profile.SocialGoal?.ToString(),
                 zipCode = profile.HomeAreaZipCode,
+                avatarUrl = profile.AvatarMediaAssetId.HasValue ? $"/api/v1/media/{profile.AvatarMediaAssetId.Value}" : null,
                 cuisineTags = profile.CuisineTags,
                 dietaryFlags = profile.DietaryFlags,
                 isBud,

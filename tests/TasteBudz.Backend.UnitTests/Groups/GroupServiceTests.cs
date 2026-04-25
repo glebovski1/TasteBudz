@@ -55,6 +55,35 @@ public sealed class GroupServiceTests
     }
 
     [Fact]
+    public async Task BrowseAsync_ExcludesPublicGroupsWhereCurrentUserIsAlreadyActiveMember()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var joinedGroup = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Joined Crew",
+            Visibility = GroupVisibility.Public,
+        });
+        var openGroup = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Open Crew",
+            Visibility = GroupVisibility.Public,
+        });
+
+        await services.GroupService.JoinAsync(guest.CurrentUser.UserId, joinedGroup.GroupId);
+
+        var browse = await services.GroupService.BrowseAsync(guest.CurrentUser.UserId, new BrowseGroupsQuery
+        {
+            PageSize = 10,
+        });
+
+        Assert.DoesNotContain(browse.Items, item => item.GroupId == joinedGroup.GroupId);
+        Assert.Contains(browse.Items, item => item.GroupId == openGroup.GroupId);
+    }
+
+    [Fact]
     public async Task RespondToInviteAsync_AcceptCreatesPrivateMembership()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));

@@ -28,9 +28,13 @@ public sealed class GroupService(
     IPersistenceTransactionRunner? transactionRunner = null)
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
-    public async Task<ListResponse<GroupSummaryDto>> BrowseAsync(BrowseGroupsQuery query, CancellationToken cancellationToken = default)
+    public async Task<ListResponse<GroupSummaryDto>> BrowseAsync(Guid currentUserId, BrowseGroupsQuery query, CancellationToken cancellationToken = default)
     {
         var groups = await groupRepository.ListAsync(cancellationToken);
+        var currentUserGroupIds = (await groupRepository.ListMembershipsForUserAsync(currentUserId, cancellationToken))
+            .Where(membership => membership.State == GroupMemberState.Active)
+            .Select(membership => membership.GroupId)
+            .ToHashSet();
         var filtered = new List<GroupSummaryDto>();
 
         foreach (var group in groups)
@@ -42,6 +46,11 @@ public sealed class GroupService(
 
             if (!string.IsNullOrWhiteSpace(query.Q) &&
                 !group.Name.Contains(query.Q.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (currentUserGroupIds.Contains(group.Id))
             {
                 continue;
             }
@@ -491,15 +500,13 @@ public sealed class GroupService(
     }
 
     private async Task<bool> CanViewLinkedEventAsync(Guid currentUserId, Event eventRecord, CancellationToken cancellationToken)
-    {
-        if (eventRecord.EventType == EventType.Open || eventRecord.HostUserId == currentUserId)
-        {
-            return true;
-        }
-
-        var participant = await eventRepository.GetParticipantAsync(eventRecord.Id, currentUserId, cancellationToken);
-        return participant is not null && participant.State != EventParticipantState.Removed;
-    }
+        => await EventVisibilityPolicy.CanViewAsync(
+            currentUserId,
+            isPrivileged: false,
+            eventRecord,
+            eventRepository,
+            profileRepository,
+            cancellationToken);
 
     private async Task EnsureNotBlockedAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken)
     {

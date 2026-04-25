@@ -47,6 +47,74 @@
                     <strong>@Model.WallpaperTheme</strong>
                 </div>
             </div>
+
+            <div class="group-note-list group-note-list--hero">
+                <div class="group-note-list__item">
+                    <span class="group-note-list__label">Visibility</span>
+                    <strong>@Model.JoiningSummary</strong>
+                </div>
+                <div class="group-note-list__item">
+                    <span class="group-note-list__label">Chat access</span>
+                    <strong>Current active members only.</strong>
+                </div>
+            </div>
+
+            <div class="group-manage-hero__board">
+                <div class="group-section__header">
+                    <div>
+                        <p class="group-section__eyebrow">Announcements</p>
+                        <h2>Community Board</h2>
+                    </div>
+                    <p class="card__subtitle">Owner posts and linked events for this group.</p>
+                </div>
+
+                @if (Model.IsCurrentUserOwner)
+                {
+                    <form asp-action="CreateAnnouncement" asp-route-groupId="@Model.GroupId" method="post" class="group-announcement-form group-announcement-form--hero">
+                        @Html.AntiForgeryToken()
+                        <div class="field">
+                            <label for="AnnouncementTitle">Post Title</label>
+                            <input type="text" id="AnnouncementTitle" name="AnnouncementTitle" maxlength="120" placeholder="e.g. Friday ramen plan" />
+                        </div>
+                        <div class="field">
+                            <label for="AnnouncementBody">Message</label>
+                            <textarea id="AnnouncementBody" name="AnnouncementBody" maxlength="1000" placeholder="Write an update for the group..."></textarea>
+                        </div>
+                        <button type="submit" class="button button--primary">Post Announcement</button>
+                    </form>
+                }
+
+                <div class="group-announcement-list group-announcement-list--hero">
+                    @if (Model.Announcements.Count == 0)
+                    {
+                        <p class="empty-state">No announcements yet. New group events and owner posts will show here.</p>
+                    }
+                    else
+                    {
+                        @foreach (var announcement in Model.Announcements)
+                        {
+                            <article class="summary-card group-announcement-card">
+                                <div class="group-announcement-card__meta">
+                                    <span class="pill">@announcement.TypeLabel</span>
+                                    <span>@announcement.CreatedLabel</span>
+                                </div>
+                                <h3>@announcement.Title</h3>
+                                <p>@announcement.Body</p>
+                                <div class="group-announcement-card__footer">
+                                    <span>By @announcement.AuthorDisplayName (@@@announcement.AuthorUsername)</span>
+                                    @if (announcement.RelatedEventId.HasValue)
+                                    {
+                                        <a asp-controller="Event"
+                                           asp-action="EventDetails"
+                                           asp-route-eventId="@announcement.RelatedEventId.Value"
+                                           class="group-linked-event-action">Open event</a>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    }
+                </div>
+            </div>
         </div>
 
         <div class="group-manage-hero__actions">
@@ -91,63 +159,6 @@
 
     <div class="group-detail-layout">
         <div class="group-detail-layout__main">
-            <section class="panel stack group-announcement-panel">
-                <div class="group-section__header">
-                    <div>
-                        <p class="group-section__eyebrow">Announcements</p>
-                        <h2>Group Board</h2>
-                    </div>
-                    <p class="card__subtitle">Owner posts and new group events appear here for the group.</p>
-                </div>
-
-                @if (Model.IsCurrentUserOwner)
-                {
-                    <form asp-action="CreateAnnouncement" asp-route-groupId="@Model.GroupId" method="post" class="group-announcement-form">
-                        @Html.AntiForgeryToken()
-                        <div class="field">
-                            <label for="AnnouncementTitle">Post Title</label>
-                            <input type="text" id="AnnouncementTitle" name="AnnouncementTitle" maxlength="120" placeholder="e.g. Friday ramen plan" />
-                        </div>
-                        <div class="field">
-                            <label for="AnnouncementBody">Message</label>
-                            <textarea id="AnnouncementBody" name="AnnouncementBody" maxlength="1000" placeholder="Write an update for the group..."></textarea>
-                        </div>
-                        <button type="submit" class="button button--primary">Post Announcement</button>
-                    </form>
-                }
-
-                <div class="group-announcement-list">
-                    @if (Model.Announcements.Count == 0)
-                    {
-                        <p class="empty-state">No announcements yet. New group events and owner posts will show here.</p>
-                    }
-                    else
-                    {
-                        @foreach (var announcement in Model.Announcements)
-                        {
-                            <article class="summary-card group-announcement-card">
-                                <div class="group-announcement-card__meta">
-                                    <span class="pill">@announcement.TypeLabel</span>
-                                    <span>@announcement.CreatedLabel</span>
-                                </div>
-                                <h3>@announcement.Title</h3>
-                                <p>@announcement.Body</p>
-                                <div class="group-announcement-card__footer">
-                                    <span>By @announcement.AuthorDisplayName (@@@announcement.AuthorUsername)</span>
-                                    @if (announcement.RelatedEventId.HasValue)
-                                    {
-                                        <a asp-controller="Event"
-                                           asp-action="EventDetails"
-                                           asp-route-eventId="@announcement.RelatedEventId.Value"
-                                           class="group-linked-event-action">Open event</a>
-                                    }
-                                </div>
-                            </article>
-                        }
-                    }
-                </div>
-            </section>
-
             <section class="panel stack">
                 <div class="group-section__header">
                     <div>
@@ -381,30 +392,6 @@
                     </form>
                 </section>
             }
-
-            <section class="panel stack">
-                <div class="group-section__header group-section__header--compact">
-                    <div>
-                        <p class="group-section__eyebrow">Snapshot</p>
-                        <h2>Group Notes</h2>
-                    </div>
-                </div>
-
-                <div class="group-note-list">
-                    <div class="group-note-list__item">
-                        <span class="group-note-list__label">Visibility</span>
-                        <strong>@Model.JoiningSummary</strong>
-                    </div>
-                    <div class="group-note-list__item">
-                        <span class="group-note-list__label">Current owner</span>
-                        <strong>@(owner?.DisplayName ?? "Group owner")</strong>
-                    </div>
-                    <div class="group-note-list__item">
-                        <span class="group-note-list__label">Chat access</span>
-                        <strong>Available to current active members only.</strong>
-                    </div>
-                </div>
-            </section>
 
             @if (Model.IsCurrentUserOwner)
             {

@@ -25,7 +25,9 @@ public sealed class EventController : Controller
     private readonly RestaurantApiService restaurantApiService;
     private readonly ProfileApiService profileApiService;
     private readonly ModerationApiService moderationApiService;
+    private readonly MessagingApiService messagingApiService;
     private readonly UserSessionService userSessionService;
+    private readonly IBackendApiBaseAddressProvider backendApiBaseAddressProvider;
 
     public EventController(
         EventApiService eventApiService,
@@ -33,14 +35,18 @@ public sealed class EventController : Controller
         RestaurantApiService restaurantApiService,
         ProfileApiService profileApiService,
         ModerationApiService moderationApiService,
-        UserSessionService userSessionService)
+        MessagingApiService messagingApiService,
+        UserSessionService userSessionService,
+        IBackendApiBaseAddressProvider backendApiBaseAddressProvider)
     {
         this.eventApiService = eventApiService;
         this.groupApiService = groupApiService;
         this.restaurantApiService = restaurantApiService;
         this.profileApiService = profileApiService;
         this.moderationApiService = moderationApiService;
+        this.messagingApiService = messagingApiService;
         this.userSessionService = userSessionService;
+        this.backendApiBaseAddressProvider = backendApiBaseAddressProvider;
     }
 
     // GET /Event/Index
@@ -266,6 +272,12 @@ public sealed class EventController : Controller
                                       detail.Status is not EventStatus.Cancelled and not EventStatus.Completed;
             IReadOnlyList<BudConnectionDto> budz = [];
             IReadOnlyList<InvitableGroup> invitableGroups = [];
+            var eventChat = (detail.HostUserId == currentUserId || participants.Any(p =>
+                    p.UserId == currentUserId &&
+                    p.State == EventParticipantState.Joined)) &&
+                detail.Status is not EventStatus.Cancelled and not EventStatus.Completed
+                    ? await TryBuildEventChatAsync(eventId, cancellationToken)
+                    : null;
 
             if (isHostOfActiveEvent)
             {
@@ -319,7 +331,8 @@ public sealed class EventController : Controller
                 reservableSlots,
                 feedback,
                 budz,
-                invitableGroups));
+                invitableGroups,
+                eventChat));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -850,6 +863,25 @@ public sealed class EventController : Controller
         }
     }
 
+    private async Task<ChatViewModel> TryBuildEventChatAsync(
+        Guid eventId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var history = await messagingApiService.ListEventMessagesAsync(eventId, cancellationToken: cancellationToken);
+            return ChatViewModel.ForEvent(eventId, history.Items, BuildHubUrl(), GetAccessToken());
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException)
+        {
+            return ChatViewModel.ForEvent(eventId, [], BuildHubUrl(), GetAccessToken());
+        }
+    }
+
     private async Task<IReadOnlyCollection<RestaurantSlotDto>> TryGetReservableSlotsAsync(
         EventDetailDto detail,
         RestaurantDto? selectedRestaurant,
@@ -879,6 +911,11 @@ public sealed class EventController : Controller
         var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
     }
+
+    private string BuildHubUrl() =>
+        new Uri(backendApiBaseAddressProvider.GetBaseAddress(), MessagingApiService.HubPath).ToString();
+
+    private string GetAccessToken() => userSessionService.GetSession()?.AccessToken ?? string.Empty;
 
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)
     {

@@ -137,6 +137,35 @@ public sealed class EventBrowseServiceTests
     }
 
     [Fact]
+    public async Task BrowseAsync_FiltersOpenEventsWhenHostPrivacyOrBlockingPreventsDiscovery()
+    {
+        var services = CreateServices();
+        var currentUserId = Guid.NewGuid();
+        var visibleHostUserId = Guid.NewGuid();
+        var privateHostUserId = Guid.NewGuid();
+        var blockedHostUserId = Guid.NewGuid();
+
+        await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, visibleHostUserId, "45220", "visible-host", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, privateHostUserId, "45220", "private-host", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, blockedHostUserId, "45220", "blocked-host", services.Clock);
+        await services.ProfileRepository.SavePrivacySettingsAsync(new PrivacySettings(privateHostUserId, false, services.Clock.UtcNow));
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(blockedHostUserId, currentUserId, services.Clock.UtcNow));
+
+        await SaveEventAsync(services.EventRepository, CreateOpenEvent(visibleHostUserId, "Visible dinner", services.Clock.UtcNow.AddDays(2)), visibleHostUserId, services.Clock);
+        await SaveEventAsync(services.EventRepository, CreateOpenEvent(privateHostUserId, "Private host dinner", services.Clock.UtcNow.AddDays(2).AddHours(1)), privateHostUserId, services.Clock);
+        await SaveEventAsync(services.EventRepository, CreateOpenEvent(blockedHostUserId, "Blocked host dinner", services.Clock.UtcNow.AddDays(2).AddHours(2)), blockedHostUserId, services.Clock);
+
+        var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
+        {
+            PageSize = 10,
+        });
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Visible dinner", item.Title);
+    }
+
+    [Fact]
     public async Task BrowseAsync_AvailabilityOnlyMatchesRecurringAndOneOffWindows()
     {
         var services = CreateServices();

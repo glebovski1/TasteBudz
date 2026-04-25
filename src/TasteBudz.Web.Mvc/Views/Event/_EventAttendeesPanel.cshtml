@@ -1,0 +1,81 @@
+@model EventDetailViewModel
+
+@{
+    var isActive = Model.Status is "Open" or "Full" or "Confirmed";
+}
+
+<section class="panel stack event-attendees-panel">
+    <div class="event-section-heading">
+        <div>
+            <h2>Attendees</h2>
+            <p class="card__subtitle">@Model.ActiveParticipants / @Model.Capacity spots filled</p>
+        </div>
+    </div>
+    <div class="panel__items interest-card-list event-attendees-list">
+        @if (!Model.Participants.Any())
+        {
+            <p class="empty-state">No attendees yet.</p>
+        }
+        else
+        {
+            @foreach (var p in Model.Participants)
+            {
+                <article class="summary-card interest-card interest-card--person event-attendee-card">
+                    <div class="interest-card__header">
+                        <button type="button"
+                                class="interest-card__avatar-trigger"
+                                onclick="openUserCard('@p.UserId')"
+                                aria-label="View @p.DisplayName's profile">
+                            <span class="interest-card__avatar-shell interest-card__avatar-shell--initial">
+                                <span class="interest-card__avatar">@p.Initial</span>
+                            </span>
+                        </button>
+
+                        <div class="interest-card__body">
+                            <button type="button"
+                                    class="interest-card__identity interest-card__identity--button"
+                                    onclick="openUserCard('@p.UserId')"
+                                    aria-label="View @p.DisplayName's profile">
+                                <span class="interest-card__title">@p.DisplayName</span>
+                                <span class="interest-card__subtitle">@@@p.Username</span>
+                            </button>
+
+                            <div class="interest-card__chips">
+                                <span class="interest-card__chip @(p.IsHost ? "interest-card__chip--accent" : "interest-card__chip--muted")">@p.RoleLabel</span>
+                            </div>
+                        </div>
+
+                        <div class="interest-card__actions interest-card__actions--top">
+                            <button type="button"
+                                    class="interest-card__icon-action"
+                                    onclick="openUserCard('@p.UserId')"
+                                    aria-label="Open @p.DisplayName's profile">
+                                ...
+                            </button>
+
+                            @if (Model.IsHost && !p.IsHost && isActive)
+                            {
+                                <form asp-controller="Event"
+                                      asp-action="Kick"
+                                      asp-route-eventId="@Model.EventId"
+                                      asp-route-userId="@p.UserId"
+                                      method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit"
+                                            class="interest-card__danger-action"
+                                            onclick="return confirm('Remove @p.DisplayName from this event?')">
+                                        Kick
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="interest-card__facts">
+                        <span class="interest-card__fact">@p.JoinedLabel</span>
+                    </div>
+                </article>
+            }
+        }
+    </div>
+</section>

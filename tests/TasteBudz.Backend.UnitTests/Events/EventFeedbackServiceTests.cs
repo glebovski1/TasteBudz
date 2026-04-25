@@ -116,6 +116,30 @@ public sealed class EventFeedbackServiceTests
     }
 
     [Fact]
+    public async Task ListAsync_ForOpenCompletedEvent_UsesEventVisibilityAfterEventEnds()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = await services.CreateUserAsync("host");
+        var guest = await services.CreateUserAsync("guest");
+        var outsider = await services.CreateUserAsync("outsider");
+        var eventId = await services.SeedEventAsync(host, EventType.Open, EventStatus.Completed, guest);
+        await services.ProfileRepository.SavePrivacySettingsAsync(new PrivacySettings(host.UserId, false, clock.UtcNow));
+
+        await services.FeedbackService.UpsertMineAsync(guest, eventId, new UpsertEventFeedbackRequest
+        {
+            Rating = 5,
+            Text = "Glad I joined.",
+        });
+
+        var outsiderException = await Assert.ThrowsAsync<ApiException>(() => services.FeedbackService.ListAsync(outsider, eventId));
+        var guestFeedback = await services.FeedbackService.ListAsync(guest, eventId);
+
+        Assert.Equal(403, outsiderException.StatusCode);
+        Assert.Single(guestFeedback);
+    }
+
+    [Fact]
     public async Task UploadMyPhotoAsync_RequiresFeedbackAndEnforcesPhotoLimit()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero));

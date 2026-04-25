@@ -3,10 +3,16 @@
 @{
     ViewData["Title"] = Model.Title;
     var isActive = Model.Status is "Open" or "Full" or "Confirmed";
-    var myFeedback = Model.Feedback.FirstOrDefault(item => item.IsCurrentUser);
+    var showFeedback = Model.Status == "Completed";
+    var hasConversationPanel = showFeedback || Model.EventChat is not null;
+    var hasActionPanel =
+        Model.IsHost ||
+        (!Model.IsHost && Model.IsParticipant && isActive) ||
+        (!Model.IsHost && Model.IsInvited && isActive) ||
+        (!Model.IsHost && !Model.IsParticipant && !Model.IsInvited && Model.Status == "Open" && Model.EventType == "Open");
 }
 
-<section class="profile-shell">
+<section class="profile-shell event-detail-page">
 
     @* ── Banner ── *@
     <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
@@ -24,299 +30,103 @@
         <div class="button-row">
             <a asp-action="Index" class="button button--secondary">Back to Events</a>
 
-            @if ((Model.IsHost || Model.IsParticipant) && isActive)
-            {
-                <a asp-controller="Messaging"
-                   asp-action="EventChat"
-                   asp-route-eventId="@Model.EventId"
-                   class="button button--secondary">💬 Chat</a>
-            }
         </div>
     </div>
 
-    @* ── Event Info ── *@
-    <section class="card stack">
-        <h2 class="card__title">Event Info</h2>
-        <dl class="detail-list">
-            <dt>Date</dt>
-            <dd>📅 @Model.EventStartAtUtc.ToLocalTime().ToString("dddd, MMMM d, yyyy")</dd>
+    <div class="event-detail-top-grid @(!hasConversationPanel ? "event-detail-top-grid--single" : "")">
+        <div class="event-detail-top-grid__main">
+            @* ── Event Info ── *@
+            <section class="card stack event-info-card">
+                <h2 class="card__title">Event Info</h2>
+                <dl class="detail-list">
+                    <dt>Date</dt>
+                    <dd>📅 @Model.EventStartAtUtc.ToLocalTime().ToString("dddd, MMMM d, yyyy")</dd>
 
-            <dt>Time</dt>
-            <dd>⏰ @Model.EventStartAtUtc.ToLocalTime().ToString("h:mm tt")</dd>
+                    <dt>Time</dt>
+                    <dd>⏰ @Model.EventStartAtUtc.ToLocalTime().ToString("h:mm tt")</dd>
 
-            <dt>Spots</dt>
-            <dd>@Model.ActiveParticipants / @Model.Capacity filled</dd>
-        </dl>
-    </section>
+                    <dt>Spots</dt>
+                    <dd>@Model.ActiveParticipants / @Model.Capacity filled</dd>
+                </dl>
+            </section>
 
-    @if (Model.SelectedRestaurant is not null)
-    {
-        <section class="card stack">
-            <div>
-                <h2 class="card__title">@Model.SelectedRestaurant.Name</h2>
-                <p class="card__subtitle">@Model.SelectedRestaurant.Location</p>
-            </div>
-
-            <div class="profile-meta">
-                <span class="pill">@Model.SelectedRestaurant.PriceTier</span>
-                @if (!string.IsNullOrWhiteSpace(Model.SelectedRestaurant.CuisineTags))
-                {
-                    <span class="pill">@Model.SelectedRestaurant.CuisineTags</span>
-                }
-            </div>
-
-            <div class="button-row">
-                <a href="@Model.SelectedRestaurant.GoogleMapsUrl"
-                   class="button button--secondary"
-                   target="_blank"
-                   rel="noopener noreferrer">
-                    Open in Google Maps
-                </a>
-            </div>
-        </section>
-    }
-
-    @if (Model.SlotReservation is not null)
-    {
-        <section class="card stack">
-            <div>
-                <h2 class="card__title">Reserved Slot</h2>
-                <p class="card__subtitle">This event is linked to a restaurant-managed slot.</p>
-            </div>
-            <dl class="detail-list">
-                <dt>Reservation</dt>
-                <dd>@Model.SlotReservation.Status</dd>
-                <dt>Reserved</dt>
-                <dd>@Model.SlotReservation.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</dd>
-                @if (Model.DiscountActivation is not null)
-                {
-                    <dt>Discount</dt>
-                    <dd>
-                        @(Model.DiscountActivation.IsActive ? "Active" : "Inactive")
-                        (@Model.DiscountActivation.JoinedParticipantCount / @Model.DiscountActivation.MinThresholdForDiscount participants)
-                        @if (Model.DiscountActivation.IsFinalized)
-                        {
-                            <span>final</span>
-                        }
-                    </dd>
-                }
-            </dl>
-        </section>
-    }
-
-    <section class="card stack">
-        <div>
-            <h2 class="card__title">Event Feedback</h2>
-            @if (Model.AverageRating.HasValue)
+            @if (Model.SelectedRestaurant is not null)
             {
-                <p class="card__subtitle">
-                    Average rating: @Model.AverageRating.Value.ToString("0.0") / 5 from @Model.Feedback.Count feedback entr@(Model.Feedback.Count == 1 ? "y" : "ies")
-                </p>
-            }
-            else
-            {
-                <p class="card__subtitle">Feedback appears here after participants share how the event went.</p>
-            }
-        </div>
-
-        @if (Model.CanSubmitFeedback)
-        {
-            <form asp-action="SaveFeedback" method="post" class="stack">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="EventId" value="@Model.EventId" />
-
-                <div class="field">
-                    <label for="feedbackRating">Rating</label>
-                    <select id="feedbackRating" name="Rating" required>
-                        <option value="">Choose a rating</option>
-                        @for (var rating = 5; rating >= 1; rating--)
-                        {
-                            <option value="@rating" selected="@(Model.FeedbackForm.Rating == rating)">
-                                @rating / 5
-                            </option>
-                        }
-                    </select>
-                </div>
-
-                <div class="field">
-                    <label for="feedbackText">Text feedback</label>
-                    <textarea id="feedbackText"
-                              name="Text"
-                              maxlength="1000"
-                              rows="4"
-                              required>@Model.FeedbackForm.Text</textarea>
-                </div>
-
-                <div class="button-row">
-                    <button type="submit" class="button button--primary">Save Feedback</button>
-                </div>
-            </form>
-
-            @if (myFeedback is not null)
-            {
-                <form asp-action="UploadFeedbackPhoto"
-                      method="post"
-                      enctype="multipart/form-data"
-                      class="stack">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="eventId" value="@Model.EventId" />
-                    <div class="field">
-                        <label for="feedbackPhoto">Add a photo</label>
-                        <input id="feedbackPhoto"
-                               name="photo"
-                               type="file"
-                               accept="image/png,image/jpeg,image/gif,image/webp" />
+                <section class="card stack">
+                    <div>
+                        <h2 class="card__title">@Model.SelectedRestaurant.Name</h2>
+                        <p class="card__subtitle">@Model.SelectedRestaurant.Location</p>
                     </div>
+
+                    <div class="profile-meta">
+                        <span class="pill">@Model.SelectedRestaurant.PriceTier</span>
+                        @if (!string.IsNullOrWhiteSpace(Model.SelectedRestaurant.CuisineTags))
+                        {
+                            <span class="pill">@Model.SelectedRestaurant.CuisineTags</span>
+                        }
+                    </div>
+
                     <div class="button-row">
-                        <button type="submit" class="button button--secondary">Upload Photo</button>
+                        <a href="@Model.SelectedRestaurant.GoogleMapsUrl"
+                           class="button button--secondary"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Open in Google Maps
+                        </a>
                     </div>
-                </form>
+                </section>
             }
-        }
 
-        <div class="panel__items">
-            @if (!Model.Feedback.Any())
+            @if (Model.SlotReservation is not null)
             {
-                <p class="empty-state">No feedback yet.</p>
-            }
-            else
-            {
-                @foreach (var feedback in Model.Feedback)
-                {
-                    <article class="summary-card stack">
-                        <div class="member-row">
-                            <button class="member-row__profile-trigger"
-                                    onclick="openUserCard('@feedback.AuthorUserId')"
-                                    aria-label="View @feedback.AuthorDisplayName's profile">
-                                <div class="member-row__avatar">@feedback.AuthorDisplayName.Substring(0, 1).ToUpper()</div>
-                            </button>
-                            <button class="member-row__info member-row__info--clickable"
-                                    onclick="openUserCard('@feedback.AuthorUserId')">
-                                <strong>@feedback.AuthorDisplayName</strong>
-                                <span>@@@feedback.AuthorUsername</span>
-                            </button>
-                            <span class="pill" style="margin-left:auto;">@feedback.Rating / 5</span>
-                        </div>
-
-                        <p>@feedback.Text</p>
-                        <p class="muted-note">Updated @feedback.UpdatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
-
-                        @if (feedback.Photos.Any())
+                <section class="card stack">
+                    <div>
+                        <h2 class="card__title">Reserved Slot</h2>
+                        <p class="card__subtitle">This event is linked to a restaurant-managed slot.</p>
+                    </div>
+                    <dl class="detail-list">
+                        <dt>Reservation</dt>
+                        <dd>@Model.SlotReservation.Status</dd>
+                        <dt>Reserved</dt>
+                        <dd>@Model.SlotReservation.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</dd>
+                        @if (Model.DiscountActivation is not null)
                         {
-                            <div class="panel-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
-                                @foreach (var photo in feedback.Photos)
+                            <dt>Discount</dt>
+                            <dd>
+                                @(Model.DiscountActivation.IsActive ? "Active" : "Inactive")
+                                (@Model.DiscountActivation.JoinedParticipantCount / @Model.DiscountActivation.MinThresholdForDiscount participants)
+                                @if (Model.DiscountActivation.IsFinalized)
                                 {
-                                    <figure class="summary-card stack">
-                                        <img src="@Url.Action("FeedbackPhoto", "Event", new { mediaAssetId = photo.MediaAssetId })"
-                                             alt="@photo.OriginalFileName"
-                                             style="width:100%; aspect-ratio:1 / 1; object-fit:cover; border-radius:8px;" />
-                                        @if (feedback.IsCurrentUser)
-                                        {
-                                            <form asp-action="DeleteFeedbackPhoto" method="post">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="eventId" value="@Model.EventId" />
-                                                <input type="hidden" name="mediaAssetId" value="@photo.MediaAssetId" />
-                                                <button type="submit" class="button button--secondary">Remove</button>
-                                            </form>
-                                        }
-                                    </figure>
+                                    <span>final</span>
                                 }
-                            </div>
+                            </dd>
                         }
-
-                        @if (!feedback.IsCurrentUser)
-                        {
-                            <details class="cancel-details">
-                                <summary class="button button--secondary" style="display:inline-block; cursor:pointer;">
-                                    Report Feedback
-                                </summary>
-                                <form asp-action="ReportFeedback" method="post" class="stack" style="margin-top:0.75rem;">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="eventId" value="@Model.EventId" />
-                                    <input type="hidden" name="authorUserId" value="@feedback.AuthorUserId" />
-                                    <div class="field">
-                                        <label for="reportReason-@feedback.FeedbackId">Reason</label>
-                                        <input id="reportReason-@feedback.FeedbackId"
-                                               name="reason"
-                                               type="text"
-                                               maxlength="250"
-                                               required />
-                                    </div>
-                                    <div class="field">
-                                        <label for="reportExplanation-@feedback.FeedbackId">More detail</label>
-                                        <textarea id="reportExplanation-@feedback.FeedbackId"
-                                                  name="explanation"
-                                                  maxlength="500"
-                                                  rows="3"></textarea>
-                                    </div>
-                                    <div class="button-row">
-                                        <button type="submit" class="button button--danger">Submit Report</button>
-                                    </div>
-                                </form>
-                            </details>
-                        }
-                    </article>
-                }
+                    </dl>
+                </section>
             }
+
+            <partial name="_EventAttendeesPanel" model="Model" />
         </div>
-    </section>
 
-    <div class="panel-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+        @if (showFeedback)
+        {
+            <partial name="_EventFeedbackPanel" model="Model" />
+        }
+        else if (Model.EventChat is not null)
+        {
+            <section class="card stack event-chat-card">
+                <div>
+                    <h2 class="card__title">Event Chat</h2>
+                    <p class="card__subtitle">Coordinate with current attendees here.</p>
+                </div>
+                <partial name="_ChatPanel" model="Model.EventChat" />
+            </section>
+        }
+    </div>
 
-        @* ── Participants panel ── *@
-        <section class="panel stack">
-            <h2>Attendees</h2>
-            <div class="panel__items">
-                @if (!Model.Participants.Any())
-                {
-                    <p class="empty-state">No attendees yet.</p>
-                }
-                else
-                {
-                    @foreach (var p in Model.Participants)
-                    {
-                        <article class="summary-card member-row">
-
-                            @* Clicking the avatar or name opens the profile card *@
-                            <button class="member-row__profile-trigger"
-                                    onclick="openUserCard('@p.UserId')"
-                                    aria-label="View @p.DisplayName's profile">
-                                <div class="member-row__avatar">@p.DisplayName.Substring(0, 1).ToUpper()</div>
-                            </button>
-
-                            <button class="member-row__info member-row__info--clickable"
-                                    onclick="openUserCard('@p.UserId')">
-                                <strong>@p.DisplayName</strong>
-                                <span>@@@p.Username</span>
-                                @if (p.IsHost)
-                                {
-                                    <span class="pill" style="font-size:0.78rem;">Host</span>
-                                }
-                            </button>
-
-                            @* Kick button — only the host sees it, and only for non-host attendees *@
-                            @if (Model.IsHost && !p.IsHost && isActive)
-                            {
-                                <form asp-controller="Event"
-                                      asp-action="Kick"
-                                      asp-route-eventId="@Model.EventId"
-                                      asp-route-userId="@p.UserId"
-                                      method="post"
-                                      style="margin-left:auto;">
-                                    @Html.AntiForgeryToken()
-                                    <button type="submit"
-                                            class="button button--danger"
-                                            onclick="return confirm('Remove @p.DisplayName from this event?')">
-                                        Kick
-                                    </button>
-                                </form>
-                            }
-
-                        </article>
-                    }
-                }
-            </div>
-        </section>
+    @if (hasActionPanel)
+    {
+        <div class="panel-grid event-actions-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
 
         @* ── Host actions panel ── *@
         @if (Model.IsHost)
@@ -542,7 +352,8 @@
             </section>
         }
 
-    </div>
+        </div>
+    }
 
 </section>
 
@@ -568,4 +379,8 @@
             .forEach(cb => cb.addEventListener('change', updateInviteCount));
         document.getElementById('DirectInviteUsername')?.addEventListener('input', updateInviteCount);
     </script>
+    @if (Model.EventChat is not null)
+    {
+        <partial name="_ChatPanelScripts" model="Model.EventChat" />
+    }
 }

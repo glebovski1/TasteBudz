@@ -1,0 +1,138 @@
+@using System.Text.Json
+@model ChatViewModel
+
+<script>
+    (function () {
+        const SCOPE_TYPE = @((int)Model.ScopeType);
+        const SCOPE_ID = @Html.Raw(JsonSerializer.Serialize(Model.ScopeId));
+        const HUB_URL = @Html.Raw(JsonSerializer.Serialize(Model.HubUrl));
+        const ACCESS_TOKEN = @Html.Raw(JsonSerializer.Serialize(Model.AccessToken));
+
+        const historyEl = document.getElementById("chatHistory");
+        const statusEl = document.getElementById("chatStatus");
+        const emptyEl = document.getElementById("emptyState");
+        const form = document.getElementById("chatForm");
+        const input = document.getElementById("messageInput");
+        const sendBtn = document.getElementById("sendBtn");
+
+        if (!historyEl || !form || !input || !sendBtn) {
+            return;
+        }
+
+        function setStatus(msg) {
+            if (statusEl) {
+                statusEl.textContent = msg;
+            }
+        }
+
+        function appendMessage(msg) {
+            if (emptyEl) {
+                emptyEl.remove();
+            }
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "chat-message";
+            wrapper.dataset.messageId = msg.messageId;
+
+            const time = new Date(msg.createdAtUtc)
+                .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+            wrapper.innerHTML =
+                `<span class="chat-message__author">${escHtml(msg.senderDisplayName)}</span>` +
+                `<span class="chat-message__time">${time}</span>` +
+                `<p class="chat-message__body">${escHtml(msg.body)}</p>`;
+
+            historyEl.appendChild(wrapper);
+            historyEl.scrollTop = historyEl.scrollHeight;
+        }
+
+        function escHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(HUB_URL, {
+                accessTokenFactory: () => ACCESS_TOKEN
+            })
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("@MessagingApiService.MessageReceivedEventName", appendMessage);
+
+        connection.onreconnecting(() => {
+            sendBtn.disabled = true;
+            setStatus("Reconnecting...");
+        });
+
+        connection.onreconnected(async () => {
+            try {
+                await connection.invoke("@MessagingApiService.JoinScopeMethodName", SCOPE_TYPE, SCOPE_ID);
+                sendBtn.disabled = input.value.trim().length === 0;
+                setStatus("");
+            } catch {
+                sendBtn.disabled = true;
+                setStatus("Could not reconnect to chat.");
+            }
+        });
+
+        connection.onclose(() => {
+            sendBtn.disabled = true;
+            setStatus("Disconnected. Refresh to reconnect.");
+        });
+
+        async function startConnection() {
+            try {
+                await connection.start();
+                await connection.invoke("@MessagingApiService.JoinScopeMethodName", SCOPE_TYPE, SCOPE_ID);
+                sendBtn.disabled = input.value.trim().length === 0;
+                setStatus("");
+            } catch {
+                sendBtn.disabled = true;
+                setStatus("Could not connect to chat. Retrying...");
+                setTimeout(startConnection, 5000);
+            }
+        }
+
+        startConnection();
+
+        form.addEventListener("submit", async e => {
+            e.preventDefault();
+            const body = input.value.trim();
+
+            if (!body) {
+                return;
+            }
+
+            sendBtn.disabled = true;
+
+            try {
+                await connection.invoke("@MessagingApiService.SendMessageMethodName", {
+                    ScopeType: SCOPE_TYPE,
+                    ScopeId: SCOPE_ID,
+                    Body: body,
+                });
+                input.value = "";
+            } catch {
+                setStatus("Failed to send message. Please try again.");
+            } finally {
+                sendBtn.disabled = input.value.trim().length === 0 ||
+                    connection.state !== signalR.HubConnectionState.Connected;
+                input.focus();
+            }
+        });
+
+        input.addEventListener("input", () => {
+            sendBtn.disabled = input.value.trim().length === 0 ||
+                connection.state !== signalR.HubConnectionState.Connected;
+        });
+
+        input.addEventListener("keydown", async e => {
+            if (e.key !== "Enter" || e.shiftKey || sendBtn.disabled) {
+                return;
+            }
+
+            e.preventDefault();
+            form.requestSubmit();
+        });
+    }());
+</script>

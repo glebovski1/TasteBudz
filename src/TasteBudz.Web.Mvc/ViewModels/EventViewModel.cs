@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TasteBudz.Backend.Domain;
+using System.Globalization;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
@@ -252,6 +253,7 @@ public sealed class EventDetailViewModel
     public double? AverageRating { get; init; }
     public IReadOnlyList<BudConnectionDto> Budz { get; init; } = [];
     public IReadOnlyList<InvitableGroup> InvitableGroups { get; init; } = [];
+    public ChatViewModel? EventChat { get; init; }
 
     public static EventDetailViewModel FromDto(
         EventDetailDto dto,
@@ -261,7 +263,8 @@ public sealed class EventDetailViewModel
         IReadOnlyCollection<RestaurantSlotDto>? reservableSlots = null,
         IReadOnlyCollection<EventFeedbackDto>? feedback = null,
         IReadOnlyList<BudConnectionDto>? budz = null,
-        IReadOnlyList<InvitableGroup>? invitableGroups = null)
+        IReadOnlyList<InvitableGroup>? invitableGroups = null,
+        ChatViewModel? eventChat = null)
     {
         var feedbackItems = (feedback ?? Array.Empty<EventFeedbackDto>())
             .Select(item => EventFeedbackItem.FromDto(item, currentUserId))
@@ -308,6 +311,7 @@ public sealed class EventDetailViewModel
             AverageRating = feedbackItems.Count == 0 ? null : feedbackItems.Average(item => item.Rating),
             Budz = budz ?? [],
             InvitableGroups = invitableGroups ?? [],
+            EventChat = eventChat,
         };
     }
 }
@@ -380,6 +384,14 @@ public sealed class EventParticipantItem
     public string DisplayName { get; init; } = string.Empty;
     public string Username { get; init; } = string.Empty;
     public bool IsHost { get; init; }
+    public DateTimeOffset? JoinedAtUtc { get; init; }
+    public string Initial => string.IsNullOrWhiteSpace(DisplayName)
+        ? "?"
+        : DisplayName.Trim()[0].ToString().ToUpperInvariant();
+    public string RoleLabel => IsHost ? "Host" : "Attendee";
+    public string JoinedLabel => JoinedAtUtc.HasValue
+        ? $"Joined {JoinedAtUtc.Value.ToLocalTime().ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}"
+        : "Joined event";
 
     public static EventParticipantItem FromDto(EventParticipantDto dto, Guid hostUserId) => new()
     {
@@ -387,6 +399,7 @@ public sealed class EventParticipantItem
         DisplayName = dto.DisplayName,
         Username = dto.Username,
         IsHost = dto.UserId == hostUserId,
+        JoinedAtUtc = dto.JoinedAtUtc,
     };
 }
 

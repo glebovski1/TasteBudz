@@ -1,0 +1,166 @@
+@model EventDetailViewModel
+
+@{
+    var myFeedback = Model.Feedback.FirstOrDefault(item => item.IsCurrentUser);
+}
+
+<section class="card stack event-feedback-card">
+    <div class="event-section-heading">
+        <div>
+            <h2 class="card__title">Event Feedback</h2>
+            @if (Model.AverageRating.HasValue)
+            {
+                <p class="card__subtitle">
+                    Average rating: @Model.AverageRating.Value.ToString("0.0") / 5 from @Model.Feedback.Count feedback entr@(Model.Feedback.Count == 1 ? "y" : "ies")
+                </p>
+            }
+            else
+            {
+                <p class="card__subtitle">Share how the dinner went now that the event is finished.</p>
+            }
+        </div>
+    </div>
+
+    @if (Model.CanSubmitFeedback)
+    {
+        <form asp-action="SaveFeedback" method="post" class="stack event-feedback-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="EventId" value="@Model.EventId" />
+
+            <div class="field">
+                <label for="feedbackRating">Rating</label>
+                <select id="feedbackRating" name="Rating" required>
+                    <option value="">Choose a rating</option>
+                    @for (var rating = 5; rating >= 1; rating--)
+                    {
+                        <option value="@rating" selected="@(Model.FeedbackForm.Rating == rating)">
+                            @rating / 5
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="feedbackText">Text feedback</label>
+                <textarea id="feedbackText"
+                          name="Text"
+                          maxlength="1000"
+                          rows="4"
+                          required>@Model.FeedbackForm.Text</textarea>
+            </div>
+
+            <div class="button-row">
+                <button type="submit" class="button button--primary">Save Feedback</button>
+            </div>
+        </form>
+
+        @if (myFeedback is not null)
+        {
+            <form asp-action="UploadFeedbackPhoto"
+                  method="post"
+                  enctype="multipart/form-data"
+                  class="stack event-feedback-photo-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="eventId" value="@Model.EventId" />
+                <div class="field">
+                    <label for="feedbackPhoto">Add a photo</label>
+                    <input id="feedbackPhoto"
+                           name="photo"
+                           type="file"
+                           accept="image/png,image/jpeg,image/gif,image/webp" />
+                </div>
+                <div class="button-row">
+                    <button type="submit" class="button button--secondary">Upload Photo</button>
+                </div>
+            </form>
+        }
+    }
+
+    <div class="event-feedback-list">
+        @if (!Model.Feedback.Any())
+        {
+            <p class="empty-state">No feedback yet.</p>
+        }
+        else
+        {
+            @foreach (var feedback in Model.Feedback)
+            {
+                <article class="summary-card stack event-feedback-item">
+                    <div class="member-row">
+                        <button type="button"
+                                class="member-row__profile-trigger"
+                                onclick="openUserCard('@feedback.AuthorUserId')"
+                                aria-label="View @feedback.AuthorDisplayName's profile">
+                            <div class="member-row__avatar">@feedback.AuthorDisplayName.Substring(0, 1).ToUpper()</div>
+                        </button>
+                        <button type="button"
+                                class="member-row__info member-row__info--clickable"
+                                onclick="openUserCard('@feedback.AuthorUserId')">
+                            <strong>@feedback.AuthorDisplayName</strong>
+                            <span>@@@feedback.AuthorUsername</span>
+                        </button>
+                        <span class="pill event-feedback-rating">@feedback.Rating / 5</span>
+                    </div>
+
+                    <p>@feedback.Text</p>
+                    <p class="muted-note">Updated @feedback.UpdatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+
+                    @if (feedback.Photos.Any())
+                    {
+                        <div class="event-feedback-photos">
+                            @foreach (var photo in feedback.Photos)
+                            {
+                                <figure class="summary-card stack event-feedback-photo">
+                                    <img src="@Url.Action("FeedbackPhoto", "Event", new { mediaAssetId = photo.MediaAssetId })"
+                                         alt="@photo.OriginalFileName"
+                                         loading="lazy" />
+                                    @if (feedback.IsCurrentUser)
+                                    {
+                                        <form asp-action="DeleteFeedbackPhoto" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="eventId" value="@Model.EventId" />
+                                            <input type="hidden" name="mediaAssetId" value="@photo.MediaAssetId" />
+                                            <button type="submit" class="button button--secondary">Remove</button>
+                                        </form>
+                                    }
+                                </figure>
+                            }
+                        </div>
+                    }
+
+                    @if (!feedback.IsCurrentUser)
+                    {
+                        <details class="cancel-details">
+                            <summary class="button button--secondary">
+                                Report Feedback
+                            </summary>
+                            <form asp-action="ReportFeedback" method="post" class="stack event-feedback-report-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="eventId" value="@Model.EventId" />
+                                <input type="hidden" name="authorUserId" value="@feedback.AuthorUserId" />
+                                <div class="field">
+                                    <label for="reportReason-@feedback.FeedbackId">Reason</label>
+                                    <input id="reportReason-@feedback.FeedbackId"
+                                           name="reason"
+                                           type="text"
+                                           maxlength="250"
+                                           required />
+                                </div>
+                                <div class="field">
+                                    <label for="reportExplanation-@feedback.FeedbackId">More detail</label>
+                                    <textarea id="reportExplanation-@feedback.FeedbackId"
+                                              name="explanation"
+                                              maxlength="500"
+                                              rows="3"></textarea>
+                                </div>
+                                <div class="button-row">
+                                    <button type="submit" class="button button--danger">Submit Report</button>
+                                </div>
+                            </form>
+                        </details>
+                    }
+                </article>
+            }
+        }
+    </div>
+</section>

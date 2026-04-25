@@ -8,19 +8,35 @@
 <div id="userCardOverlay" class="usercard-overlay" aria-modal="true" role="dialog" aria-labelledby="ucName" hidden>
     <div class="usercard-modal">
 
-        <button class="usercard-close" id="ucClose" aria-label="Close">&#x2715;</button>
+        <button class="usercard-close" id="ucClose" aria-label="Close">x</button>
 
-        @* ── Loading state ── *@
+        @* Loading state *@
         <div class="usercard-loading" id="ucLoading">Loading&#x2026;</div>
 
-        @* ── Profile view (shown first) ── *@
-        <div id="ucProfileView" hidden>
+        @* Profile view (shown first) *@
+        <div id="ucProfileView" class="usercard-profile" hidden>
 
-            <div class="usercard-avatar" id="ucAvatar" aria-hidden="true"></div>
-            <h2 class="usercard-name" id="ucName"></h2>
-            <p class="usercard-username" id="ucUsername"></p>
-            <div class="usercard-pills" id="ucFoodPills"></div>
-            <p class="usercard-bio" id="ucBio" hidden></p>
+            <div class="usercard-hero">
+                <div class="usercard-avatar-shell" id="ucAvatarShell">
+                    <div class="usercard-avatar" id="ucAvatar" aria-hidden="true"></div>
+                </div>
+
+                <div class="usercard-identity">
+                    <h2 class="usercard-name" id="ucName"></h2>
+                    <p class="usercard-username" id="ucUsername"></p>
+                </div>
+            </div>
+
+            <div class="usercard-section">
+                <div class="usercard-section__label">Public food preferences</div>
+                <div class="usercard-pills usercard-pills--food" id="ucFoodPills"></div>
+            </div>
+
+            <p class="usercard-bio" id="ucBio" hidden>
+                <span class="usercard-section__label">Personality</span>
+                <span id="ucBioText"></span>
+            </p>
+
             <div class="usercard-pills usercard-pills--meta" id="ucMetaPills"></div>
 
             <hr class="usercard-divider" />
@@ -31,10 +47,10 @@
 
         </div>
 
-        @* ── Report view (only shown when Report is clicked) ── *@
-        <div id="ucReportView" hidden>
+        @* Report view (only shown when Report is clicked) *@
+        <div id="ucReportView" class="usercard-report" hidden>
 
-            <button class="usercard-back" id="ucReportBack">&#x2190; Back</button>
+            <button class="usercard-back" id="ucReportBack">Back</button>
             <h3 class="usercard-report-title">Report User</h3>
 
             <div class="field">
@@ -77,9 +93,11 @@
         const profileView    = document.getElementById("ucProfileView");
         const reportView     = document.getElementById("ucReportView");
         const avatar         = document.getElementById("ucAvatar");
+        const avatarShell    = document.getElementById("ucAvatarShell");
         const name           = document.getElementById("ucName");
         const username       = document.getElementById("ucUsername");
         const bio            = document.getElementById("ucBio");
+        const bioText        = document.getElementById("ucBioText");
         const foodPills      = document.getElementById("ucFoodPills");
         const metaPills      = document.getElementById("ucMetaPills");
         const actions        = document.getElementById("ucActions");
@@ -89,13 +107,16 @@
         const reportFeedback = document.getElementById("ucReportFeedback");
 
         let currentUserId = null;
+        let previousFocus = null;
 
-        // ── Public API ─────────────────────────────────────────────────────────────
+        // Public API
         window.openUserCard = async function (userId) {
             currentUserId = userId;
+            previousFocus = document.activeElement;
             resetModal();
             overlay.hidden = false;
             document.body.style.overflow = "hidden";
+            document.getElementById("ucClose").focus();
 
             try {
                 const res  = await fetch(`/UserCard/Profile/${userId}`);
@@ -109,42 +130,47 @@
             }
         };
 
-        // ── Close ──────────────────────────────────────────────────────────────────
+        // Close
         document.getElementById("ucClose").addEventListener("click", closeModal);
         overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
-        document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+        document.addEventListener("keydown", e => {
+            if (overlay.hidden) return;
+            if (e.key === "Escape") closeModal();
+        });
 
         function closeModal() {
             overlay.hidden = true;
             document.body.style.overflow = "";
             currentUserId = null;
+            previousFocus?.focus?.();
+            previousFocus = null;
         }
 
-        // ── Render profile view ────────────────────────────────────────────────────
+        // Render profile view
         function renderProfile(data) {
-            avatar.textContent   = (data.displayName ?? "?")[0].toUpperCase();
+            renderAvatar(data);
             name.textContent     = data.displayName;
             username.textContent = "@@" + data.username;
-            bio.textContent      = data.bio ?? "";
+            bioText.textContent  = data.bio ?? "";
             bio.hidden           = !data.bio;
 
             foodPills.innerHTML = "";
             const publicFoodTags = [...(data.cuisineTags ?? []), ...(data.dietaryFlags ?? [])];
             if (publicFoodTags.length === 0) {
-                foodPills.appendChild(makePill("No public food preferences yet"));
+                foodPills.appendChild(makePill("No public food preferences yet", "interest-card__chip--muted"));
             } else {
                 publicFoodTags.forEach(tag => foodPills.appendChild(makePill(tag)));
             }
 
             metaPills.innerHTML = "";
             if (data.socialGoal) {
-                metaPills.appendChild(makePill(data.socialGoal));
+                metaPills.appendChild(makePill(data.socialGoal, "interest-card__chip--accent"));
             }
             if (data.zipCode) {
-                metaPills.appendChild(makePill("ZIP " + data.zipCode));
+                metaPills.appendChild(makePill("ZIP " + data.zipCode, "interest-card__chip--muted"));
             }
             if (data.isBud) {
-                metaPills.appendChild(makePill("Your Bud"));
+                metaPills.appendChild(makePill("Your Bud", "interest-card__chip--confirmed"));
             }
 
             actions.innerHTML = "";
@@ -158,13 +184,30 @@
             profileView.hidden = false;
         }
 
-        // ── View switching ─────────────────────────────────────────────────────────
+        function renderAvatar(data) {
+            avatarShell.innerHTML = "";
+
+            if (data.avatarUrl) {
+                const img = document.createElement("img");
+                img.src = data.avatarUrl;
+                img.alt = "";
+                img.className = "usercard-avatar-image";
+                avatarShell.appendChild(img);
+                return;
+            }
+
+            avatar.textContent = (data.displayName ?? "?")[0].toUpperCase();
+            avatarShell.appendChild(avatar);
+        }
+
+        // View switching
         function showReportView() {
             profileView.hidden = true;
             reportView.hidden  = false;
             document.getElementById("ucReportReason").value = "";
             document.getElementById("ucReportDetail").value = "";
             reportFeedback.hidden = true;
+            document.getElementById("ucReportReason").focus();
         }
 
         reportBack.addEventListener("click", () => {
@@ -172,7 +215,7 @@
             profileView.hidden = false;
         });
 
-        // ── Actions ────────────────────────────────────────────────────────────────
+        // Actions
         async function doUnBud(userId) {
             const res = await post("/UserCard/UnBud", { userId });
             if (res.ok) showFeedback("Removed from your Budz.", true);
@@ -180,7 +223,7 @@
         }
 
         async function doBlock(userId) {
-            if (!confirm("Block this user? You will be removed from any shared events or groups they host.")) return;
+            if (!confirm("Block this user? This prevents new direct interactions, but does not automatically remove shared events or groups.")) return;
             const res = await post("/UserCard/Block", { userId });
             if (res.ok) { showFeedback("User blocked.", true); setTimeout(closeModal, 1500); }
             else        showFeedback((await res.json()).error ?? "Failed.", false);
@@ -215,7 +258,7 @@
             }
         });
 
-        // ── Helpers ────────────────────────────────────────────────────────────────
+        // Helpers
         function post(url, body) {
             return fetch(url, {
                 method:  "POST",
@@ -232,9 +275,9 @@
             return btn;
         }
 
-        function makePill(text) {
+        function makePill(text, modifier) {
             const span = document.createElement("span");
-            span.className   = "pill";
+            span.className   = "interest-card__chip" + (modifier ? " " + modifier : "");
             span.textContent = text;
             return span;
         }
@@ -257,7 +300,7 @@
             reportView.hidden  = true;
             feedback.hidden    = true;
             bio.hidden         = true;
-            bio.textContent    = "";
+            bioText.textContent = "";
             foodPills.innerHTML = "";
             metaPills.innerHTML = "";
             actions.innerHTML  = "";

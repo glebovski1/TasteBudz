@@ -46,6 +46,17 @@ public sealed class EventParticipationService(
             throw ApiException.Conflict("Only open events can be joined directly.");
         }
 
+        if (!await EventVisibilityPolicy.CanViewAsync(
+                currentUser.UserId,
+                EventPolicy.IsPrivileged(currentUser),
+                eventRecord,
+                eventRepository,
+                profileRepository,
+                cancellationToken))
+        {
+            throw ApiException.NotFound("The requested event could not be found.");
+        }
+
         if (eventRecord.Status is EventStatus.Cancelled or EventStatus.Completed)
         {
             throw ApiException.Conflict("This event can no longer be joined.");

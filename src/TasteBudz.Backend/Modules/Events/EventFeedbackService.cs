@@ -135,15 +135,25 @@ public sealed class EventFeedbackService(
     public async Task<bool> CanViewFeedbackAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default)
     {
         var eventRecord = await GetSynchronizedEventAsync(eventId, cancellationToken);
+        var isPrivileged = currentUser.IsInRole(UserRole.Moderator) || currentUser.IsInRole(UserRole.Admin);
+
+        if (!await EventVisibilityPolicy.CanViewAsync(
+                currentUser.UserId,
+                isPrivileged,
+                eventRecord,
+                eventRepository,
+                profileRepository,
+                cancellationToken))
+        {
+            return false;
+        }
 
         if (eventRecord.EventType == EventType.Open)
         {
             return true;
         }
 
-        if (eventRecord.HostUserId == currentUser.UserId ||
-            currentUser.IsInRole(UserRole.Moderator) ||
-            currentUser.IsInRole(UserRole.Admin))
+        if (eventRecord.HostUserId == currentUser.UserId || isPrivileged)
         {
             return true;
         }

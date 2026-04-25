@@ -22,7 +22,7 @@ public sealed class GroupsController(
 {
     [HttpGet]
     public Task<ListResponse<GroupSummaryDto>> Browse([FromQuery] BrowseGroupsQuery query, CancellationToken cancellationToken) =>
-        groupService.BrowseAsync(query, cancellationToken);
+        groupService.BrowseAsync(currentUserAccessor.GetRequiredCurrentUser().UserId, query, cancellationToken);
 
     [HttpPost]
     public async Task<ActionResult<GroupDetailDto>> Create([FromBody] CreateGroupRequest request, CancellationToken cancellationToken)
