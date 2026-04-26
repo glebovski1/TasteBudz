@@ -78,7 +78,7 @@ public sealed class AdminController : Controller
         }
     }
 
-    [HttpGet("{id:guid}")]
+    [HttpGet("Admin/Reports/{id:guid}")]
     public async Task<IActionResult> ReportDetail(Guid id, CancellationToken cancellationToken)
     {
         try

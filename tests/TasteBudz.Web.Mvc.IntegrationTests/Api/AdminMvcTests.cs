@@ -240,6 +240,75 @@ public sealed class AdminMvcTests
         factory.BackendHandler.AssertDrained();
     }
 
+    [Fact]
+    public async Task Reports_RendersDetailLinksForEachReport()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var reportId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(
+            client,
+            factory,
+            isOnboardingComplete: true,
+            roles: new[] { UserRole.User, UserRole.Moderator });
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/moderation/reports?page=1&pageSize=20",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<ModerationReportDto>(
+                    new[]
+                    {
+                        CreateReport(reportId),
+                    },
+                    1)));
+
+        using var response = await client.GetAsync("/Admin/Reports");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains($"/Admin/Reports/{reportId}", html);
+        Assert.Contains("View Details", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task ReportDetail_RendersModerationReport()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var reportId = Guid.NewGuid();
+        var subjectUserId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(
+            client,
+            factory,
+            isOnboardingComplete: true,
+            roles: new[] { UserRole.User, UserRole.Moderator });
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/moderation/reports/{reportId}",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                CreateReport(reportId, relatedUserId: subjectUserId)));
+
+        using var response = await client.GetAsync($"/Admin/Reports/{reportId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Report Detail", html);
+        Assert.Contains("Repeated unwanted contact", html);
+        Assert.Contains("DiscoveryVisibility", html);
+        Assert.Contains(subjectUserId.ToString(), html);
+        Assert.Contains("Ban User", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
     private static void EnqueueAdminIndexShell(
         TasteBudzMvcFactory factory,
         IReadOnlyCollection<PasswordResetRequestDto> openRequests)
@@ -261,4 +330,23 @@ public sealed class AdminMvcTests
             "/api/v1/admin/users/password-reset-requests",
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, openRequests));
     }
+
+    private static ModerationReportDto CreateReport(Guid reportId, Guid? relatedUserId = null) =>
+        new(
+            reportId,
+            Guid.NewGuid(),
+            ReportTargetType.User,
+            relatedUserId ?? Guid.NewGuid(),
+            "Safety",
+            "Repeated unwanted contact",
+            "DiscoveryVisibility restriction requested.",
+            Guid.NewGuid(),
+            relatedUserId,
+            null,
+            new DateTimeOffset(2026, 5, 1, 13, 0, 0, TimeSpan.Zero),
+            ModerationReportStatus.Pending,
+            null,
+            null,
+            null,
+            null);
 }

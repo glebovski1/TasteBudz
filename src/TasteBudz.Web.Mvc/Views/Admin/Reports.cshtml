@@ -65,15 +65,18 @@
                                 }
                             </div>
 
-                            @if (report.Status == TasteBudz.Backend.Domain.ModerationReportStatus.Pending && report.RelatedUserId.HasValue)
-                            {
-                                <div class="button-row">
+                            <div class="button-row">
+                                <a asp-action="ReportDetail" asp-route-id="@report.ReportId" class="button button--secondary">
+                                    View Details
+                                </a>
+                                @if (report.Status == TasteBudz.Backend.Domain.ModerationReportStatus.Pending && report.RelatedUserId.HasValue)
+                                {
                                     <button class="button button--danger"
                                             onclick="openBanModal('@report.RelatedUserId', '@report.ReportId')">
                                         Ban User
                                     </button>
-                                </div>
-                            }
+                                }
+                            </div>
 
                             @if (report.Status == TasteBudz.Backend.Domain.ModerationReportStatus.Resolved)
                             {

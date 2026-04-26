@@ -1,0 +1,117 @@
+@model AdminReportDetailViewModel
+@using TasteBudz.Backend.Domain
+
+@{
+    ViewData["Title"] = "Report Detail";
+    var report = Model.Report;
+}
+
+<div class="admin-shell">
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">Moderation</span>
+            <h1 class="admin-title">Report Detail</h1>
+            <p class="admin-subtitle">Review the report target, context, and moderation state before taking action.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Reports" class="button button--secondary">All Reports</a>
+            <a asp-action="Index" class="button button--secondary">Admin Panel</a>
+        </div>
+    </div>
+
+    <section class="admin-section">
+        <article class="report-card card">
+            <div class="report-card__header">
+                <div class="report-card__meta">
+                    <span class="report-card__type">@report.TargetType</span>
+                    <span class="pill @(report.Status == ModerationReportStatus.Pending ? "pill--open" : "pill--confirmed")">@report.Status</span>
+                    <span class="report-card__category pill">@report.Category</span>
+                </div>
+                <time class="report-card__time" datetime="@report.CreatedAtUtc.ToString("o")">
+                    @report.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                </time>
+            </div>
+
+            <div class="stack">
+                <div>
+                    <h2 class="card__title">@report.Reason</h2>
+                    @if (!string.IsNullOrWhiteSpace(report.Explanation))
+                    {
+                        <p class="muted-note">@report.Explanation</p>
+                    }
+                </div>
+
+                <div class="editor-grid">
+                    <div class="summary-card">
+                        <strong>Reporter</strong>
+                        <span><code>@report.ReporterUserId</code></span>
+                    </div>
+                    <div class="summary-card">
+                        <strong>Target</strong>
+                        <span>@report.TargetType <code>@report.TargetId</code></span>
+                    </div>
+                    @if (report.RelatedUserId.HasValue)
+                    {
+                        <div class="summary-card">
+                            <strong>Related User</strong>
+                            <span><code>@report.RelatedUserId.Value</code></span>
+                        </div>
+                    }
+                    @if (report.RelatedEventId.HasValue)
+                    {
+                        <div class="summary-card">
+                            <strong>Related Event</strong>
+                            <span><code>@report.RelatedEventId.Value</code></span>
+                        </div>
+                    }
+                    @if (report.RelatedMessageId.HasValue)
+                    {
+                        <div class="summary-card">
+                            <strong>Related Message</strong>
+                            <span><code>@report.RelatedMessageId.Value</code></span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="report-card__footer">
+                @if (report.Status == ModerationReportStatus.Resolved)
+                {
+                    <span class="muted-note">
+                        Resolved @report.ResolvedAtUtc?.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                        @if (!string.IsNullOrWhiteSpace(report.ResolutionDecision))
+                        {
+                            <span> - @report.ResolutionDecision</span>
+                        }
+                    </span>
+                }
+                else
+                {
+                    <span class="muted-note">Pending moderation review.</span>
+                }
+            </div>
+        </article>
+    </section>
+
+    @if (report.Status == ModerationReportStatus.Pending && report.RelatedUserId.HasValue)
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Ban User</h2>
+            </div>
+            <form asp-action="BanUser" method="post" class="card stack" style="max-width: 720px;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="userId" value="@report.RelatedUserId.Value" />
+                <input type="hidden" name="reportId" value="@report.ReportId" />
+                <div class="field">
+                    <label for="reason">Reason</label>
+                    <textarea id="reason" name="reason" required>DiscoveryVisibility restriction for report @report.ReportId</textarea>
+                </div>
+                <div class="button-row">
+                    <button type="submit" name="permanent" value="false" class="button button--primary">7-Day Ban</button>
+                    <button type="submit" name="permanent" value="true" class="button button--danger">Permanent Ban</button>
+                </div>
+            </form>
+        </section>
+    }
+</div>

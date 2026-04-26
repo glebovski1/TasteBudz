@@ -316,3 +316,41 @@ INSERT OR IGNORE INTO ChatMessages (Id, ThreadId, SenderUserId, Body, CreatedAtU
 ('00000000-0000-0000-0000-000000005011', '00000000-0000-0000-0000-000000004010', '00000000-0000-0000-0000-000000000109', 'Brunch feedback is in for the completed event.', '2026-04-24T19:02:00Z'),
 ('00000000-0000-0000-0000-000000005012', '00000000-0000-0000-0000-000000004011', '00000000-0000-0000-0000-000000000102', 'Late-night pizza has full and cancelled scenarios to compare.', '2026-04-24T19:07:00Z'),
 ('00000000-0000-0000-0000-000000005013', '00000000-0000-0000-0000-000000004012', '00000000-0000-0000-0000-000000000104', 'Closed-event review is ready for moderator/admin accounts.', '2026-04-24T19:12:00Z');
+
+-----------------------------------------------------------------------
+-- Minimal feature-surface top-ups for local fallback demo coverage.
+-----------------------------------------------------------------------
+INSERT OR IGNORE INTO PasswordResetRequests (Id, Username, Message, MatchedUserId, CreatedAtUtc, ClosedAtUtc, ClosedByUserId) VALUES
+('00000000-0000-0000-0000-000000011001', 'alex', 'I need an admin reset before the presentation.', '00000000-0000-0000-0000-000000000101', '2026-04-24T20:00:00Z', NULL, NULL);
+
+INSERT OR IGNORE INTO ModerationReports (Id, ReporterUserId, TargetType, TargetId, Category, Reason, Explanation, RelatedEventId, RelatedUserId, RelatedMessageId, Status, ResolvedByUserId, ResolvedAtUtc, ResolutionDecision, ResolutionNotes, CreatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000007002', '00000000-0000-0000-0000-000000000101', 1, '00000000-0000-0000-0000-000000005013', 'Chat', 'Message tone needs review.', 'Alex flagged this supportable message for the moderation queue.', '00000000-0000-0000-0000-000000003014', '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000005013', 0, NULL, NULL, NULL, NULL, '2026-04-24T20:05:00Z');
+
+INSERT OR IGNORE INTO RestaurantSlots (Id, RestaurantId, StartsAtUtc, EndsAtUtc, Capacity, CutoffAtUtc, MinThresholdForDiscount, DiscountPercent, Status, CreatedAtUtc, UpdatedAtUtc, CancelledAtUtc, CancellationReason) VALUES
+('00000000-0000-0000-0000-000000009003', '88888888-8888-8888-8888-888888888888', '2026-05-06T01:30:00Z', '2026-05-06T03:30:00Z', 3, '2026-05-06T01:00:00Z', 3, 10, 0, '2026-04-24T20:10:00Z', '2026-04-24T20:10:00Z', NULL, NULL);
+
+INSERT OR IGNORE INTO EventSlotReservations (Id, EventId, SlotId, Status, CreatedAtUtc, CancelledAtUtc, CancellationReason) VALUES
+('00000000-0000-0000-0000-000000009101', '00000000-0000-0000-0000-000000003013', '00000000-0000-0000-0000-000000009003', 0, '2026-04-24T20:12:00Z', NULL, NULL);
+
+INSERT OR IGNORE INTO DiscountActivations (ReservationId, IsActive, IsFinalized, EvaluatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000009101', 1, 0, '2026-04-24T20:13:00Z');
+
+INSERT OR IGNORE INTO CheckoutSessions (Id, EventId, UserId, Status, Currency, SubtotalCents, DiscountCents, TotalCents, CreatedAtUtc, UpdatedAtUtc, CompletedAtUtc, CancelledAtUtc) VALUES
+('00000000-0000-0000-0000-000000012001', '00000000-0000-0000-0000-000000003013', '00000000-0000-0000-0000-000000000110', 0, 'USD', 1500, 150, 1350, '2026-04-24T20:15:00Z', '2026-04-24T20:15:00Z', NULL, NULL);
+
+INSERT OR IGNORE INTO MediaAssets (Id, OwnerUserId, ProfileUserId, GroupId, EventId, ReportId, OriginalFileName, ContentType, ContentLength, Content, CreatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000010001', '00000000-0000-0000-0000-000000000101', '00000000-0000-0000-0000-000000000101', NULL, NULL, NULL, 'alex-avatar.png', 'image/png', 8, x'89504E470D0A1A0A', '2026-04-24T20:20:00Z'),
+('00000000-0000-0000-0000-000000010002', '00000000-0000-0000-0000-000000000101', NULL, NULL, NULL, '00000000-0000-0000-0000-000000007002', 'report-evidence.png', 'image/png', 8, x'89504E470D0A1A0A', '2026-04-24T20:21:00Z'),
+('00000000-0000-0000-0000-000000010003', '00000000-0000-0000-0000-000000000102', NULL, NULL, '00000000-0000-0000-0000-000000003008', NULL, 'feedback-photo.png', 'image/png', 8, x'89504E470D0A1A0A', '2026-04-24T20:22:00Z');
+
+INSERT OR IGNORE INTO EventFeedbackPhotos (EventFeedbackId, MediaAssetId, CreatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000003901', '00000000-0000-0000-0000-000000010003', '2026-04-24T20:23:00Z');
+
+INSERT OR IGNORE INTO ChatThreads (Id, ScopeType, ScopeId, CreatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000004013', 2, '00000000-0000-0000-0000-000000001201', '2026-04-24T20:30:00Z'),
+('00000000-0000-0000-0000-000000004014', 3, '00000000-0000-0000-0000-000000000101', '2026-04-24T20:35:00Z');
+
+INSERT OR IGNORE INTO ChatMessages (Id, ThreadId, SenderUserId, Body, CreatedAtUtc) VALUES
+('00000000-0000-0000-0000-000000005014', '00000000-0000-0000-0000-000000004013', '00000000-0000-0000-0000-000000000101', 'Want to plan sushi after the group event?', '2026-04-24T20:31:00Z'),
+('00000000-0000-0000-0000-000000005015', '00000000-0000-0000-0000-000000004014', '00000000-0000-0000-0000-000000000101', 'Can an admin help me test the reset flow?', '2026-04-24T20:36:00Z'),
+('00000000-0000-0000-0000-000000005016', '00000000-0000-0000-0000-000000004014', '00000000-0000-0000-0000-000000000105', 'Yes. The reset request is visible in the admin panel.', '2026-04-24T20:37:00Z');

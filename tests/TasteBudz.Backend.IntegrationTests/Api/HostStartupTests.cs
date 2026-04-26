@@ -88,6 +88,60 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task SeedTestDataOnStartup_WhenEnabled_CoversImplementedFeatureSurfaces()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserAccounts") >= 10);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserRoles", "Role = 1") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserRoles", "Role = 2") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserRoles", "Role = 3") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "PasswordResetRequests", "ClosedAtUtc IS NULL") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserProfiles") >= 10);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserCuisinePreferences") >= 10);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserDietaryFlags") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserAllergies") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "RecurringAvailabilityWindows") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "OneOffAvailabilityWindows") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "SwipeDecisions") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "BudConnections") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserBlocks") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "Groups") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "GroupMembers") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "GroupInvites") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "GroupAnnouncements") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "Restaurants") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "RestaurantAdminAssignments", "RevokedAtUtc IS NULL") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "RestaurantSlots", "Status = 0") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "EventSlotReservations", "Status = 0") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "DiscountActivations", "IsActive = 1") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "Events") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "EventParticipants") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "EventFeedbacks") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "EventFeedbackPhotos") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "CheckoutSessions") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ChatThreads", "ScopeType = 0") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ChatThreads", "ScopeType = 1") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ChatThreads", "ScopeType = 2") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ChatThreads", "ScopeType = 3") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ChatMessages") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "Notifications") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ModerationReports", "Status = 0") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ModerationActions") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserRestrictions", "Status = 0") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "MediaAssets", "ProfileUserId IS NOT NULL") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "MediaAssets", "ReportId IS NOT NULL") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "MediaAssets", "EventId IS NOT NULL") >= 1);
+    }
+
+    [Fact]
     public async Task SeedTestDataOnStartup_WhenDisabled_DoesNotPopulateDevelopmentAccounts()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
@@ -237,6 +291,17 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         }
 
         return columns;
+    }
+
+    private static async Task<int> CountRowsAsync(string connectionString, string tableName, string whereClause = "1 = 1")
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {tableName} WHERE {whereClause};";
+
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
     }
 
     private static async Task InsertUserAsync(string connectionString, string id, string username, string email)

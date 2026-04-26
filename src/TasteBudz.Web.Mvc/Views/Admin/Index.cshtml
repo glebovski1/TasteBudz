@@ -256,6 +256,9 @@
                                 }
                             </div>
                             <div class="button-row">
+                                <a asp-action="ReportDetail" asp-route-id="@report.ReportId" class="button button--secondary">
+                                    View Details
+                                </a>
                                 @if (report.RelatedUserId.HasValue)
                                 {
                                     <button class="button button--danger"

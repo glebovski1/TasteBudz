@@ -158,12 +158,12 @@ Not yet implemented from later/feature-flagged API shape:
 
 ## 5. Test Status
 
-Current automated test status as of 2026-04-26:
+Current automated test status as of 2026-04-26 after `dotnet test TasteBudz.sln -c Release --no-build --logger "trx"`:
 
-- 118 backend unit tests
-- 76 backend integration tests
-- 75 MVC integration tests
-- 269 passing solution tests total
+- 119 backend unit tests
+- 77 backend integration tests
+- 83 MVC integration tests
+- 279 passing solution tests total
 
 Current covered areas:
 
@@ -175,6 +175,7 @@ Current covered areas:
 - blocks and dashboard behavior
 - restaurant browse and suggestion behavior
 - restaurant detail/not-found behavior
+- authenticated MVC restaurant browse route, filters, event handoff links, and navigation
 - event host auto-join behavior
 - closed-event invite acceptance capacity rule
 - event capacity validation
@@ -190,6 +191,7 @@ Current covered areas:
 - event chat, group chat, support chat, and feature-flagged direct chat authorization plus hub delivery
 - direct chat service, block enforcement, and MVC route behavior
 - report, restriction, role-enforcement, and audit-log workflows
+- Admin MVC report list/detail rendering and moderation action entry points
 - report-evidence attachment upload/list/download authorization
 - restaurant-admin assignment grant/revoke role behavior
 - restaurant-admin assignment authorization checks
@@ -200,6 +202,7 @@ Current covered areas:
 - discount activation, configured percentage projection, and cutoff freeze behavior
 - checkout simulation creation, joined-participant and selected-restaurant requirements, owner-only completion, per-slot discount application, completion/cancellation, terminal-state conflicts, disabled-flag behavior, and MVC service route coverage
 - ProblemDetails behavior for selected failure cases
+- local startup seed coverage for implemented feature surfaces, including auth, profiles, availability, discovery/Budz, groups, events, restaurants, chat, notifications, moderation, media, checkout simulation, and restaurant slot operations
 - persistence-backed API and workflow coverage for the implemented module set via temporary SQLite databases rebuilt from canonical SQL assets
 
 Important testing gaps still open:

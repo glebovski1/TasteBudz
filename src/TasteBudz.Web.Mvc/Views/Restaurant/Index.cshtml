@@ -1,0 +1,144 @@
+@model RestaurantIndexViewModel
+@using TasteBudz.Backend.Domain
+
+@{
+    ViewData["Title"] = "Restaurants";
+    var priceTiers = Enum.GetValues<PriceTier>();
+}
+
+<section class="profile-shell restaurant-page">
+    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+        <div>
+            <h1>Restaurants</h1>
+            <p>Browse local spots, filter by cuisine or price, and use a restaurant when creating a dining event.</p>
+        </div>
+        <div class="button-row">
+            <a asp-controller="Event" asp-action="CreateEvent" class="button button--primary">Create Event</a>
+        </div>
+    </div>
+
+    <div class="card stack">
+        <form asp-action="Index" method="get" class="stack">
+            <div class="restaurant-filters" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                <div class="field">
+                    <label for="q">Search</label>
+                    <input id="q" name="q" value="@Model.SearchQuery" placeholder="Name or city" />
+                </div>
+                <div class="field">
+                    <label for="cuisine">Cuisine</label>
+                    <input id="cuisine" name="cuisine" value="@Model.Cuisine" list="restaurantCuisineTags" placeholder="Any cuisine" />
+                    <datalist id="restaurantCuisineTags">
+                        @foreach (var cuisineTag in Model.SuggestedCuisineTags)
+                        {
+                            <option value="@cuisineTag"></option>
+                        }
+                    </datalist>
+                </div>
+                <div class="field">
+                    <label for="priceTier">Price</label>
+                    <select id="priceTier" name="priceTier">
+                        <option value="">Any price</option>
+                        @foreach (var priceTier in priceTiers)
+                        {
+                            <option value="@priceTier" selected="@(Model.PriceTier == priceTier)">@priceTier</option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="zipCode">ZIP</label>
+                    <input id="zipCode" name="zipCode" value="@Model.ZipCode" maxlength="5" inputmode="numeric" placeholder="45220" />
+                </div>
+                <div class="field">
+                    <label for="radiusMiles">Radius</label>
+                    <input id="radiusMiles" name="radiusMiles" value="@Model.RadiusMiles" type="number" min="1" max="100" step="1" placeholder="Miles" />
+                </div>
+            </div>
+
+            <div class="button-row">
+                <button type="submit" class="button button--primary">Search</button>
+                @if (Model.HasFilters)
+                {
+                    <a asp-action="Index" class="button button--secondary">Clear</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    @if (!Model.Restaurants.Any())
+    {
+        <div class="panel">
+            <p class="empty-state">No restaurants matched the current filters.</p>
+        </div>
+    }
+    else
+    {
+        <div class="report-list">
+            @foreach (var restaurant in Model.Restaurants)
+            {
+                <article class="report-card card">
+                    <div class="report-card__header">
+                        <div>
+                            <h2 class="event-card__title">@restaurant.Name</h2>
+                            <p class="muted-note">
+                                @(string.IsNullOrWhiteSpace(restaurant.StreetAddress)
+                                    ? $"{restaurant.City}, {restaurant.State} {restaurant.ZipCode}"
+                                    : $"{restaurant.StreetAddress}, {restaurant.City}, {restaurant.State} {restaurant.ZipCode}")
+                            </p>
+                        </div>
+                        <div class="button-row">
+                            <span class="pill">@restaurant.PriceTier</span>
+                            @if (restaurant.DistanceMiles.HasValue)
+                            {
+                                <span class="pill">@restaurant.DistanceMiles.Value.ToString("0.0") mi</span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (restaurant.CuisineTags.Any())
+                    {
+                        <div class="button-row">
+                            @foreach (var tag in restaurant.CuisineTags)
+                            {
+                                <span class="pill">@tag</span>
+                            }
+                        </div>
+                    }
+
+                    <div class="report-card__footer">
+                        <span class="muted-note">Catalog id <code>@restaurant.RestaurantId.ToString()[..8]</code></span>
+                        <a asp-controller="Event" asp-action="CreateEvent" class="button button--secondary">Use In Event</a>
+                    </div>
+                </article>
+            }
+        </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <div class="admin-pagination">
+                @if (Model.CurrentPage > 1)
+                {
+                    <a asp-action="Index"
+                       asp-route-q="@Model.SearchQuery"
+                       asp-route-cuisine="@Model.Cuisine"
+                       asp-route-priceTier="@Model.PriceTier"
+                       asp-route-zipCode="@Model.ZipCode"
+                       asp-route-radiusMiles="@Model.RadiusMiles"
+                       asp-route-page="@(Model.CurrentPage - 1)"
+                       class="button button--secondary">Prev</a>
+                }
+                <span class="muted-note">Page @Model.CurrentPage of @Model.TotalPages</span>
+                @if (Model.CurrentPage < Model.TotalPages)
+                {
+                    <a asp-action="Index"
+                       asp-route-q="@Model.SearchQuery"
+                       asp-route-cuisine="@Model.Cuisine"
+                       asp-route-priceTier="@Model.PriceTier"
+                       asp-route-zipCode="@Model.ZipCode"
+                       asp-route-radiusMiles="@Model.RadiusMiles"
+                       asp-route-page="@(Model.CurrentPage + 1)"
+                       class="button button--secondary">Next</a>
+                }
+            </div>
+        }
+    }
+</section>

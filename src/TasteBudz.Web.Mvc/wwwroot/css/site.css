@@ -1363,7 +1363,11 @@ main {
 body:has(.event-detail-page) .floating-btn,
 body:has(.event-detail-page) .floating-btn--support,
 body:has(.quick-event-stage) .floating-btn,
-body:has(.quick-event-stage) .floating-btn--support {
+body:has(.quick-event-stage) .floating-btn--support,
+body:has(.admin-shell) .floating-btn,
+body:has(.admin-shell) .floating-btn--support,
+body:has(.restaurant-page) .floating-btn,
+body:has(.restaurant-page) .floating-btn--support {
     display: none;
 }
 

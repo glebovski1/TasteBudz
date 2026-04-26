@@ -13,6 +13,15 @@ Current incremental repair scripts include:
 
 - `patches/20260422_password_reset_requests_and_restaurant_catalog.sql`
 - `patches/20260425_group_announcements_wallpaper.sql`
+- `patches/20260426_restaurant_slot_discount_percent.sql`
+
+Optional demo-data helpers live under `src/TasteBudz.Database/sqlserver/demo`:
+
+- `20260426_feature_seed_inventory.sql` reports row counts for each implemented feature surface.
+- `20260426_feature_seed_topup.sql` adds a small, deterministic feature-coverage data set only when you explicitly choose to top up a demo database.
+- `20260426_feature_seed_topup_rollback.sql` removes that deterministic demo top-up data.
+
+Do not include demo top-up scripts in normal production bootstrap or routine startup paths.
 
 Operational checklist:
 
