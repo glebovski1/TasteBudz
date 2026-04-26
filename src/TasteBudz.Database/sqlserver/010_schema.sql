@@ -408,6 +408,7 @@ BEGIN
         Capacity INT NOT NULL,
         CutoffAtUtc DATETIMEOFFSET NOT NULL,
         MinThresholdForDiscount INT NULL,
+        DiscountPercent INT NULL,
         Status INT NOT NULL,
         CreatedAtUtc DATETIMEOFFSET NOT NULL,
         UpdatedAtUtc DATETIMEOFFSET NOT NULL,
@@ -416,6 +417,23 @@ BEGIN
         CONSTRAINT FK_RestaurantSlots_Restaurants_RestaurantId FOREIGN KEY (RestaurantId) REFERENCES dbo.Restaurants (Id)
     );
 END;
+GO
+
+IF OBJECT_ID(N'dbo.RestaurantSlots', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.RestaurantSlots', N'DiscountPercent') IS NULL
+    ALTER TABLE dbo.RestaurantSlots ADD DiscountPercent INT NULL;
+GO
+
+IF OBJECT_ID(N'dbo.RestaurantSlots', N'U') IS NOT NULL
+    UPDATE dbo.RestaurantSlots
+    SET DiscountPercent = 15
+    WHERE MinThresholdForDiscount IS NOT NULL
+      AND DiscountPercent IS NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_RestaurantSlots_DiscountPercent' AND parent_object_id = OBJECT_ID(N'dbo.RestaurantSlots'))
+    ALTER TABLE dbo.RestaurantSlots ADD CONSTRAINT CK_RestaurantSlots_DiscountPercent CHECK (DiscountPercent IS NULL OR DiscountPercent BETWEEN 1 AND 100);
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_RestaurantSlots_DiscountPair' AND parent_object_id = OBJECT_ID(N'dbo.RestaurantSlots'))
+    ALTER TABLE dbo.RestaurantSlots ADD CONSTRAINT CK_RestaurantSlots_DiscountPair CHECK ((MinThresholdForDiscount IS NULL AND DiscountPercent IS NULL) OR (MinThresholdForDiscount IS NOT NULL AND DiscountPercent IS NOT NULL));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_RestaurantSlots_RestaurantId_StartsAtUtc' AND object_id = OBJECT_ID(N'dbo.RestaurantSlots'))

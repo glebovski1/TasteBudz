@@ -57,7 +57,7 @@ Search, swipe decisions, and mutual Budz connections.
 
 ### Restaurants
 
-Internal restaurant catalog used for browsing, filtering, event selection, and feature-flagged restaurant operations.
+Internal restaurant catalog used for browsing, filtering, event selection, and active restaurant operations.
 
 ### Events
 
@@ -216,7 +216,7 @@ Midpoint or group-aware suggestion logic is application/service behavior over us
 
 ### 5.19 Later concepts must not leak into MVP
 
-Entities tagged as later-only may remain documented for future compatibility, but they should not receive normal controllers, endpoints, repositories, or UI flows in MVP unless explicitly promoted. Promoted feature-flagged concepts must stay disabled by default until launch approval.
+Entities tagged as later-only may remain documented for future compatibility, but they should not receive normal controllers, endpoints, repositories, or UI flows in MVP unless explicitly promoted. Promoted concepts may retain kill-switch flags after launch.
 
 ## 6. Core Entities
 
@@ -483,7 +483,7 @@ Rules:
 
 ### RestaurantSlot
 
-Represents a restaurant-owned availability window that an event host can reserve when restaurant slot features are enabled.
+Represents a restaurant-owned availability window that an event host can reserve.
 
 Core data:
 
@@ -492,6 +492,7 @@ Core data:
 - capacity
 - cutoff timestamp
 - optional minimum threshold for discount activation
+- optional whole-number discount percentage
 - status (`Open` / `Cancelled`)
 - cancellation metadata
 
@@ -500,6 +501,9 @@ Rules:
 - slot capacity follows event capacity bounds of 2 through 8
 - cutoff must be before or equal to the slot start time
 - minimum discount threshold, when present, must be between 2 and slot capacity
+- minimum discount threshold and discount percentage must be provided together, or both omitted
+- discount percentage must be between 1 and 100
+- an unreserved open slot's optional discount pair may be cleared explicitly by restaurant admin update
 - only an actively assigned restaurant admin may create, edit, or cancel a slot for that restaurant
 - cancelled slots cannot be reserved
 
@@ -535,6 +539,7 @@ Core data:
 - reservation reference
 - active/inactive state
 - finalized flag
+- configured discount percentage from the reserved slot
 - evaluated timestamp
 
 Rules:
@@ -542,6 +547,7 @@ Rules:
 - joined event participants count as confirmed participants
 - before or at cutoff, activation can be recalculated after reservation, participation, or lifecycle changes
 - after cutoff, the final active/inactive result is frozen
+- active discount state uses the reserved slot's configured discount percentage
 - no payment, checkout, or settlement state is owned by this record; checkout simulation is represented separately by `CheckoutSession`
 
 ### CheckoutSession
@@ -1075,9 +1081,6 @@ Focus: append-only record of sensitive actions.
 ### MVP++ / feature-flagged - disabled by default
 
 - direct 1-on-1 messaging using `ChatThread` with `Direct` scope
-- restaurant-admin assignment
-- restaurant slots and slot reservations
-- discount activation simulation
 - checkout session simulation
 - feed/search projections and caches as read models
 
@@ -1095,6 +1098,6 @@ Important mapping notes:
 - `BudConnection` is the only required Budz relationship record in MVP.
 - `ChatThread` uses a generic scope model instead of separate event/group/support/direct roots.
 - Support chat uses the same scoped model, with the support subject user id as the scope id.
-- Restaurant-operation entities are present in the canonical SQLite schema but their endpoints remain disabled by default unless the restaurant operation flags are enabled.
+- Restaurant-operation entities are present in the canonical SQLite schema and active MVP/demo endpoints; restaurant operation flags remain available as kill switches.
 - Search indexes, feed caches, and denormalized browse views are read models, not primary domain entities.
 

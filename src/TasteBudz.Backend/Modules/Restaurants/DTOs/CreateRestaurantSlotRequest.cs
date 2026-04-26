@@ -19,4 +19,7 @@ public sealed class CreateRestaurantSlotRequest
 
     [Range(2, 8)]
     public int? MinThresholdForDiscount { get; init; }
+
+    [Range(1, 100)]
+    public int? DiscountPercent { get; init; }
 }

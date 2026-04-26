@@ -362,7 +362,7 @@ public sealed class AdminController : Controller
                 restaurantId,
                 new CreateRestaurantAdminAssignmentRequest { Username = username.Trim() },
                 cancellationToken);
-            TempData["StatusMessage"] = "Restaurant admin assignment saved.";
+            TempData["StatusMessage"] = "Restaurant admin assignment saved. The assigned user should sign out and back in to refresh access.";
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -386,7 +386,7 @@ public sealed class AdminController : Controller
         try
         {
             await restaurantApiService.RevokeAdminAssignmentAsync(restaurantId, userId, cancellationToken);
-            TempData["StatusMessage"] = "Restaurant admin assignment revoked.";
+            TempData["StatusMessage"] = "Restaurant admin assignment revoked. The user should sign out and back in to refresh access.";
         }
         catch (BackendAuthenticationExpiredException)
         {

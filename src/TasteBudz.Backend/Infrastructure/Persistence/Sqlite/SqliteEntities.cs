@@ -242,6 +242,7 @@ internal sealed class RestaurantSlotEntity
     public int Capacity { get; set; }
     public DateTimeOffset CutoffAtUtc { get; set; }
     public int? MinThresholdForDiscount { get; set; }
+    public int? DiscountPercent { get; set; }
     public Domain.RestaurantSlotStatus Status { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

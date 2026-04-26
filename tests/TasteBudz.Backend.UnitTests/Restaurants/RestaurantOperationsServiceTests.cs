@@ -1,8 +1,10 @@
+using System.Text.Json;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
+using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Moderation;
@@ -50,7 +52,7 @@ public sealed class RestaurantOperationsServiceTests
         var host = await RegisterCurrentUserAsync(services, "host", "host@example.com");
         var guest = await RegisterCurrentUserAsync(services, "guest", "guest@example.com");
         var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var slot = await SeedOpenSlotAsync(services, restaurantId, threshold: 2);
+        var slot = await SeedOpenSlotAsync(services, restaurantId, threshold: 2, discountPercent: 20);
         var eventRecord = await SeedEventAsync(services, host.UserId, restaurantId, capacity: 4);
         await services.EventRepository.SaveParticipantAsync(new EventParticipant(eventRecord.Id, host.UserId, EventParticipantState.Joined, null, services.Clock.UtcNow, services.Clock.UtcNow, null, null));
 
@@ -68,6 +70,129 @@ public sealed class RestaurantOperationsServiceTests
         Assert.False(inactive!.IsActive);
         Assert.NotNull(active);
         Assert.True(active!.IsActive);
+        Assert.Equal(20, active.DiscountPercent);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithDiscountThresholdAndPercent_PersistsPercentage()
+    {
+        var services = CreateServices();
+        var manager = await RegisterCurrentUserAsync(services, "manager", "manager@example.com", UserRole.RestaurantAdmin);
+        var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        await services.RestaurantOperationsRepository.SaveAssignmentAsync(new RestaurantAdminAssignment(restaurantId, manager.UserId, services.Clock.UtcNow, null));
+
+        var slot = await services.SlotService.CreateAsync(
+            manager,
+            restaurantId,
+            new CreateRestaurantSlotRequest
+            {
+                StartsAtUtc = services.Clock.UtcNow.AddHours(1),
+                EndsAtUtc = services.Clock.UtcNow.AddHours(3),
+                Capacity = 4,
+                CutoffAtUtc = services.Clock.UtcNow.AddMinutes(30),
+                MinThresholdForDiscount = 3,
+                DiscountPercent = 25,
+            });
+
+        Assert.Equal(3, slot.MinThresholdForDiscount);
+        Assert.Equal(25, slot.DiscountPercent);
+    }
+
+    [Theory]
+    [InlineData(2, null)]
+    [InlineData(null, 15)]
+    [InlineData(2, 0)]
+    [InlineData(2, 101)]
+    [InlineData(5, 15)]
+    public async Task CreateAsync_WithInvalidDiscountConfiguration_ReturnsBadRequest(int? threshold, int? discountPercent)
+    {
+        var services = CreateServices();
+        var manager = await RegisterCurrentUserAsync(services, "manager", "manager@example.com", UserRole.RestaurantAdmin);
+        var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        await services.RestaurantOperationsRepository.SaveAssignmentAsync(new RestaurantAdminAssignment(restaurantId, manager.UserId, services.Clock.UtcNow, null));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.SlotService.CreateAsync(
+                manager,
+                restaurantId,
+                new CreateRestaurantSlotRequest
+                {
+                    StartsAtUtc = services.Clock.UtcNow.AddHours(1),
+                    EndsAtUtc = services.Clock.UtcNow.AddHours(3),
+                    Capacity = 4,
+                    CutoffAtUtc = services.Clock.UtcNow.AddMinutes(30),
+                    MinThresholdForDiscount = threshold,
+                    DiscountPercent = discountPercent,
+                }));
+
+        Assert.Equal(400, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithDiscountThresholdAndPercent_PersistsPercentage()
+    {
+        var services = CreateServices();
+        var manager = await RegisterCurrentUserAsync(services, "manager", "manager@example.com", UserRole.RestaurantAdmin);
+        var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        await services.RestaurantOperationsRepository.SaveAssignmentAsync(new RestaurantAdminAssignment(restaurantId, manager.UserId, services.Clock.UtcNow, null));
+        var slot = await SeedOpenSlotAsync(services, restaurantId, threshold: null);
+
+        var updated = await services.SlotService.UpdateAsync(
+            manager,
+            slot.Id,
+            new UpdateRestaurantSlotRequest
+            {
+                MinThresholdForDiscount = 3,
+                DiscountPercent = 30,
+            });
+
+        Assert.Equal(3, updated.MinThresholdForDiscount);
+        Assert.Equal(30, updated.DiscountPercent);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithClearDiscount_RemovesExistingDiscount()
+    {
+        var services = CreateServices();
+        var manager = await RegisterCurrentUserAsync(services, "manager", "manager@example.com", UserRole.RestaurantAdmin);
+        var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        await services.RestaurantOperationsRepository.SaveAssignmentAsync(new RestaurantAdminAssignment(restaurantId, manager.UserId, services.Clock.UtcNow, null));
+        var slot = await SeedOpenSlotAsync(services, restaurantId, threshold: 3, discountPercent: 25);
+        var request = JsonSerializer.Deserialize<UpdateRestaurantSlotRequest>(
+            """{"clearDiscount":true}""",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        var updated = await services.SlotService.UpdateAsync(manager, slot.Id, request);
+
+        Assert.Null(updated.MinThresholdForDiscount);
+        Assert.Null(updated.DiscountPercent);
+    }
+
+    [Theory]
+    [InlineData(2, null)]
+    [InlineData(null, 15)]
+    [InlineData(2, 0)]
+    [InlineData(2, 101)]
+    [InlineData(5, 15)]
+    public async Task UpdateAsync_WithInvalidDiscountConfiguration_ReturnsBadRequest(int? threshold, int? discountPercent)
+    {
+        var services = CreateServices();
+        var manager = await RegisterCurrentUserAsync(services, "manager", "manager@example.com", UserRole.RestaurantAdmin);
+        var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        await services.RestaurantOperationsRepository.SaveAssignmentAsync(new RestaurantAdminAssignment(restaurantId, manager.UserId, services.Clock.UtcNow, null));
+        var slot = await SeedOpenSlotAsync(services, restaurantId, threshold: null);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.SlotService.UpdateAsync(
+                manager,
+                slot.Id,
+                new UpdateRestaurantSlotRequest
+                {
+                    MinThresholdForDiscount = threshold,
+                    DiscountPercent = discountPercent,
+                }));
+
+        Assert.Equal(400, exception.StatusCode);
     }
 
     [Fact]
@@ -133,7 +258,7 @@ public sealed class RestaurantOperationsServiceTests
         return new CurrentUser(account.Id, account.Username, account.Roles);
     }
 
-    private static async Task<RestaurantSlot> SeedOpenSlotAsync(TestServices services, Guid restaurantId, int? threshold)
+    private static async Task<RestaurantSlot> SeedOpenSlotAsync(TestServices services, Guid restaurantId, int? threshold, int? discountPercent = null)
     {
         var now = services.Clock.UtcNow;
         var slot = new RestaurantSlot(
@@ -144,6 +269,7 @@ public sealed class RestaurantOperationsServiceTests
             4,
             now.AddMinutes(30),
             threshold,
+            discountPercent,
             RestaurantSlotStatus.Open,
             now,
             now,

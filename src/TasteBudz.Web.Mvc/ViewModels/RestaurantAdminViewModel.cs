@@ -61,6 +61,9 @@ public sealed class RestaurantSlotForm
     [Range(2, 8)]
     public int? MinThresholdForDiscount { get; set; }
 
+    [Range(1, 100)]
+    public int? DiscountPercent { get; set; }
+
     public CreateRestaurantSlotRequest ToRequest() => new()
     {
         StartsAtUtc = new DateTimeOffset(StartsAt!.Value, TimeSpan.Zero),
@@ -68,6 +71,7 @@ public sealed class RestaurantSlotForm
         Capacity = Capacity!.Value,
         CutoffAtUtc = new DateTimeOffset(CutoffAt!.Value, TimeSpan.Zero),
         MinThresholdForDiscount = MinThresholdForDiscount,
+        DiscountPercent = DiscountPercent,
     };
 }
 
@@ -92,12 +96,19 @@ public sealed class RestaurantSlotEditForm
     [Range(2, 8)]
     public int? MinThresholdForDiscount { get; set; }
 
+    [Range(1, 100)]
+    public int? DiscountPercent { get; set; }
+
     public UpdateRestaurantSlotRequest ToRequest() => new()
     {
         StartsAtUtc = new DateTimeOffset(StartsAt!.Value, TimeSpan.Zero),
         EndsAtUtc = new DateTimeOffset(EndsAt!.Value, TimeSpan.Zero),
         Capacity = Capacity!.Value,
         CutoffAtUtc = new DateTimeOffset(CutoffAt!.Value, TimeSpan.Zero),
-        MinThresholdForDiscount = MinThresholdForDiscount,
+        MinThresholdForDiscount = ShouldClearDiscount ? null : MinThresholdForDiscount,
+        DiscountPercent = ShouldClearDiscount ? null : DiscountPercent,
+        ClearDiscount = ShouldClearDiscount,
     };
+
+    private bool ShouldClearDiscount => !MinThresholdForDiscount.HasValue && !DiscountPercent.HasValue;
 }

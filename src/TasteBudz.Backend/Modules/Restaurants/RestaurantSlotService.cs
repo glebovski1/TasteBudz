@@ -64,7 +64,7 @@ public sealed class RestaurantSlotService(
         var endsAt = request.EndsAtUtc ?? throw ApiException.BadRequest("endsAtUtc is required.");
         var capacity = request.Capacity ?? throw ApiException.BadRequest("capacity is required.");
         var cutoffAt = request.CutoffAtUtc ?? throw ApiException.BadRequest("cutoffAtUtc is required.");
-        ValidateSlot(startsAt, endsAt, capacity, cutoffAt, request.MinThresholdForDiscount);
+        ValidateSlot(startsAt, endsAt, capacity, cutoffAt, request.MinThresholdForDiscount, request.DiscountPercent);
 
         var now = clock.UtcNow;
         var slot = new RestaurantSlot(
@@ -75,6 +75,7 @@ public sealed class RestaurantSlotService(
             capacity,
             cutoffAt,
             request.MinThresholdForDiscount,
+            request.DiscountPercent,
             RestaurantSlotStatus.Open,
             now,
             now,
@@ -106,17 +107,30 @@ public sealed class RestaurantSlotService(
             throw ApiException.Conflict("Reserved slots cannot be updated.");
         }
 
+        var minThresholdForDiscount = request.ClearDiscount
+            ? null
+            : request.MinThresholdForDiscount ?? slot.MinThresholdForDiscount;
+        var discountPercent = request.ClearDiscount
+            ? null
+            : request.DiscountPercent ?? slot.DiscountPercent;
+
+        if (request.ClearDiscount && (request.MinThresholdForDiscount.HasValue || request.DiscountPercent.HasValue))
+        {
+            throw ApiException.BadRequest("clearDiscount cannot be combined with discount fields.");
+        }
+
         var updated = slot with
         {
             StartsAtUtc = request.StartsAtUtc ?? slot.StartsAtUtc,
             EndsAtUtc = request.EndsAtUtc ?? slot.EndsAtUtc,
             Capacity = request.Capacity ?? slot.Capacity,
             CutoffAtUtc = request.CutoffAtUtc ?? slot.CutoffAtUtc,
-            MinThresholdForDiscount = request.MinThresholdForDiscount ?? slot.MinThresholdForDiscount,
+            MinThresholdForDiscount = minThresholdForDiscount,
+            DiscountPercent = discountPercent,
             UpdatedAtUtc = clock.UtcNow,
         };
 
-        ValidateSlot(updated.StartsAtUtc, updated.EndsAtUtc, updated.Capacity, updated.CutoffAtUtc, updated.MinThresholdForDiscount);
+        ValidateSlot(updated.StartsAtUtc, updated.EndsAtUtc, updated.Capacity, updated.CutoffAtUtc, updated.MinThresholdForDiscount, updated.DiscountPercent);
         await restaurantOperationsRepository.SaveSlotAsync(updated, cancellationToken);
         return RestaurantOperationsMapper.ToSlotDto(updated);
     }
@@ -210,7 +224,8 @@ public sealed class RestaurantSlotService(
         DateTimeOffset endsAt,
         int capacity,
         DateTimeOffset cutoffAt,
-        int? minThresholdForDiscount)
+        int? minThresholdForDiscount,
+        int? discountPercent)
     {
         if (endsAt <= startsAt)
         {
@@ -230,6 +245,16 @@ public sealed class RestaurantSlotService(
         if (minThresholdForDiscount.HasValue && (minThresholdForDiscount.Value < 2 || minThresholdForDiscount.Value > capacity))
         {
             throw ApiException.BadRequest("minThresholdForDiscount must be between 2 and capacity.");
+        }
+
+        if (minThresholdForDiscount.HasValue != discountPercent.HasValue)
+        {
+            throw ApiException.BadRequest("minThresholdForDiscount and discountPercent must be provided together.");
+        }
+
+        if (discountPercent.HasValue && discountPercent.Value is < 1 or > 100)
+        {
+            throw ApiException.BadRequest("discountPercent must be between 1 and 100.");
         }
     }
 }

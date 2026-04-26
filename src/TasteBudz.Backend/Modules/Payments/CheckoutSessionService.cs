@@ -17,7 +17,6 @@ public sealed class CheckoutSessionService(
     IClock clock)
 {
     private const string Currency = "USD";
-    private const int DiscountPercent = 15;
 
     public async Task<CheckoutSessionDto> CreateForEventAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default)
     {
@@ -55,7 +54,9 @@ public sealed class CheckoutSessionService(
 
         var subtotalCents = PriceTierToSubtotalCents(restaurant.PriceTier);
         var discount = await discountEligibilityService.EvaluateForEventAsync(eventId, cancellationToken);
-        var discountCents = discount?.IsActive == true ? subtotalCents * DiscountPercent / 100 : 0;
+        var discountCents = discount?.IsActive == true && discount.DiscountPercent.HasValue
+            ? subtotalCents * discount.DiscountPercent.Value / 100
+            : 0;
         var now = clock.UtcNow;
         var session = new CheckoutSession(
             Guid.NewGuid(),

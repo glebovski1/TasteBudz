@@ -316,6 +316,7 @@ CREATE TABLE IF NOT EXISTS RestaurantSlots (
     Capacity INTEGER NOT NULL,
     CutoffAtUtc TEXT NOT NULL,
     MinThresholdForDiscount INTEGER NULL,
+    DiscountPercent INTEGER NULL,
     Status INTEGER NOT NULL,
     CreatedAtUtc TEXT NOT NULL,
     UpdatedAtUtc TEXT NOT NULL,
@@ -326,6 +327,8 @@ CREATE TABLE IF NOT EXISTS RestaurantSlots (
     CHECK (CutoffAtUtc <= StartsAtUtc),
     CHECK (Capacity BETWEEN 2 AND 8),
     CHECK (MinThresholdForDiscount IS NULL OR MinThresholdForDiscount BETWEEN 2 AND Capacity),
+    CHECK (DiscountPercent IS NULL OR DiscountPercent BETWEEN 1 AND 100),
+    CHECK ((MinThresholdForDiscount IS NULL AND DiscountPercent IS NULL) OR (MinThresholdForDiscount IS NOT NULL AND DiscountPercent IS NOT NULL)),
     CHECK (CancelledAtUtc IS NULL OR CancelledAtUtc >= CreatedAtUtc),
     CHECK (
         (Status = 1 AND CancelledAtUtc IS NOT NULL AND NULLIF(trim(CancellationReason), '') IS NOT NULL) OR

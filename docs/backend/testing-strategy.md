@@ -163,14 +163,16 @@ The following areas are the highest priority for backend testing.
 - direct chat remains hidden when disabled
 - enabled direct chat is limited to connected Budz, current block state, and active `ChatSend` restrictions
 
-### P1 - Feature-flagged restaurant operations
+### P1 - Restaurant operations
 
-- disabled restaurant operation and slot endpoints return `404`
+- default configuration exposes restaurant operation and slot endpoints
+- explicitly disabled restaurant operation and slot endpoints return `404`
 - assignment grant/revoke updates `RestaurantAdmin` role behavior correctly
 - restaurant admins can mutate only assigned restaurants
-- slot validation enforces time, capacity, cutoff, and threshold rules
+- slot validation enforces time, capacity, cutoff, threshold, and discount-percentage rules
 - event-host slot reservation enforces event/slot uniqueness, host ownership, active event status, and time/capacity fit
-- discount simulation recalculates before cutoff and freezes after cutoff
+- MVC create-event coverage verifies slot-aware restaurant filtering/listing and create-then-reserve orchestration when a host chooses a slot from the restaurant picker
+- discount simulation recalculates before cutoff, carries the configured slot percentage, and freezes after cutoff
 - reserved-slot cancellation cancels the linked event through normal cancellation behavior
 
 ### P1 - Feature-flagged checkout simulation
@@ -294,7 +296,7 @@ These scenarios should anchor early backend testing work.
 | BT-15A | Admin creates, updates, archives, and restores a restaurant catalog entry | High | Manual catalog maintenance keeps geocoded map/search state consistent |
 | BT-16 | Event host reserves an open restaurant slot | High | Event restaurant selection, cuisine clearing, and reservation uniqueness are correct |
 | BT-17 | Restaurant admin cancels a reserved slot | High | Reservation and linked event cancellation behavior is correct |
-| BT-18 | Discount threshold crosses before and after cutoff | Medium | Simulation state recalculates before cutoff and freezes after cutoff |
+| BT-18 | Discount threshold crosses before and after cutoff | Medium | Simulation state carries configured percentage, recalculates before cutoff, and freezes after cutoff |
 | BT-19 | Direct chat between Budz is enabled behind flag | High | Budz-only access, block checks, history retrieval, and hub delivery are correct |
 | BT-20 | Joined participant creates and completes simulated checkout | High | Feature flag, selected-restaurant requirement, simulated totals, and terminal status transitions are correct |
 | BT-21 | Admin issues a password reset token and user completes reset | High | Admin-only issue, one-time token use, password update, and session revocation are correct |
@@ -310,7 +312,7 @@ These scenarios should anchor early backend testing work.
 | Auth and Access | login, logout, auth boundaries, protected endpoint access, anonymous reset requests, admin-issued password reset |
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
-| Restaurant Operations | feature-flag behavior, assignments, slot lifecycle, reservation invariants, discount simulation |
+| Restaurant Operations | default-active behavior, kill-switch behavior, assignments, slot lifecycle, reservation invariants, discount simulation |
 | Events | create, update, cancel, join, leave, invites, lifecycle, feedback, concurrency |
 | Groups | create, join, leave, private invites, owner-only actions, group-owner-only later admin flows |
 | Discovery and Budz | search, privacy/block/restriction filters, one-sided outbound swipe search filtering, swipe replacement, reciprocal-like connection creation |

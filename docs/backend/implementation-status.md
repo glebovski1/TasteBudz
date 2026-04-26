@@ -5,7 +5,7 @@ This document tracks the current backend implementation state.
 It is a progress tracker, not a source of product or architecture truth.
 Use the primary backend documents for requirements, architecture, domain rules, API contracts, and testing policy.
 
-Last verified: 2026-04-16
+Last verified: 2026-04-26
 
 ## 1. Overall State
 
@@ -13,7 +13,7 @@ Current overall state:
 
 - foundation is implemented
 - the currently implemented MVP backend slices are `Backend-complete`
-- feature-flagged restaurant operations are implemented but disabled by default
+- restaurant operations are active in the MVP/demo flow with feature flags retained as kill switches
 - feature-flagged direct chat and checkout simulation are implemented but disabled by default
 - remaining later backend slices remain intentionally out of scope
 
@@ -27,7 +27,7 @@ Current practical assessment:
 - Auth and Access: `Backend-complete`
 - Profiles: `Backend-complete`
 - Restaurants: `Backend-complete`
-- Restaurant Operations: feature-flagged implemented slice, disabled by default
+- Restaurant Operations: `Backend-complete`, active MVP/demo slice with kill-switch flags
 - Events: `Backend-complete`
 - Groups: `Backend-complete`
 - Discovery / Budz: `Backend-complete`
@@ -66,7 +66,7 @@ Current runtime persistence note:
 | Auth and Access | Implemented slice | Register, login, refresh, logout, current-user auth pipeline, role-aware auth, account deletion, anonymous password reset requests, admin review/closure, and admin-issued password reset tokens |
 | Profiles | Implemented slice | Onboarding status, profile update/read, public profile note, preferences, availability, privacy, blocks, dashboard summaries |
 | Restaurants | Implemented slice | Browse, detail, deterministic suggestions, seeded catalog |
-| Restaurant Operations | Feature-flagged implemented slice | Admin-managed restaurant admin assignments, managed restaurant profile edits, slot CRUD/cancel, event-host slot reservations, discount simulation; disabled by default |
+| Restaurant Operations | Implemented slice | Admin-managed restaurant admin assignments, managed restaurant profile edits, slot CRUD/cancel, event-host slot reservations, reserved-slot cancellation, and per-slot discount percentage simulation; active by default with kill-switch flags |
 | Events | Implemented slice | Browse, create, detail, update, participants, join, leave/accept/decline, invite, cancel, lifecycle sync, owner-only group link, restriction checks |
 | Groups | Implemented slice | Browse/search, create/detail/update, join/leave, owner removal, private invites, linked-event listing |
 | Discovery / Budz | Implemented slice | Search, swipe candidates, Like/Pass decisions, one-sided outbound swipe search filtering, reciprocal Budz creation, privacy/block/restriction filtering |
@@ -78,7 +78,7 @@ Current runtime persistence note:
 
 ## 4. Implemented Endpoint Surface
 
-Implemented controller surface as of 2026-04-21:
+Implemented controller surface as of 2026-04-26:
 
 - `/api/v1/auth/*`
 - `/api/v1/auth/password-reset-requests`
@@ -100,12 +100,12 @@ Implemented controller surface as of 2026-04-21:
 - `/api/v1/account/deletion`
 - `/api/v1/restaurants`
 - `/api/v1/restaurants/{restaurantId}`
-- `/api/v1/restaurants/{restaurantId}/slots` (feature-flagged)
+- `/api/v1/restaurants/{restaurantId}/slots`
 - `/api/v1/restaurants/suggestions`
-- `/api/v1/admin/restaurants/{restaurantId}/admin-assignments` (feature-flagged)
+- `/api/v1/admin/restaurants/{restaurantId}/admin-assignments`
 - `/api/v1/events`
 - `/api/v1/events/{eventId}`
-- `/api/v1/events/{eventId}/slot-reservations` (feature-flagged)
+- `/api/v1/events/{eventId}/slot-reservations`
 - `/api/v1/events/{eventId}/checkout-sessions` (feature-flagged)
 - `/api/v1/events/{eventId}/participants`
 - `/api/v1/events/{eventId}/participants/me`
@@ -144,11 +144,11 @@ Implemented controller surface as of 2026-04-21:
 - `/api/v1/moderation/restrictions/{restrictionId}`
 - `/api/v1/audit-logs`
 - `/api/v1/admin/users/password-reset-tokens`
-- `/api/v1/restaurant-admin/restaurants` (feature-flagged)
-- `/api/v1/restaurant-admin/restaurants/{restaurantId}` (feature-flagged)
-- `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots` (feature-flagged)
-- `/api/v1/restaurant-admin/slots/{slotId}` (feature-flagged)
-- `/api/v1/restaurant-admin/slots/{slotId}/cancellation` (feature-flagged)
+- `/api/v1/restaurant-admin/restaurants`
+- `/api/v1/restaurant-admin/restaurants/{restaurantId}`
+- `/api/v1/restaurant-admin/restaurants/{restaurantId}/slots`
+- `/api/v1/restaurant-admin/slots/{slotId}`
+- `/api/v1/restaurant-admin/slots/{slotId}/cancellation`
 - `/hubs/chat`
 
 Not yet implemented from later/feature-flagged API shape:
@@ -158,12 +158,12 @@ Not yet implemented from later/feature-flagged API shape:
 
 ## 5. Test Status
 
-Current automated test status as of 2026-04-16:
+Current automated test status as of 2026-04-26:
 
-- 77 backend unit tests
-- 64 backend integration tests
-- 39 MVC integration tests
-- 180 passing solution tests total
+- 118 backend unit tests
+- 76 backend integration tests
+- 75 MVC integration tests
+- 269 passing solution tests total
 
 Current covered areas:
 
@@ -193,17 +193,19 @@ Current covered areas:
 - report-evidence attachment upload/list/download authorization
 - restaurant-admin assignment grant/revoke role behavior
 - restaurant-admin assignment authorization checks
-- restaurant slot validation and cancellation behavior
+- restaurant operation default-on and explicit-disabled flag behavior
+- restaurant slot validation, per-slot discount percentage, and cancellation behavior
 - event-host slot reservation invariants and same-slot conflict behavior
-- discount activation and cutoff freeze behavior
-- checkout simulation creation, joined-participant and selected-restaurant requirements, owner-only completion, discount application, completion/cancellation, terminal-state conflicts, disabled-flag behavior, and MVC service route coverage
+- MVC restaurant picker slot filtering/listing and create-then-reserve slot orchestration
+- discount activation, configured percentage projection, and cutoff freeze behavior
+- checkout simulation creation, joined-participant and selected-restaurant requirements, owner-only completion, per-slot discount application, completion/cancellation, terminal-state conflicts, disabled-flag behavior, and MVC service route coverage
 - ProblemDetails behavior for selected failure cases
 - persistence-backed API and workflow coverage for the implemented module set via temporary SQLite databases rebuilt from canonical SQL assets
 
 Important testing gaps still open:
 
 - group ownership transfer/dissolution and richer feed/search projection behavior remain intentionally unimplemented and untested at runtime
-- restaurant operations, direct chat, and checkout simulation need final launch-readiness review before default flags are enabled
+- direct chat and checkout simulation need final launch-readiness review before default flags are enabled
 - checkout remains simulation-only; real provider/payment behavior is intentionally unimplemented
 - no dedicated browser-level e2e project exists; current frontend proof is MVC host and service integration
 
@@ -215,7 +217,6 @@ Remaining gaps apply to later or intentionally deferred scope:
 
 1. Keep later/feature-flagged modules disabled until explicitly promoted:
    - group ownership transfer/dissolution
-   - restaurant operations and discounts until explicitly enabled for launch
    - direct chat until explicitly enabled for launch
    - checkout simulation until explicitly enabled for launch
    - feed/search projections beyond the basic query endpoints

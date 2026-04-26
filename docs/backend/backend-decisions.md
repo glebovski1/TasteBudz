@@ -472,21 +472,22 @@ Store launched MVP media assets directly in the relational database as image byt
 - Media access must be enforced from the owning context instead of exposing database records directly.
 - If Azure or production scale later makes database-only media storage too costly, the storage implementation can move behind the same module boundary with a new ADR.
 
-## [ADR-025] Restaurant Operations Launch Behind Explicit Feature Flags
+## [ADR-025] Restaurant Operations Active MVP Launch With Kill-Switch Flags
 
 - Date: 2026-04-11
 - Status: Accepted
 - Owners: Backend team
 
 ### Context
-Restaurant-admin assignments, slots, reservations, and discount simulation are approved as a later restaurant-operations slice, but they must not change default MVP launch behavior until the team explicitly turns them on.
+Restaurant-admin assignments, slots, reservations, and discount simulation were implemented as a feature-flagged restaurant-operations slice. They are now promoted into the active MVP/demo flow so restaurant partners can fill tables and event hosts can reserve concrete restaurant/time/capacity anchors.
 
 ### Decision
-Implement restaurant operations behind `FeatureFlags:RestaurantsOperationsEnabled`, `FeatureFlags:RestaurantsSlotsEnabled`, and `FeatureFlags:RestaurantsDiscountsEnabled`, all disabled by default. Global `Admin` users are the only actors that can grant or revoke `RestaurantAdminAssignment` records. Assignment grant adds the coarse `RestaurantAdmin` role, and revoke removes that role only after the user has no active restaurant-admin assignments left. Restaurant admins may mutate only restaurants for which they have an active assignment. Slot reservation is host-owned, requires an active event and open slot, enforces event time/capacity fit, and updates the event to use the slot restaurant while clearing cuisine target. Cancelling a reserved slot cancels the linked event through normal event-cancellation behavior. Discount handling is simulation-only: joined participants count toward the threshold, recalculation continues through cutoff, and the final active/inactive result freezes after cutoff.
+Run restaurant operations by default while retaining `FeatureFlags:RestaurantsOperationsEnabled`, `FeatureFlags:RestaurantsSlotsEnabled`, and `FeatureFlags:RestaurantsDiscountsEnabled` as kill switches. Global `Admin` users are the only actors that can grant or revoke `RestaurantAdminAssignment` records. Assignment grant adds the coarse `RestaurantAdmin` role, and revoke removes that role only after the user has no active restaurant-admin assignments left. Restaurant admins may mutate only restaurants for which they have an active assignment. Slot reservation is host-owned, requires an active event and open slot, enforces event time/capacity fit, and updates the event to use the slot restaurant while clearing cuisine target. Cancelling a reserved slot cancels the linked event through normal event-cancellation behavior. Discount handling is simulation-only: joined participants count toward the threshold, recalculation continues through cutoff, the final active/inactive result freezes after cutoff, and active discounts use the slot's configured whole-number discount percentage.
 
 ### Consequences
-- Default MVP behavior remains unchanged because disabled restaurant-operations endpoints return `404`.
-- Enabled endpoints return normal `401`/`403` authorization results when the caller lacks permission.
+- Default MVP/demo behavior includes restaurant-admin assignment, restaurant-admin slot management, host slot reservation, reserved-slot cancellation, and discount simulation.
+- If restaurant operation flags are explicitly disabled, affected endpoints return `404`.
+- Active endpoints return normal `401`/`403` authorization results when the caller lacks permission.
 - Restaurant operations add schema and service code without treating the checked-in `.sqlite` file as schema authority.
 - Payment simulation, checkout state, and payment-side effects remain out of scope for restaurant operations itself; simulation-only checkout is separately governed by ADR-026.
 

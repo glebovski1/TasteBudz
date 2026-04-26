@@ -78,7 +78,11 @@
                     <label asp-for="SlotForm.MinThresholdForDiscount"></label>
                     <input asp-for="SlotForm.MinThresholdForDiscount" type="number" min="2" max="8" />
                 </div>
-                <p class="muted-note">Optional discount threshold turns on simulation once enough joined guests confirm before cutoff.</p>
+                <div class="field">
+                    <label asp-for="SlotForm.DiscountPercent"></label>
+                    <input asp-for="SlotForm.DiscountPercent" type="number" min="1" max="100" />
+                </div>
+                <p class="muted-note">Optional discount simulation requires both a threshold and percentage.</p>
                 <div class="button-row">
                     <button type="submit" class="button button--primary">Create Slot</button>
                 </div>
@@ -105,9 +109,9 @@
                                 Capacity @slot.Capacity |
                                 Cutoff @slot.CutoffAtUtc.ToLocalTime().ToString("MMM d h:mm tt")
                             </p>
-                            @if (slot.MinThresholdForDiscount.HasValue)
+                            @if (slot.MinThresholdForDiscount.HasValue && slot.DiscountPercent.HasValue)
                             {
-                                <p class="muted-note">Discount threshold: @slot.MinThresholdForDiscount.Value participants</p>
+                                <p class="muted-note">@slot.DiscountPercent.Value% at @slot.MinThresholdForDiscount.Value guests</p>
                             }
                             <span class="pill">@slot.Status</span>
                             @if (!string.IsNullOrWhiteSpace(slot.CancellationReason))
@@ -163,6 +167,15 @@
                                                    max="8"
                                                    value="@slot.MinThresholdForDiscount" />
                                         </div>
+                                        <div class="field field--full">
+                                            <label for="slot-discount-@slot.SlotId">Discount Percent</label>
+                                            <input id="slot-discount-@slot.SlotId"
+                                                   name="DiscountPercent"
+                                                   type="number"
+                                                   min="1"
+                                                   max="100"
+                                                   value="@slot.DiscountPercent" />
+                                        </div>
                                     </div>
                                     <p class="muted-note">Open slots can be edited until a host reserves them or you cancel them.</p>
                                     <button type="submit" class="button button--secondary">Update Slot</button>
@@ -176,6 +189,7 @@
                                         <label for="reason-@slot.SlotId">Cancel reason</label>
                                         <input id="reason-@slot.SlotId" name="reason" maxlength="250" placeholder="Reason" />
                                     </div>
+                                    <p class="muted-note">If this slot is reserved, cancelling it also cancels the linked event.</p>
                                     <button type="submit"
                                             class="button button--danger"
                                             onclick="return confirm('Cancel this slot and any linked event?')">

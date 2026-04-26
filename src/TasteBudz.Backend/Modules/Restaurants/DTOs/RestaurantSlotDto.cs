@@ -10,6 +10,7 @@ public sealed record RestaurantSlotDto(
     int Capacity,
     DateTimeOffset CutoffAtUtc,
     int? MinThresholdForDiscount,
+    int? DiscountPercent,
     RestaurantSlotStatus Status,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,

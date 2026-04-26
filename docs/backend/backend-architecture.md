@@ -92,7 +92,7 @@ Rules:
 Feature-gated capabilities should grow inside existing modules where the boundary fits, and otherwise use a small module boundary rather than a separate deployable service.
 
 - Restaurants.Catalog: seeded restaurant records, search, filtering, simple suggestions
-- Restaurants.Operations: feature-flagged restaurant admin accounts, assignments, slots, slot reservations, discount rules, and operational actions
+- Restaurants.Operations: active MVP restaurant admin accounts, assignments, slots, slot reservations, discount rules, and operational actions
 - Messaging.EventChat: MVP event chat
 - Messaging.GroupChat: MVP group chat
 - Messaging.SupportChat: MVP user-to-admin support chat
@@ -172,7 +172,7 @@ Suggested services:
 
 ### 5.3 Restaurants
 
-Own the restaurant catalog, search/filtering, simple suggestions, and feature-flagged restaurant operations.
+Own the restaurant catalog, search/filtering, simple suggestions, and active restaurant operations.
 
 MVP responsibilities:
 
@@ -181,13 +181,13 @@ MVP responsibilities:
 - support restaurant selection during event creation
 - expose simple suggestion endpoints using host ZIP/radius and optional coarse midpoint logic
 
-Feature-flagged restaurant operations responsibilities:
+Restaurant operations responsibilities:
 
 - restaurant admin assignments controlled by global admins
 - restaurant-managed profile updates
 - slot creation/cancellation
 - slot-linked reservations for events
-- discount threshold simulation rules
+- discount threshold and percentage simulation rules
 - restaurant-owned operational constraints
 
 Suggested services:
@@ -575,13 +575,13 @@ Lives in `MessagingService` and the SignalR hub plumbing.
 - direct chat access derives from current connected Budz, current block state, and `FeatureFlags:MessagingDirectChatEnabled`
 - real-time transport hub: `ChatHub`
 
-### 7.9 Restaurant Slot and Discount Rules (Feature-Flagged)
+### 7.9 Restaurant Slot and Discount Rules
 
 Lives in Restaurants.Operations services.
 
 Events still own event state. Restaurants own restaurant operational rules.
 
-Restaurant operation services must enforce active assignment checks before restaurant profile or slot mutation. Slot reservation updates the event's selected restaurant to the slot restaurant and clears cuisine target, but event lifecycle/status remains event-owned. Cancelling a reserved slot cancels the linked event through normal event cancellation behavior.
+Restaurant operation services must enforce active assignment checks before restaurant profile or slot mutation. Slot reservation updates the event's selected restaurant to the slot restaurant and clears cuisine target, but event lifecycle/status remains event-owned. Cancelling a reserved slot cancels the linked event through normal event cancellation behavior. Discount simulation uses a slot's paired threshold and whole-number discount percentage.
 
 ### 7.10 Checkout Simulation Rules (Feature-Flagged)
 
@@ -717,7 +717,7 @@ Use unit tests for:
 - group ownership rules
 - privacy/blocking behavior
 - feature-gate decisions
-- feature-flagged restaurant slot/discount rules
+- restaurant slot/discount rules
 - feature-flagged direct chat and checkout rules
 
 ### Integration / API Tests
@@ -795,11 +795,7 @@ Add when core flows are stable:
 Keep disabled by default until explicitly launched:
 
 - direct 1-on-1 messaging
-- restaurant-admin accounts and assignment-managed operations
-- restaurant slots and slot-linked reservations
-- discount threshold simulation
 - payment simulation and checkout sessions
-- operational slot cancellation flows
 - smarter restaurant recommendation strategies
 
 Priority rule: if time is tight, do not cut correctness in event participation atomicity, lifecycle/status rules, blocking/privacy enforcement, moderation consistency, or group ownership permissions.

@@ -94,6 +94,10 @@
                             <dt>Discount</dt>
                             <dd>
                                 @(Model.DiscountActivation.IsActive ? "Active" : "Inactive")
+                                @if (Model.DiscountActivation.DiscountPercent.HasValue)
+                                {
+                                    <span>@Model.DiscountActivation.DiscountPercent.Value%</span>
+                                }
                                 (@Model.DiscountActivation.JoinedParticipantCount / @Model.DiscountActivation.MinThresholdForDiscount participants)
                                 @if (Model.DiscountActivation.IsFinalized)
                                 {
@@ -257,9 +261,9 @@
                                         <p class="muted-note">
                                             Ends @slot.EndsAtUtc.ToLocalTime().ToString("h:mm tt") |
                                             Capacity @slot.Capacity
-                                            @if (slot.MinThresholdForDiscount.HasValue)
+                                            @if (slot.MinThresholdForDiscount.HasValue && slot.DiscountPercent.HasValue)
                                             {
-                                                <span>| Discount at @slot.MinThresholdForDiscount.Value</span>
+                                                <span>| @slot.DiscountPercent.Value% at @slot.MinThresholdForDiscount.Value guests</span>
                                             }
                                         </p>
                                     </div>
@@ -267,6 +271,10 @@
                                 </form>
                             }
                         </div>
+                    }
+                    else if (Model.SelectedRestaurant is not null && Model.SlotReservation is null)
+                    {
+                        <p class="empty-state">No compatible open slots are available for this event.</p>
                     }
 
                     <details class="cancel-details">

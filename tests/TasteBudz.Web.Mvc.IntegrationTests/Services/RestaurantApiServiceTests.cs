@@ -212,13 +212,13 @@ public sealed class RestaurantApiServiceTests
             $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(2), 4, DateTimeOffset.UtcNow, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
+                new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(2), 4, DateTimeOffset.UtcNow, null, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
         context.BackendHandler.Enqueue(
             HttpMethod.Patch,
             $"/api/v1/restaurant-admin/slots/{slotId}",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(3), 6, DateTimeOffset.UtcNow, 4, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
+                new RestaurantSlotDto(slotId, restaurantId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddHours(3), 6, DateTimeOffset.UtcNow, 4, 20, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null)));
         context.BackendHandler.Enqueue(
             HttpMethod.Post,
             $"/api/v1/restaurant-admin/slots/{slotId}/cancellation",
@@ -265,6 +265,7 @@ public sealed class RestaurantApiServiceTests
         {
             Capacity = 6,
             MinThresholdForDiscount = 4,
+            DiscountPercent = 20,
         });
         await service.CancelManagedSlotAsync(slotId, new CancelRestaurantSlotRequest { Reason = "Closed." });
 
@@ -282,6 +283,9 @@ public sealed class RestaurantApiServiceTests
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/restaurants/{restaurantId}" && request.Method == HttpMethod.Patch).Body);
         Assert.Contains(
             "\"capacity\":6",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/slots/{slotId}" && request.Method == HttpMethod.Patch).Body);
+        Assert.Contains(
+            "\"discountPercent\":20",
             context.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/restaurant-admin/slots/{slotId}" && request.Method == HttpMethod.Patch).Body);
         Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
         context.BackendHandler.AssertDrained();

@@ -16,6 +16,7 @@ internal static class RestaurantOperationsMapper
             slot.Capacity,
             slot.CutoffAtUtc,
             slot.MinThresholdForDiscount,
+            slot.DiscountPercent,
             slot.Status,
             slot.CreatedAtUtc,
             slot.UpdatedAtUtc,
@@ -36,12 +37,14 @@ internal static class RestaurantOperationsMapper
     internal static DiscountActivationDto ToDiscountDto(
         DiscountActivation activation,
         int joinedParticipantCount,
-        int minThresholdForDiscount) =>
+        int minThresholdForDiscount,
+        int? discountPercent) =>
         new(
             activation.ReservationId,
             activation.IsActive,
             activation.IsFinalized,
             joinedParticipantCount,
             minThresholdForDiscount,
+            discountPercent,
             activation.EvaluatedAtUtc);
 }

@@ -255,10 +255,43 @@ public sealed class EventController : Controller
 
         try
         {
+            if (!await ValidateSelectedSlotForCreateAsync(model, cancellationToken))
+            {
+                model = await BuildCreateViewModelAsync(model, cancellationToken);
+                return View(model);
+            }
+
             var detail = await eventApiService.CreateAsync(model.ToRequest(), cancellationToken);
+            var slotReserved = false;
+
+            if (model.SelectedSlotId.HasValue)
+            {
+                try
+                {
+                    await eventApiService.ReserveSlotAsync(
+                        detail.EventId,
+                        new ReserveEventSlotRequest { SlotId = model.SelectedSlotId.Value },
+                        cancellationToken);
+                    slotReserved = true;
+                }
+                catch (BackendAuthenticationExpiredException)
+                {
+                    throw;
+                }
+                catch (BackendApiException ex)
+                {
+                    TempData["StatusMessage"] = $"Event \"{detail.Title ?? "Untitled"}\" created, but the slot could not be reserved: {ex.Message}";
+                    return RedirectToAction(nameof(EventDetails), new { eventId = detail.EventId });
+                }
+            }
+
             TempData["StatusMessage"] = detail.GroupId.HasValue
-                ? $"Group event \"{detail.Title ?? "Untitled"}\" created!"
-                : $"Event \"{detail.Title ?? "Untitled"}\" created!";
+                ? slotReserved
+                    ? $"Group event \"{detail.Title ?? "Untitled"}\" created and slot reserved!"
+                    : $"Group event \"{detail.Title ?? "Untitled"}\" created!"
+                : slotReserved
+                    ? $"Event \"{detail.Title ?? "Untitled"}\" created and slot reserved!"
+                    : $"Event \"{detail.Title ?? "Untitled"}\" created!";
             return RedirectToAction(nameof(EventDetails), new { eventId = detail.EventId });
         }
         catch (BackendAuthenticationExpiredException)
@@ -632,6 +665,36 @@ public sealed class EventController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> RestaurantSlots(Guid restaurantId, DateTime? eventStartAt, int? capacity, CancellationToken cancellationToken)
+    {
+        if (restaurantId == Guid.Empty || !eventStartAt.HasValue || !capacity.HasValue)
+        {
+            return Json(Array.Empty<object>());
+        }
+
+        try
+        {
+            var slots = await GetCompatibleRestaurantSlotsAsync(restaurantId, eventStartAt.Value, capacity.Value, cancellationToken);
+            return Json(slots
+                .Select(RestaurantPickerSlotItem.FromDto)
+                .Select(ToRestaurantSlotJson)
+                .ToArray());
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return Unauthorized();
+        }
+        catch (BackendApiException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            return Json(Array.Empty<object>());
+        }
+        catch (BackendApiException ex)
+        {
+            return StatusCode((int)ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    [HttpGet]
     public async Task<IActionResult> FeedbackPhoto(Guid mediaAssetId, CancellationToken cancellationToken)
     {
         try
@@ -732,7 +795,7 @@ public sealed class EventController : Controller
                 GroupName = groupName,
                 GroupVisibility = groupVisibility,
                 Restaurants = restaurants
-                    .Select(RestaurantPickerItem.FromDto)
+                    .Select(restaurant => RestaurantPickerItem.FromDto(restaurant))
                     .ToList(),
             };
         }
@@ -913,7 +976,13 @@ public sealed class EventController : Controller
 
         try
         {
-            return await restaurantApiService.ListReservableSlotsAsync(selectedRestaurant.RestaurantId, cancellationToken);
+            var slots = await restaurantApiService.ListReservableSlotsAsync(selectedRestaurant.RestaurantId, cancellationToken);
+            return slots
+                .Where(slot => slot.StartsAtUtc <= detail.EventStartAtUtc && detail.EventStartAtUtc <= slot.EndsAtUtc)
+                .Where(slot => slot.Capacity >= detail.Capacity)
+                .OrderBy(slot => slot.StartsAtUtc)
+                .ThenBy(slot => slot.SlotId)
+                .ToArray();
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -924,6 +993,76 @@ public sealed class EventController : Controller
             return [];
         }
     }
+
+    private async Task<bool> ValidateSelectedSlotForCreateAsync(EventCreateViewModel model, CancellationToken cancellationToken)
+    {
+        if (!model.SelectedSlotId.HasValue)
+        {
+            return true;
+        }
+
+        if (!model.SelectedRestaurantId.HasValue || !model.EventStartAt.HasValue || !model.Capacity.HasValue)
+        {
+            ModelState.AddModelError(string.Empty, "Selected slot no longer fits this event.");
+            model.SelectedSlotId = null;
+            return false;
+        }
+
+        try
+        {
+            var compatibleSlots = await GetCompatibleRestaurantSlotsAsync(
+                model.SelectedRestaurantId.Value,
+                model.EventStartAt.Value,
+                model.Capacity.Value,
+                cancellationToken);
+
+            if (compatibleSlots.Any(slot => slot.SlotId == model.SelectedSlotId.Value))
+            {
+                return true;
+            }
+
+            ModelState.AddModelError(string.Empty, "Selected slot no longer fits this event.");
+            model.SelectedSlotId = null;
+            return false;
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            throw;
+        }
+        catch (BackendApiException ex)
+        {
+            ModelState.AddModelError(string.Empty, $"Selected slot could not be checked: {ex.Message}");
+            model.SelectedSlotId = null;
+            return false;
+        }
+    }
+
+    private async Task<IReadOnlyCollection<RestaurantSlotDto>> GetCompatibleRestaurantSlotsAsync(
+        Guid restaurantId,
+        DateTime eventStartAt,
+        int capacity,
+        CancellationToken cancellationToken)
+    {
+        var eventStartAtUtc = new DateTimeOffset(eventStartAt, TimeSpan.Zero);
+        var slots = await restaurantApiService.ListReservableSlotsAsync(restaurantId, cancellationToken);
+
+        return slots
+            .Where(slot => slot.StartsAtUtc <= eventStartAtUtc && eventStartAtUtc <= slot.EndsAtUtc)
+            .Where(slot => slot.Capacity >= capacity)
+            .OrderBy(slot => slot.StartsAtUtc)
+            .ThenBy(slot => slot.SlotId)
+            .ToArray();
+    }
+
+    private static object ToRestaurantSlotJson(RestaurantPickerSlotItem slot) => new
+    {
+        id = slot.SlotId,
+        startsAtUtc = slot.StartsAtUtc,
+        endsAtUtc = slot.EndsAtUtc,
+        capacity = slot.Capacity,
+        displayText = slot.DisplayText,
+        discountText = slot.DiscountText,
+    };
 
     private Guid GetCurrentUserId()
     {

@@ -1,6 +1,7 @@
 // Browse logic for visible events, including search, availability, distance, and lifecycle filtering.
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Profiles;
@@ -16,7 +17,9 @@ public sealed class EventBrowseService(
     IRestaurantRepository restaurantRepository,
     IProfileRepository profileRepository,
     IDiscoveryRepository discoveryRepository,
-    EventLifecycleService lifecycleService)
+    EventLifecycleService lifecycleService,
+    IRestaurantOperationsRepository restaurantOperationsRepository,
+    IFeatureFlagService featureFlagService)
 {
     public async Task<ListResponse<EventSummaryDto>> BrowseAsync(Guid currentUserId, BrowseEventsQuery query, CancellationToken cancellationToken = default)
     {
@@ -176,15 +179,50 @@ public sealed class EventBrowseService(
 
         foreach (var candidate in pageItems)
         {
+            var cardStatus = await GetRestaurantCardStatusAsync(candidate.Event.Id, cancellationToken);
             items.Add(EventDtoMapper.ToSummary(
                 candidate.Event,
                 candidate.ActiveParticipants,
                 candidate.DistanceMiles,
                 candidate.MatchingCuisineCount,
-                candidate.MatchingBudzCount));
+                candidate.MatchingBudzCount,
+                cardStatus.HasActiveSlotReservation,
+                cardStatus.IsDiscountActive,
+                cardStatus.DiscountPercent));
         }
 
         return new ListResponse<EventSummaryDto>(items, ordered.Length);
+    }
+
+    private async Task<EventRestaurantCardStatus> GetRestaurantCardStatusAsync(Guid eventId, CancellationToken cancellationToken)
+    {
+        if (!featureFlagService.IsRestaurantsOperationsEnabled() ||
+            !featureFlagService.IsRestaurantsSlotsEnabled())
+        {
+            return EventRestaurantCardStatus.Empty;
+        }
+
+        var reservation = await restaurantOperationsRepository.GetActiveReservationForEventAsync(eventId, cancellationToken);
+
+        if (reservation is null)
+        {
+            return EventRestaurantCardStatus.Empty;
+        }
+
+        if (!featureFlagService.IsRestaurantsDiscountsEnabled())
+        {
+            return new EventRestaurantCardStatus(true, false, null);
+        }
+
+        var activation = await restaurantOperationsRepository.GetDiscountActivationAsync(reservation.Id, cancellationToken);
+
+        if (activation?.IsActive != true)
+        {
+            return new EventRestaurantCardStatus(true, false, null);
+        }
+
+        var slot = await restaurantOperationsRepository.GetSlotAsync(reservation.SlotId, cancellationToken);
+        return new EventRestaurantCardStatus(true, true, slot?.DiscountPercent);
     }
 
     private static bool MatchesQuery(Event eventRecord, string? query)
@@ -366,4 +404,12 @@ public sealed class EventBrowseService(
         int MatchingCuisineCount,
         int MatchingBudzCount,
         double RecommendationScore);
+
+    private sealed record EventRestaurantCardStatus(
+        bool HasActiveSlotReservation,
+        bool IsDiscountActive,
+        int? DiscountPercent)
+    {
+        public static EventRestaurantCardStatus Empty { get; } = new(false, false, null);
+    }
 }

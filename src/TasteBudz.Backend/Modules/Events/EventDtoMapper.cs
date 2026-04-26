@@ -14,7 +14,10 @@ internal static class EventDtoMapper
         int activeParticipants,
         double? distanceMiles = null,
         int matchingCuisineCount = 0,
-        int matchingBudzCount = 0) =>
+        int matchingBudzCount = 0,
+        bool hasActiveSlotReservation = false,
+        bool isDiscountActive = false,
+        int? discountPercent = null) =>
         new(
             eventRecord.Id,
             eventRecord.Title,
@@ -30,7 +33,10 @@ internal static class EventDtoMapper
             eventRecord.GroupId,
             distanceMiles,
             matchingCuisineCount,
-            matchingBudzCount);
+            matchingBudzCount,
+            hasActiveSlotReservation,
+            isDiscountActive,
+            discountPercent);
 
     internal static EventDetailDto ToDetail(
         Event eventRecord,

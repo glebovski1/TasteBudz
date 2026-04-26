@@ -6,4 +6,5 @@ public sealed record DiscountActivationDto(
     bool IsFinalized,
     int JoinedParticipantCount,
     int MinThresholdForDiscount,
+    int? DiscountPercent,
     DateTimeOffset EvaluatedAtUtc);

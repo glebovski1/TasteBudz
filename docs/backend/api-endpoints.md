@@ -364,6 +364,7 @@ Contract note:
 - Normal event browse returns events the caller is allowed to view: Open events plus Closed events where visibility is granted by host, invite/participation, or privileged role.
 - `groupLinked=true` returns group-linked events, `groupLinked=false` returns ordinary standalone events, and an omitted value returns both.
 - When `recommended=true`, the backend ranks only active Open events with available seats using the caller's home ZIP distance, saved cuisine preferences, and Budz already joined in each event. In that explicit mode, `EventSummaryDto` may populate optional recommendation metadata such as `distanceMiles`, `matchingCuisineCount`, and `matchingBudzCount`.
+- Event summaries include card indicator fields for restaurant operations: `hasActiveSlotReservation`, `isDiscountActive`, and nullable `discountPercent`.
 - Quick Search clients must not show Full, Completed, Cancelled, or Closed events.
 
 ### 3.5 Groups
@@ -675,9 +676,9 @@ Representative query parameter:
 
 - `window=tonight|this-week`
 
-### 4.4 Restaurant Operations (Feature-Flagged)
+### 4.4 Restaurant Operations
 
-These endpoints are implemented behind restaurant operation feature flags and remain disabled by default. `FeatureFlags:RestaurantsOperationsEnabled` gates assignment and managed-restaurant endpoints. `FeatureFlags:RestaurantsSlotsEnabled` gates slot listing, slot mutation, and slot reservation endpoints. `FeatureFlags:RestaurantsDiscountsEnabled` controls discount threshold evaluation and discount DTO output.
+These endpoints are active in the MVP/demo flow and remain behind restaurant operation kill-switch flags. `FeatureFlags:RestaurantsOperationsEnabled` gates assignment and managed-restaurant endpoints. `FeatureFlags:RestaurantsSlotsEnabled` gates slot listing, slot mutation, and slot reservation endpoints. `FeatureFlags:RestaurantsDiscountsEnabled` controls discount threshold evaluation and discount DTO output.
 
 | Endpoint | Method | Path | Description | Auth |
 |---|---|---|---|---|
@@ -718,7 +719,16 @@ Representative request shapes:
   "endsAtUtc": "timestamp",
   "capacity": 8,
   "cutoffAtUtc": "timestamp",
-  "minThresholdForDiscount": 6
+  "minThresholdForDiscount": 6,
+  "discountPercent": 15
+}
+```
+
+For updates, an existing discount pair may be removed explicitly:
+
+```json
+{
+  "clearDiscount": true
 }
 ```
 
@@ -736,14 +746,17 @@ Representative request shapes:
 
 Contract rules:
 
-- Disabled restaurant operation endpoints return `404 Not Found`.
-- Enabled endpoints still return `401 Unauthorized` or `403 Forbidden` for unauthenticated or unauthorized callers.
+- Restaurant operation endpoints return `404 Not Found` only when their feature flags are explicitly disabled.
+- Enabled endpoints return `401 Unauthorized` or `403 Forbidden` for unauthenticated or unauthorized callers.
 - Assignment grant auto-adds `RestaurantAdmin`; revoke removes it only when no active assignments remain.
 - Restaurant admins can mutate only restaurants with an active assignment.
 - Slot capacity is 2 through 8; cutoff must be before or equal to slot start; discount threshold, when present, must be 2 through slot capacity.
+- `minThresholdForDiscount` and `discountPercent` must be provided together; `discountPercent` is a whole number from 1 through 100.
+- `clearDiscount` on slot update clears both discount fields and cannot be combined with `minThresholdForDiscount` or `discountPercent`.
 - Event slot reservation is host-only, requires an active event and open unreserved slot, and requires event time/capacity to fit the slot.
+- Create-event UIs that let hosts choose a slot should load compatible slot options on demand, validate that the selected slot still fits before creating the event, create the event, then call the existing slot-reservation endpoint; no combined create-event-with-slot route exists.
 - Reservation sets the event selected restaurant to the slot restaurant and clears cuisine target.
-- `EventDetailDto` may include nullable `slotReservation` and nullable `discountActivation`; event summaries do not include these fields.
+- `EventDetailDto` may include nullable `slotReservation` and nullable `discountActivation`; `EventSummaryDto` exposes only minimal card flags and discount percentage.
 - Discount simulation uses joined participants as confirmed participants and freezes the final active/inactive result after cutoff.
 - Discount state is simulation-only and may affect checkout simulation when checkout is separately enabled.
 

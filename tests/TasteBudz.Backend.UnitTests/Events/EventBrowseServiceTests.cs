@@ -1,6 +1,7 @@
 // Unit tests for event browse filtering and visibility behavior.
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
@@ -68,6 +69,68 @@ public sealed class EventBrowseServiceTests
         var item = Assert.Single(result.Items);
         Assert.Equal("Closed dinner", item.Title);
         Assert.Equal(EventType.Closed, item.EventType);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_IncludesSlotAndDiscountCardIndicators()
+    {
+        var services = CreateServices(restaurantOperationsEnabled: true, discountsEnabled: true);
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var now = services.Clock.UtcNow;
+
+        await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, hostUserId, "45220", "host", services.Clock);
+
+        await SaveEventAsync(
+            services.EventRepository,
+            new Event(
+                eventId,
+                hostUserId,
+                "Discounted slot dinner",
+                EventType.Open,
+                EventStatus.Open,
+                now.AddHours(2),
+                now.AddHours(1),
+                4,
+                2,
+                restaurantId,
+                null,
+                null,
+                null,
+                now,
+                now,
+                null,
+                null),
+            hostUserId,
+            services.Clock);
+        var slot = new RestaurantSlot(
+            Guid.NewGuid(),
+            restaurantId,
+            now.AddHours(1),
+            now.AddHours(3),
+            4,
+            now.AddMinutes(30),
+            2,
+            30,
+            RestaurantSlotStatus.Open,
+            now,
+            now,
+            null,
+            null);
+        var reservation = new EventSlotReservation(Guid.NewGuid(), eventId, slot.Id, EventSlotReservationStatus.Active, now, null, null);
+        await services.RestaurantOperationsRepository.SaveSlotAsync(slot);
+        await services.RestaurantOperationsRepository.SaveReservationAsync(reservation);
+        await services.RestaurantOperationsRepository.SaveDiscountActivationAsync(new DiscountActivation(reservation.Id, true, false, now));
+
+        var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery { PageSize = 10 });
+
+        var item = Assert.Single(result.Items);
+        Assert.True(item.HasActiveSlotReservation);
+        Assert.True(item.IsDiscountActive);
+        Assert.Equal(30, item.DiscountPercent);
     }
 
     [Fact]
@@ -481,7 +544,7 @@ public sealed class EventBrowseServiceTests
     private static Task SaveProfileAsync(IProfileRepository repository, Guid userId, string zipCode, string displayName, TestClock clock) =>
         repository.SaveProfileAsync(new UserProfile(userId, displayName, null, zipCode, SocialGoal.Friends, clock.UtcNow, clock.UtcNow));
 
-    private static TestServices CreateServices()
+    private static TestServices CreateServices(bool restaurantOperationsEnabled = false, bool discountsEnabled = false)
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 10, 12, 0, 0, TimeSpan.Zero));
         var store = new InMemoryTasteBudzStore();
@@ -490,11 +553,19 @@ public sealed class EventBrowseServiceTests
         var profileRepository = new InMemoryProfileRepository(store);
         var discoveryRepository = new InMemoryDiscoveryRepository(store);
         var restaurantRepository = new InMemoryRestaurantRepository(store);
+        var restaurantOperationsRepository = new InMemoryRestaurantOperationsRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var browseService = new EventBrowseService(eventRepository, restaurantRepository, profileRepository, discoveryRepository, lifecycleService);
+        var browseService = new EventBrowseService(
+            eventRepository,
+            restaurantRepository,
+            profileRepository,
+            discoveryRepository,
+            lifecycleService,
+            restaurantOperationsRepository,
+            new TestFeatureFlagService(restaurantOperationsEnabled, discountsEnabled));
 
-        return new TestServices(clock, eventRepository, profileRepository, discoveryRepository, browseService);
+        return new TestServices(clock, eventRepository, profileRepository, discoveryRepository, restaurantOperationsRepository, browseService);
     }
 
     private sealed record TestServices(
@@ -502,5 +573,25 @@ public sealed class EventBrowseServiceTests
         IEventRepository EventRepository,
         IProfileRepository ProfileRepository,
         IDiscoveryRepository DiscoveryRepository,
+        IRestaurantOperationsRepository RestaurantOperationsRepository,
         EventBrowseService BrowseService);
+
+    private sealed class TestFeatureFlagService(bool restaurantOperationsEnabled, bool discountsEnabled) : IFeatureFlagService
+    {
+        public bool IsMessagingDirectChatEnabled() => false;
+
+        public bool IsMessagingGroupChatEnabled() => true;
+
+        public bool IsNotificationsPushEnabled() => false;
+
+        public bool IsRestaurantsOperationsEnabled() => restaurantOperationsEnabled;
+
+        public bool IsRestaurantsSlotsEnabled() => restaurantOperationsEnabled;
+
+        public bool IsRestaurantsDiscountsEnabled() => discountsEnabled;
+
+        public bool IsPaymentsCheckoutEnabled() => false;
+
+        public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
+    }
 }

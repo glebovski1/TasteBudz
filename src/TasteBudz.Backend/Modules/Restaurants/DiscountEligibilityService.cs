@@ -46,7 +46,7 @@ public sealed class DiscountEligibilityService(
 
         if (existing?.IsFinalized == true)
         {
-            return RestaurantOperationsMapper.ToDiscountDto(existing, joinedParticipants, threshold);
+            return RestaurantOperationsMapper.ToDiscountDto(existing, joinedParticipants, threshold, slot.DiscountPercent);
         }
 
         var now = clock.UtcNow;
@@ -57,6 +57,6 @@ public sealed class DiscountEligibilityService(
         var activation = new DiscountActivation(reservation.Id, isActive, isFinalized, now);
 
         await restaurantOperationsRepository.SaveDiscountActivationAsync(activation, cancellationToken);
-        return RestaurantOperationsMapper.ToDiscountDto(activation, joinedParticipants, threshold);
+        return RestaurantOperationsMapper.ToDiscountDto(activation, joinedParticipants, threshold, slot.DiscountPercent);
     }
 }

@@ -119,7 +119,7 @@ Frontend notes:
 
 ### Restaurant operations
 
-These flows are feature-flagged and disabled by default.
+These flows are active in the MVP/demo flow and retain feature flags as kill switches.
 
 Admin assignment endpoints:
 
@@ -143,11 +143,14 @@ Event host slot endpoints:
 
 Frontend notes:
 
-- disabled restaurant operation or slot endpoints return `404`; render these as unavailable flows
-- enabled endpoints still use normal `401` and `403` handling
+- explicitly disabled restaurant operation or slot endpoints return `404`; render these as unavailable flows
+- active endpoints still use normal `401` and `403` handling
 - assignment grant uses `{ "username": "..." }`
-- slot create/update uses `startsAtUtc`, `endsAtUtc`, `capacity`, `cutoffAtUtc`, and optional `minThresholdForDiscount`
-- event details may include nullable `slotReservation` and `discountActivation`; summaries should not depend on them
+- slot create/update uses `startsAtUtc`, `endsAtUtc`, `capacity`, `cutoffAtUtc`, and optional paired `minThresholdForDiscount` plus `discountPercent`; updates may send `clearDiscount: true` to remove an existing discount pair
+- event creation UIs should load `GET /api/v1/restaurants/{restaurantId}/slots` on demand after event time/capacity are known so hosts inspect compatible slot capacity/timing before choosing one
+- if a host chooses a slot during event creation, the frontend should re-check compatibility before event creation, then create the event and call `POST /api/v1/events/{eventId}/slot-reservations`; no separate create-event-with-slot endpoint exists
+- event details may include nullable `slotReservation` and `discountActivation`
+- event summaries include card indicators: `hasActiveSlotReservation`, `isDiscountActive`, and nullable `discountPercent`
 - discount state is simulation-only and can affect checkout simulation only when checkout is separately enabled
 
 ### Events

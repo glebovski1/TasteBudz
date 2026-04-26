@@ -132,6 +132,9 @@ public sealed class EventSummaryItem
     public double? DistanceMiles { get; init; }
     public int MatchingCuisineCount { get; init; }
     public int MatchingBudzCount { get; init; }
+    public bool HasActiveSlotReservation { get; init; }
+    public bool IsDiscountActive { get; init; }
+    public int? DiscountPercent { get; init; }
 
     public IReadOnlyList<string> RecommendationReasons
     {
@@ -179,6 +182,9 @@ public sealed class EventSummaryItem
         DistanceMiles = dto.DistanceMiles,
         MatchingCuisineCount = dto.MatchingCuisineCount,
         MatchingBudzCount = dto.MatchingBudzCount,
+        HasActiveSlotReservation = dto.HasActiveSlotReservation,
+        IsDiscountActive = dto.IsDiscountActive,
+        DiscountPercent = dto.DiscountPercent,
     };
 }
 
@@ -210,6 +216,7 @@ public sealed record EventCreateViewModel
     [Display(Name = "Restaurant")]
     public Guid? SelectedRestaurantId { get; set; }
     public string? SelectedRestaurantName { get; set; }
+    public Guid? SelectedSlotId { get; set; }
 
     public Guid? GroupId { get; set; }
     public string? GroupName { get; init; }
@@ -264,8 +271,9 @@ public sealed class RestaurantPickerItem
     public double? Latitude { get; init; }
     public double? Longitude { get; init; }
     public string GoogleMapsUrl { get; init; } = string.Empty;
+    public IReadOnlyList<RestaurantPickerSlotItem> AvailableSlots { get; init; } = [];
 
-    public static RestaurantPickerItem FromDto(RestaurantDto dto) => new()
+    public static RestaurantPickerItem FromDto(RestaurantDto dto, IReadOnlyCollection<RestaurantSlotDto>? availableSlots = null) => new()
     {
         RestaurantId = dto.RestaurantId,
         Name = dto.Name,
@@ -275,7 +283,44 @@ public sealed class RestaurantPickerItem
         Latitude = dto.Latitude,
         Longitude = dto.Longitude,
         GoogleMapsUrl = RestaurantMapsLinkBuilder.BuildGoogleMapsUrl(dto),
+        AvailableSlots = (availableSlots ?? Array.Empty<RestaurantSlotDto>())
+            .OrderBy(slot => slot.StartsAtUtc)
+            .Select(RestaurantPickerSlotItem.FromDto)
+            .ToList(),
     };
+}
+
+public sealed class RestaurantPickerSlotItem
+{
+    public Guid SlotId { get; init; }
+    public DateTimeOffset StartsAtUtc { get; init; }
+    public DateTimeOffset EndsAtUtc { get; init; }
+    public int Capacity { get; init; }
+    public int? MinThresholdForDiscount { get; init; }
+    public int? DiscountPercent { get; init; }
+    public string DisplayText { get; init; } = string.Empty;
+    public string? DiscountText { get; init; }
+
+    public static RestaurantPickerSlotItem FromDto(RestaurantSlotDto dto)
+    {
+        var starts = dto.StartsAtUtc.ToLocalTime().ToString("MMM d h:mm tt", CultureInfo.InvariantCulture);
+        var ends = dto.EndsAtUtc.ToLocalTime().ToString("h:mm tt", CultureInfo.InvariantCulture);
+        var discountText = dto.MinThresholdForDiscount.HasValue && dto.DiscountPercent.HasValue
+            ? $"{dto.DiscountPercent.Value}% at {dto.MinThresholdForDiscount.Value} guests"
+            : null;
+
+        return new()
+        {
+            SlotId = dto.SlotId,
+            StartsAtUtc = dto.StartsAtUtc,
+            EndsAtUtc = dto.EndsAtUtc,
+            Capacity = dto.Capacity,
+            MinThresholdForDiscount = dto.MinThresholdForDiscount,
+            DiscountPercent = dto.DiscountPercent,
+            DisplayText = $"{starts}-{ends} · up to {dto.Capacity}",
+            DiscountText = discountText,
+        };
+    }
 }
 
 // ── Detail ───────────────────────────────────────────────────────────────────

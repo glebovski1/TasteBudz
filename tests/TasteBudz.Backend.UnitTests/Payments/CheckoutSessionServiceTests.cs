@@ -46,8 +46,8 @@ public sealed class CheckoutSessionServiceTests
         var checkout = await services.CheckoutSessionService.CreateForEventAsync(host, eventRecord.Id);
 
         Assert.Equal(2500, checkout.SubtotalCents);
-        Assert.Equal(375, checkout.DiscountCents);
-        Assert.Equal(2125, checkout.TotalCents);
+        Assert.Equal(500, checkout.DiscountCents);
+        Assert.Equal(2000, checkout.TotalCents);
     }
 
     [Fact]
@@ -203,6 +203,7 @@ public sealed class CheckoutSessionServiceTests
             4,
             now.AddMinutes(30),
             2,
+            20,
             RestaurantSlotStatus.Open,
             now,
             now,

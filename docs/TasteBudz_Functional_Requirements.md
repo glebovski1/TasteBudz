@@ -210,6 +210,7 @@ Priority legend:
 - Users can filter restaurants by cuisine, price tier, and distance.
 - MVP restaurant discovery reads from the internal catalog only; admin-only OpenStreetMap/Overpass import and admin-maintained catalog CRUD may be used to populate that catalog.
 - Restaurant selection is reusable during event creation and may be shown in search/list form; map presentation is optional when coordinates exist.
+- When restaurant slots are enabled, event creation may filter mapped restaurants to those with open slots and show available slots for each selected restaurant.
 - Midpoint or group-aware suggestion logic remains lightweight service behavior over the internal catalog.
 - Archived restaurants are excluded from browse/search/suggestion results while remaining valid historical references for existing events.
 
@@ -608,9 +609,9 @@ Priority legend:
 
 ### FR-029 Restaurant Admin Accounts
 
-**Priority:** MVP++
+**Priority:** MVP
 
-**Description:** The system shall support feature-flagged restaurant admin accounts that manage restaurants and slots.
+**Description:** The system shall support restaurant admin accounts that manage assigned restaurants and slots in the active MVP/demo flow.
 
 **Acceptance Criteria**
 
@@ -620,26 +621,28 @@ Priority legend:
 - Granting an active assignment grants the coarse `RestaurantAdmin` role.
 - Revoking an assignment removes the coarse `RestaurantAdmin` role only when the user has no remaining active restaurant-admin assignments.
 - Restaurant admins can create/update restaurant profiles.
-- Restaurant-admin operations are disabled by default unless explicitly enabled.
+- Restaurant-admin operations are active by default and remain behind explicit kill-switch flags.
 
 ### FR-030 Restaurant Slots (Create/Manage)
 
-**Priority:** MVP++
+**Priority:** MVP
 
 **Description:** Restaurant admins may create availability slots with capacity and timing.
 
 **Acceptance Criteria**
 
 - A slot contains restaurant, start/end time window, max participants, and cutoff.
-- A slot may define a minimum threshold for discount activation.
+- A slot may define a minimum threshold and whole-number discount percentage for discount activation.
+- Discount threshold and discount percentage must be provided together, or both omitted.
+- Restaurant admins may remove an existing optional discount configuration from an unreserved open slot.
 - Restaurant admins can edit/cancel slots.
 - Slot capacity follows the event capacity range of 2 to 8 participants.
 - Slot cancellation may cancel a linked event with a restaurant-slot cancellation reason.
-- Slot operations are disabled by default unless explicitly enabled.
+- Slot operations are active by default and remain behind explicit kill-switch flags.
 
 ### FR-031 Slot Selection and Reservation
 
-**Priority:** MVP++
+**Priority:** MVP
 
 **Description:** Events may select a restaurant slot, reserving it immediately.
 
@@ -650,35 +653,37 @@ Priority legend:
 - An event can select a slot only if event time fits the slot window.
 - Event capacity cannot exceed slot capacity.
 - Selecting the slot reserves it immediately for that event.
+- Event creation may let the host select a compatible open slot from the restaurant picker; the server must re-check compatibility before creating the event, then reserve the selected slot using the normal reservation rules.
 - A slot can have only one active event reservation.
 - A slot-reserved event uses the slot restaurant as the selected restaurant and clears cuisine-target selection.
 
 ### FR-032 Discount Threshold Activation
 
-**Priority:** MVP++
+**Priority:** MVP
 
-**Description:** Slots may activate discounts once a confirmed threshold is met.
+**Description:** Slots may activate simulation-only discounts once a confirmed threshold is met.
 
 **Acceptance Criteria**
 
 - Discount activates when joined participants meet/exceed the threshold before cutoff.
+- Active discounts use the slot's configured discount percentage.
 - Discount activation is stored as active/inactive state.
 - Before or at cutoff, discount activation is recalculated after reservation, participant, or lifecycle changes.
 - After cutoff, the final active/inactive result is frozen.
 - If the threshold is not met by cutoff, discount remains inactive.
-- Discount simulation is disabled by default unless explicitly enabled.
+- Discount simulation is active by default and remains behind an explicit kill-switch flag.
 - Discount activation does not itself settle payments; checkout simulation is governed by FR-034.
 
 ### FR-033 Restaurant Admin Controls on Slot-Linked Events
 
-**Priority:** MVP++
+**Priority:** MVP
 
 **Description:** Restaurant admins may manage slot-linked event outcomes.
 
 **Acceptance Criteria**
 
 - Restaurant admins can cancel a slot and linked events are cancelled with normal event-cancellation notifications.
-- Optional restaurant approval/denial flows remain disabled by default.
+- Optional restaurant approval/denial flows remain out of active MVP/demo scope.
 
 ### FR-034 Payment Simulation and Checkout (Feature-Flagged)
 

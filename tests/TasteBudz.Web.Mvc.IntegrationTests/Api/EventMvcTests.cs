@@ -20,6 +20,8 @@ public sealed class EventMvcTests
         using var client = MvcTestHelpers.CreateClient(factory);
         var restaurantWithPlaceId = Guid.NewGuid();
         var restaurantWithoutPlaceId = Guid.NewGuid();
+        var osmRestaurantId = Guid.NewGuid();
+        var escapedRestaurantId = Guid.NewGuid();
 
         await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
         factory.BackendHandler.Requests.Clear();
@@ -34,11 +36,10 @@ public sealed class EventMvcTests
                     {
                         new RestaurantDto(restaurantWithPlaceId, "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Japanese" }, 39.14, -84.51, "google-place-123", 1.2),
                         new RestaurantDto(restaurantWithoutPlaceId, "Taco Corner", "Cincinnati", "OH", "45202", PriceTier.One, new[] { "Mexican" }, 39.10, -84.50, null, 2.4),
-                        new RestaurantDto(Guid.NewGuid(), "OpenStreetMap Bistro", "Cincinnati", "OH", "45206", PriceTier.Two, new[] { "American" }, 39.13, -84.48, "osm:987654321", 2.8),
-                        new RestaurantDto(Guid.NewGuid(), "<img src=x onerror=alert(1)>", "Cincinnati", "OH", "45206", PriceTier.Two, new[] { "American" }, 39.12, -84.47, null, 3.1),
+                        new RestaurantDto(osmRestaurantId, "OpenStreetMap Bistro", "Cincinnati", "OH", "45206", PriceTier.Two, new[] { "American" }, 39.13, -84.48, "osm:987654321", 2.8),
+                        new RestaurantDto(escapedRestaurantId, "<img src=x onerror=alert(1)>", "Cincinnati", "OH", "45206", PriceTier.Two, new[] { "American" }, 39.12, -84.47, null, 3.1),
                     },
                     4)));
-
         using var response = await client.GetAsync("/Event/CreateEvent");
         var html = await response.Content.ReadAsStringAsync();
 
@@ -56,10 +57,11 @@ public sealed class EventMvcTests
     }
 
     [Fact]
-    public async Task CreateEvent_LoadsRestaurantsBeyondTheFirstCatalogPage()
+    public async Task CreateEvent_RendersSlotFilterWithoutPreloadingRestaurantSlots()
     {
         using var factory = new TasteBudzMvcFactory();
         using var client = MvcTestHelpers.CreateClient(factory);
+        var restaurantId = Guid.NewGuid();
 
         await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
         factory.BackendHandler.Requests.Clear();
@@ -72,7 +74,221 @@ public sealed class EventMvcTests
                 new ListResponse<RestaurantDto>(
                     new[]
                     {
-                        new RestaurantDto(Guid.NewGuid(), "First Page Ramen", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, null),
+                        new RestaurantDto(restaurantId, "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Japanese" }, 39.14, -84.51, null, 1.2),
+                    },
+                    1)));
+
+        using var response = await client.GetAsync("/Event/CreateEvent");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Slots available", html);
+        Assert.Contains("selectedSlotId", html);
+        Assert.DoesNotContain($"/api/v1/restaurants/{restaurantId}/slots", string.Join('\n', factory.BackendHandler.Requests.Select(request => request.PathAndQuery)));
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task RestaurantSlots_ReturnsOnlyCompatibleSlotsForCreateForm()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var restaurantId = Guid.NewGuid();
+        var compatibleSlotId = Guid.NewGuid();
+        var tooSmallSlotId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new RestaurantSlotDto(compatibleSlotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 4, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), 2, 15, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
+                    new RestaurantSlotDto(tooSmallSlotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 2, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), null, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
+                }));
+
+        using var response = await client.GetAsync($"/Event/RestaurantSlots?restaurantId={restaurantId}&eventStartAt=2026-05-01T19:00&capacity=4");
+        var json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(compatibleSlotId.ToString(), json);
+        Assert.DoesNotContain(tooSmallSlotId.ToString(), json);
+        Assert.Contains("15% at 2 guests", json);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task CreateEvent_WithSelectedSlot_ValidatesSlotBeforeCreatingEvent()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var restaurantId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(restaurantId, "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Japanese" }, 39.14, -84.51, null, 1.2),
+                    },
+                    1)));
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Event/CreateEvent");
+        factory.BackendHandler.AssertDrained();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new RestaurantSlotDto(slotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 4, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), null, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/events",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventDetailDto(
+                    eventId,
+                    "Slot dinner",
+                    EventType.Open,
+                    EventStatus.Open,
+                    new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                    4,
+                    2,
+                    1,
+                    Guid.NewGuid(),
+                    restaurantId,
+                    null,
+                    null,
+                    null)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            $"/api/v1/events/{eventId}/slot-reservations",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new EventSlotReservationDto(Guid.NewGuid(), eventId, slotId, restaurantId, EventSlotReservationStatus.Active, DateTimeOffset.UtcNow, null, null)));
+
+        using var response = await client.PostAsync(
+            "/Event/CreateEvent",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Title"] = "Slot dinner",
+                ["EventType"] = EventType.Open.ToString(),
+                ["EventStartAt"] = "2026-05-01T19:00",
+                ["Capacity"] = "4",
+                ["SelectedRestaurantId"] = restaurantId.ToString(),
+                ["SelectedSlotId"] = slotId.ToString(),
+            }));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains($"/Event/EventDetails?eventId={eventId}", response.Headers.Location?.ToString());
+        Assert.Contains("\"selectedRestaurantId\"", factory.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/events").Body);
+        Assert.Contains(slotId.ToString(), factory.BackendHandler.Requests.Single(request => request.PathAndQuery == $"/api/v1/events/{eventId}/slot-reservations").Body);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task CreateEvent_WithIncompatibleSelectedSlot_DoesNotCreateEvent()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var restaurantId = Guid.NewGuid();
+        var slotId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(restaurantId, "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Japanese" }, 39.14, -84.51, null, 1.2),
+                    },
+                    1)));
+        var token = await MvcTestHelpers.GetRequestVerificationTokenAsync(client, "/Event/CreateEvent");
+        factory.BackendHandler.AssertDrained();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new RestaurantSlotDto(slotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 20, 0, 0, TimeSpan.Zero), 2, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), null, null, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(restaurantId, "Ramen House", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Japanese" }, 39.14, -84.51, null, 1.2),
+                    },
+                    1)));
+
+        using var response = await client.PostAsync(
+            "/Event/CreateEvent",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Title"] = "Slot dinner",
+                ["EventType"] = EventType.Open.ToString(),
+                ["EventStartAt"] = "2026-05-01T21:00",
+                ["Capacity"] = "4",
+                ["SelectedRestaurantId"] = restaurantId.ToString(),
+                ["SelectedSlotId"] = slotId.ToString(),
+            }));
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Selected slot no longer fits this event.", html);
+        Assert.DoesNotContain(factory.BackendHandler.Requests, request => request.PathAndQuery == "/api/v1/events" && request.Method == HttpMethod.Post);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task CreateEvent_LoadsRestaurantsBeyondTheFirstCatalogPage()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var firstRestaurantId = Guid.NewGuid();
+        var secondRestaurantId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?page=1&pageSize=2000",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(firstRestaurantId, "First Page Ramen", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, null),
                     },
                     2)));
         factory.BackendHandler.Enqueue(
@@ -83,10 +299,9 @@ public sealed class EventMvcTests
                 new ListResponse<RestaurantDto>(
                     new[]
                     {
-                        new RestaurantDto(Guid.NewGuid(), "Second Page Sushi", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Sushi" }, 39.13, -84.5, null, null),
+                        new RestaurantDto(secondRestaurantId, "Second Page Sushi", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Sushi" }, 39.13, -84.5, null, null),
                     },
                     2)));
-
         using var response = await client.GetAsync("/Event/CreateEvent");
         var html = await response.Content.ReadAsStringAsync();
 
@@ -143,7 +358,10 @@ public sealed class EventMvcTests
                             Guid.NewGuid(),
                             null,
                             "Ramen",
-                            null),
+                            null,
+                            HasActiveSlotReservation: true,
+                            IsDiscountActive: true,
+                            DiscountPercent: 25),
                     },
                     1)));
 
@@ -152,6 +370,8 @@ public sealed class EventMvcTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Ramen Meetup", html);
+        Assert.Contains("Slotted", html);
+        Assert.Contains("Discounted 25%", html);
         Assert.Contains("Near my ZIP 45220", html);
         Assert.Contains("Matches my availability", html);
         Assert.Contains("Standalone events", html);
@@ -278,7 +498,10 @@ public sealed class EventMvcTests
                             null,
                             2.1,
                             1,
-                            1),
+                            1,
+                            HasActiveSlotReservation: true,
+                            IsDiscountActive: true,
+                            DiscountPercent: 20),
                         new EventSummaryDto(
                             Guid.NewGuid(),
                             "Full table should not appear",
@@ -315,6 +538,8 @@ public sealed class EventMvcTests
         Assert.Contains("Quick Event Search", html);
         Assert.Contains("Recommended for You", html);
         Assert.Contains("Buddy Sushi Night", html);
+        Assert.Contains("Slotted", html);
+        Assert.Contains("Discounted 20%", html);
         Assert.Contains("2.1 mi away", html);
         Assert.Contains("Matches 1 food preference", html);
         Assert.Contains("1 Bud already joined", html);
@@ -615,7 +840,7 @@ public sealed class EventMvcTests
                 HttpStatusCode.OK,
                 new[]
                 {
-                    new RestaurantSlotDto(slotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 4, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), 2, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
+                    new RestaurantSlotDto(slotId, restaurantId, new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero), 4, new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero), 2, 15, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
                 }));
         EnqueueEmptyEventMessages(factory, eventId);
         factory.BackendHandler.Enqueue(
@@ -633,6 +858,7 @@ public sealed class EventMvcTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Reserve a Slot", html);
         Assert.Contains("Reserve", html);
+        Assert.Contains("15% at 2 guests", html);
         Assert.Contains(slotId.ToString(), html);
         factory.BackendHandler.AssertDrained();
     }
@@ -914,4 +1140,5 @@ public sealed class EventMvcTests
                 HttpStatusCode.OK,
                 new CursorPageResponse<ChatMessageDto>(Array.Empty<ChatMessageDto>(), null)));
     }
+
 }

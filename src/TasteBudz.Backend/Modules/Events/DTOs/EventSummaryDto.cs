@@ -17,4 +17,7 @@ public sealed record EventSummaryDto(
     Guid? GroupId,
     double? DistanceMiles = null,
     int MatchingCuisineCount = 0,
-    int MatchingBudzCount = 0);
+    int MatchingBudzCount = 0,
+    bool HasActiveSlotReservation = false,
+    bool IsDiscountActive = false,
+    int? DiscountPercent = null);

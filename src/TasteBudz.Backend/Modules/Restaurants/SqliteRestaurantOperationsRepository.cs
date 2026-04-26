@@ -123,6 +123,7 @@ public sealed class SqliteRestaurantOperationsRepository(TasteBudzDbContext dbCo
             entity.Capacity = slot.Capacity;
             entity.CutoffAtUtc = slot.CutoffAtUtc;
             entity.MinThresholdForDiscount = slot.MinThresholdForDiscount;
+            entity.DiscountPercent = slot.DiscountPercent;
             entity.Status = slot.Status;
             entity.CreatedAtUtc = slot.CreatedAtUtc;
             entity.UpdatedAtUtc = slot.UpdatedAtUtc;
@@ -206,6 +207,7 @@ public sealed class SqliteRestaurantOperationsRepository(TasteBudzDbContext dbCo
             entity.Capacity,
             entity.CutoffAtUtc,
             entity.MinThresholdForDiscount,
+            entity.DiscountPercent,
             entity.Status,
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc,
@@ -244,6 +246,7 @@ public sealed class SqliteRestaurantOperationsRepository(TasteBudzDbContext dbCo
             Capacity = slot.Capacity,
             CutoffAtUtc = slot.CutoffAtUtc,
             MinThresholdForDiscount = slot.MinThresholdForDiscount,
+            DiscountPercent = slot.DiscountPercent,
             Status = slot.Status,
             CreatedAtUtc = slot.CreatedAtUtc,
             UpdatedAtUtc = slot.UpdatedAtUtc,
