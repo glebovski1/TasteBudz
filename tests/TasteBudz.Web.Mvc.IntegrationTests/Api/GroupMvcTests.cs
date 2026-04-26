@@ -125,6 +125,19 @@ public sealed class GroupMvcTests
                     new[]
                     {
                         new EventSummaryDto(
+                            Guid.NewGuid(),
+                            "Sushi night",
+                            EventType.Open,
+                            EventStatus.Open,
+                            new DateTimeOffset(2026, 5, 8, 20, 29, 0, TimeSpan.Zero),
+                            new DateTimeOffset(2026, 5, 8, 20, 0, 0, TimeSpan.Zero),
+                            6,
+                            1,
+                            session.CurrentUser.UserId,
+                            null,
+                            "Sushi",
+                            groupId),
+                        new EventSummaryDto(
                             eventId,
                             "Completed noodles",
                             EventType.Open,
@@ -190,9 +203,15 @@ public sealed class GroupMvcTests
         Assert.Contains("group-announcement-form--vertical", html);
         Assert.Contains("Ramen plan", html);
         Assert.Contains("Linked Events", html);
+        Assert.Contains("Planned Events", html);
+        Assert.Contains("History Events", html);
+        Assert.Contains("Sushi night", html);
         Assert.Contains("Completed noodles", html);
         Assert.Contains("5.0 / 5 average", html);
         Assert.Contains("Great noodles.", html);
+        Assert.Contains("Public event", html);
+        Assert.DoesNotContain("Open (public)", html);
+        Assert.DoesNotContain("Status: Open", html);
         factory.BackendHandler.AssertDrained();
     }
 

@@ -154,6 +154,8 @@ public sealed class EventMvcTests
         Assert.Contains("Ramen Meetup", html);
         Assert.Contains("Near my ZIP 45220", html);
         Assert.Contains("Matches my availability", html);
+        Assert.Contains("Standalone events", html);
+        Assert.DoesNotContain("Ordinary event", html);
         factory.BackendHandler.AssertDrained();
     }
 
@@ -316,6 +318,7 @@ public sealed class EventMvcTests
         Assert.Contains("2.1 mi away", html);
         Assert.Contains("Matches 1 food preference", html);
         Assert.Contains("1 Bud already joined", html);
+        Assert.DoesNotContain("Ordinary event", html);
         Assert.DoesNotContain("Full table should not appear", html);
         factory.BackendHandler.AssertDrained();
     }
@@ -372,6 +375,7 @@ public sealed class EventMvcTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Friday Ramen", html);
+        Assert.Contains("Public event", html);
         Assert.Contains("Ramen House", html);
         Assert.Contains("Open in Google Maps", html);
         Assert.Contains("query_place_id=google-place-123", html);

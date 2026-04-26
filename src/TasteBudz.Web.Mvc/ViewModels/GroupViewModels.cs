@@ -142,6 +142,12 @@ public sealed class GroupManageViewModel
     public IReadOnlyList<GroupMemberItem> Members { get; init; } = [];
     public IReadOnlyList<GroupEventHistoryItem> EventHistory { get; init; } = [];
     public IReadOnlyList<GroupAnnouncementItem> Announcements { get; init; } = [];
+    public IReadOnlyList<GroupEventHistoryItem> PlannedEvents => EventHistory
+        .Where(groupEvent => groupEvent.IsPlanned)
+        .ToList();
+    public IReadOnlyList<GroupEventHistoryItem> HistoryEvents => EventHistory
+        .Where(groupEvent => groupEvent.IsHistory)
+        .ToList();
 
     // Edit sub-form — pre-populated for the owner settings panel
     public string? EditName { get; set; }
@@ -307,9 +313,12 @@ public sealed class GroupEventHistoryItem
     public string EventTimeLabel => EventStartAtUtc.ToLocalTime().ToString("h:mm tt", CultureInfo.InvariantCulture);
     public string ParticipationLabel => $"{ActiveParticipants} / {Capacity} joined";
     public string EventAccessLabel => string.Equals(EventType, nameof(TasteBudz.Backend.Domain.EventType.Closed), StringComparison.OrdinalIgnoreCase)
-        ? "Closed (private)"
-        : "Open (public)";
-    public string EventStatusLabel => $"Status: {Status}";
+        ? "Private event"
+        : "Public event";
+    public string EventStatusLabel => Status;
+    public bool IsHistory => Status is nameof(EventStatus.Completed) or nameof(EventStatus.Cancelled);
+    public bool IsPlanned => !IsHistory;
+    public bool IsCancelled => Status is nameof(EventStatus.Cancelled);
     public string? AverageRatingLabel => AverageRating.HasValue
         ? $"{AverageRating.Value.ToString("0.0", CultureInfo.InvariantCulture)} / 5 average"
         : null;

@@ -4,6 +4,8 @@
     ViewData["Title"] = Model.Name;
 
     var owner = Model.Owner;
+    var plannedEvents = Model.PlannedEvents;
+    var historyEvents = Model.HistoryEvents;
 }
 
 <section class="profile-shell group-page group-page--manage @Model.WallpaperCssClass">
@@ -278,20 +280,45 @@
             <section class="panel stack">
                 <div class="group-section__header">
                     <div>
-                        <p class="group-section__eyebrow">History</p>
+                        <p class="group-section__eyebrow">Events</p>
                         <h2>Linked Events</h2>
                     </div>
-                    <p class="card__subtitle">Completed event feedback appears here only when the current viewer is allowed to see it.</p>
+                    <p class="card__subtitle">Planned events show upcoming group plans. History keeps completed and cancelled events with visible feedback.</p>
                 </div>
 
-                <div class="group-event-history">
-                    @if (Model.EventHistory.Count == 0)
+                <div class="group-linked-event-tabs" role="tablist" aria-label="Linked event views">
+                    <button type="button"
+                            class="group-linked-event-tab is-active"
+                            id="group-planned-events-tab"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="group-planned-events"
+                            data-group-event-tab="planned">
+                        Planned Events
+                    </button>
+                    <button type="button"
+                            class="group-linked-event-tab"
+                            id="group-history-events-tab"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="group-history-events"
+                            data-group-event-tab="history">
+                        History Events
+                    </button>
+                </div>
+
+                <div id="group-planned-events"
+                     class="group-event-history"
+                     role="tabpanel"
+                     aria-labelledby="group-planned-events-tab"
+                     data-group-event-panel="planned">
+                    @if (plannedEvents.Count == 0)
                     {
-                        <p class="empty-state">No group events yet.</p>
+                        <p class="empty-state">No planned group events yet.</p>
                     }
                     else
                     {
-                        @foreach (var groupEvent in Model.EventHistory)
+                        @foreach (var groupEvent in plannedEvents)
                         {
                             <article class="summary-card group-event-card">
                                 <div class="group-event-card__header">
@@ -319,7 +346,60 @@
                                             <a asp-controller="Event"
                                                asp-action="EventDetails"
                                                asp-route-eventId="@groupEvent.EventId"
-                                               class="group-linked-event-action">Open event</a>
+                                               class="group-linked-event-action">View details</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+                        }
+                    }
+                </div>
+
+                <div id="group-history-events"
+                     class="group-event-history"
+                     role="tabpanel"
+                     aria-labelledby="group-history-events-tab"
+                     data-group-event-panel="history"
+                     hidden>
+                    @if (Model.EventHistory.Count == 0)
+                    {
+                        <p class="empty-state">No group events yet.</p>
+                    }
+                    else if (historyEvents.Count == 0)
+                    {
+                        <p class="empty-state">No history events yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var groupEvent in historyEvents)
+                        {
+                            <article class="summary-card group-event-card">
+                                <div class="group-event-card__header">
+                                    <div class="group-event-card__date">
+                                        <span class="group-event-card__date-label">@groupEvent.EventDateLabel</span>
+                                        <strong>@groupEvent.EventTimeLabel</strong>
+                                    </div>
+
+                                    <div class="group-event-card__content">
+                                        <div class="group-event-card__heading">
+                                            <h3>
+                                                <a asp-controller="Event"
+                                                   asp-action="EventDetails"
+                                                   asp-route-eventId="@groupEvent.EventId">@groupEvent.Title</a>
+                                            </h3>
+                                            <div class="group-event-card__meta">
+                                                <span class="pill group-event-card__pill group-event-card__pill--access">@groupEvent.EventAccessLabel</span>
+                                                <span class="pill group-event-card__pill group-event-card__pill--status">@groupEvent.EventStatusLabel</span>
+                                                <span class="pill">@groupEvent.ParticipationLabel</span>
+                                                @if (!string.IsNullOrWhiteSpace(groupEvent.CuisineTarget))
+                                                {
+                                                    <span class="pill">@groupEvent.CuisineTarget</span>
+                                                }
+                                            </div>
+                                            <a asp-controller="Event"
+                                               asp-action="EventDetails"
+                                               asp-route-eventId="@groupEvent.EventId"
+                                               class="group-linked-event-action">View details</a>
                                         </div>
 
                                         <div class="group-event-card__feedback">
@@ -333,7 +413,14 @@
 
                                             @if (!groupEvent.IsCompleted)
                                             {
-                                                <p class="empty-state">Feedback opens after the event is completed.</p>
+                                                @if (groupEvent.IsCancelled)
+                                                {
+                                                    <p class="empty-state">Feedback is unavailable for cancelled events.</p>
+                                                }
+                                                else
+                                                {
+                                                    <p class="empty-state">Feedback opens after the event is completed.</p>
+                                                }
                                             }
                                             else if (groupEvent.Feedback.Count == 0)
                                             {
@@ -446,3 +533,21 @@
     </div>
 
 </section>
+
+<script>
+    document.querySelectorAll("[data-group-event-tab]").forEach(button => {
+        button.addEventListener("click", () => {
+            const selected = button.dataset.groupEventTab;
+
+            document.querySelectorAll("[data-group-event-tab]").forEach(tab => {
+                const isSelected = tab === button;
+                tab.classList.toggle("is-active", isSelected);
+                tab.setAttribute("aria-selected", isSelected ? "true" : "false");
+            });
+
+            document.querySelectorAll("[data-group-event-panel]").forEach(panel => {
+                panel.hidden = panel.dataset.groupEventPanel !== selected;
+            });
+        });
+    });
+</script>

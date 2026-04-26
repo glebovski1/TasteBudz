@@ -162,7 +162,8 @@ public sealed class EventSummaryItem
         }
     }
 
-    public string ScopeLabel => GroupId.HasValue ? "Group event" : "Ordinary event";
+    public bool IsGroupLinked => GroupId.HasValue;
+    public string ScopeLabel => IsGroupLinked ? "Group event" : string.Empty;
 
     public static EventSummaryItem FromDto(EventSummaryDto dto) => new()
     {
@@ -284,6 +285,9 @@ public sealed class EventDetailViewModel
     public Guid EventId { get; init; }
     public string Title { get; init; } = string.Empty;
     public string EventType { get; init; } = string.Empty;
+    public string EventAccessLabel => string.Equals(EventType, nameof(TasteBudz.Backend.Domain.EventType.Closed), StringComparison.OrdinalIgnoreCase)
+        ? "Private event"
+        : "Public event";
     public string Status { get; init; } = string.Empty;
     public DateTimeOffset EventStartAtUtc { get; init; }
     public int Capacity { get; init; }

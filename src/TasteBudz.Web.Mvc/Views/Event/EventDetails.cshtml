@@ -19,7 +19,7 @@
         <div>
             <h1>@Model.Title</h1>
             <div class="profile-meta">
-                <span class="pill">@Model.EventType</span>
+                <span class="pill">@Model.EventAccessLabel</span>
                 <span class="pill pill--@Model.Status.ToLower()">@Model.Status</span>
                 @if (!string.IsNullOrWhiteSpace(Model.CuisineTarget))
                 {

@@ -93,9 +93,11 @@ public sealed record DashboardEventCardViewModel(
 
     public string EventTypeLabel => EventType == EventType.Open ? "Open event" : "Invite event";
 
-    public string ScopeLabel => IsGroupLinked || GroupId.HasValue ? "Group event" : "Ordinary event";
+    public bool HasGroupScope => IsGroupLinked || GroupId.HasValue;
 
-    public string ScopeFilterValue => IsGroupLinked || GroupId.HasValue ? "group" : "ordinary";
+    public string ScopeLabel => HasGroupScope ? "Group event" : string.Empty;
+
+    public string ScopeFilterValue => HasGroupScope ? "group" : "ordinary";
 
     public string StatusFilterValue => Status.ToString().ToLowerInvariant();
 
@@ -120,9 +122,9 @@ public sealed record DashboardEventCardViewModel(
                 labels.Add("Invited");
             }
 
-            if (IsGroupLinked)
+            if (HasGroupScope)
             {
-                labels.Add("Group-linked");
+                labels.Add("Group event");
             }
 
             return labels.Count == 0 ? Array.Empty<string>() : labels;

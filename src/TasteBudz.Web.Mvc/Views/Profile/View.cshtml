@@ -112,7 +112,7 @@
             <div class="my-events-filter-bar" aria-label="My events filters">
                 <button type="button" class="my-events-filter is-active" data-my-events-filter="all">All</button>
                 <button type="button" class="my-events-filter" data-my-events-filter="group">Group events</button>
-                <button type="button" class="my-events-filter" data-my-events-filter="ordinary">Ordinary events</button>
+                <button type="button" class="my-events-filter" data-my-events-filter="ordinary">Standalone events</button>
                 <button type="button" class="my-events-filter" data-my-events-filter="open">Active/Open</button>
                 <button type="button" class="my-events-filter" data-my-events-filter="full">Full</button>
                 <button type="button" class="my-events-filter" data-my-events-filter="confirmed">Confirmed</button>
@@ -148,7 +148,10 @@
 
                                     <div class="interest-card__chips">
                                         <span class="@StatusChipClass(item.Status)">@item.Status</span>
-                                        <span class="interest-card__chip">@item.ScopeLabel</span>
+                                        @if (item.HasGroupScope)
+                                        {
+                                            <span class="interest-card__chip">@item.ScopeLabel</span>
+                                        }
                                         <span class="interest-card__chip">@item.EventTypeLabel</span>
                                         @foreach (var relationship in item.RelationshipLabels)
                                         {
@@ -182,7 +185,10 @@
                             <div class="interest-card__facts">
                                 <span class="interest-card__fact">@item.ScheduleLabel</span>
                                 <span class="interest-card__fact">@item.TimeLabel</span>
-                                <span class="interest-card__fact">@item.ScopeLabel</span>
+                                @if (item.HasGroupScope)
+                                {
+                                    <span class="interest-card__fact">@item.ScopeLabel</span>
+                                }
                                 <span class="interest-card__fact">@item.EventTypeLabel</span>
                                 @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
                                 {

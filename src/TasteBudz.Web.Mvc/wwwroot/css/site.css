@@ -645,6 +645,10 @@ main {
     box-shadow: 0 18px 40px rgba(126, 82, 47, 0.08);
 }
 
+[data-my-event-card][hidden] {
+    display: none !important;
+}
+
 .interest-card__header {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -4497,9 +4501,36 @@ img, video, iframe, table {
     background: rgba(255, 232, 214, 0.92);
 }
 
+.group-linked-event-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.group-linked-event-tab {
+    min-height: 2.35rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid rgba(197, 149, 112, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.84);
+    color: #7a6657;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.group-linked-event-tab.is-active {
+    color: white;
+    background: linear-gradient(135deg, var(--accent), #ff9a5f);
+    border-color: transparent;
+}
+
 .group-event-history {
     display: grid;
     gap: 1rem;
+}
+
+.group-event-history[hidden] {
+    display: none !important;
 }
 
 .group-event-card {

@@ -483,7 +483,8 @@ public sealed class AccountAndProfileMvcTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("My Events", html);
         Assert.Contains("Group events", html);
-        Assert.Contains("Ordinary events", html);
+        Assert.Contains("Standalone events", html);
+        Assert.DoesNotContain("Ordinary event", html);
         Assert.Contains("Active/Open", html);
         Assert.Contains("Full", html);
         Assert.Contains("Completed", html);
@@ -491,6 +492,21 @@ public sealed class AccountAndProfileMvcTests
         Assert.Contains("Friday Sushi Night", html);
         Assert.Contains("Cincy Foodies", html);
         Assert.Contains("Sam Carter", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task DashboardStyles_HideFilteredMyEventCards()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+
+        using var response = await client.GetAsync("/css/site.css");
+        var css = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("[data-my-event-card][hidden]", css);
+        Assert.Contains("display: none !important;", css);
         factory.BackendHandler.AssertDrained();
     }
 
