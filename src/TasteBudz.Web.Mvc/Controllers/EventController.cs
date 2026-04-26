@@ -11,6 +11,7 @@ using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
+using RestaurantPickerPageModel = TasteBudz.Web.Mvc.ViewModels.RestaurantPickerPage;
 
 namespace TasteBudz.Web.Mvc.Controllers;
 
@@ -665,7 +666,12 @@ public sealed class EventController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> RestaurantSlots(Guid restaurantId, DateTime? eventStartAt, int? capacity, CancellationToken cancellationToken)
+    public async Task<IActionResult> RestaurantSlots(
+        Guid restaurantId,
+        DateTime? eventStartAt,
+        int? capacity,
+        int? browserTimeZoneOffsetMinutes,
+        CancellationToken cancellationToken)
     {
         if (restaurantId == Guid.Empty || !eventStartAt.HasValue || !capacity.HasValue)
         {
@@ -674,7 +680,12 @@ public sealed class EventController : Controller
 
         try
         {
-            var slots = await GetCompatibleRestaurantSlotsAsync(restaurantId, eventStartAt.Value, capacity.Value, cancellationToken);
+            var slots = await GetCompatibleRestaurantSlotsAsync(
+                restaurantId,
+                eventStartAt.Value,
+                capacity.Value,
+                browserTimeZoneOffsetMinutes,
+                cancellationToken);
             return Json(slots
                 .Select(RestaurantPickerSlotItem.FromDto)
                 .Select(ToRestaurantSlotJson)
@@ -687,6 +698,36 @@ public sealed class EventController : Controller
         catch (BackendApiException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
             return Json(Array.Empty<object>());
+        }
+        catch (BackendApiException ex)
+        {
+            return StatusCode((int)ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> RestaurantPickerPage(
+        string? q,
+        string? cuisine,
+        PriceTier? priceTier,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var pickerPage = await BuildRestaurantPickerPageAsync(
+                q,
+                cuisine,
+                priceTier,
+                page,
+                includeNextMonthDiscountSlots: true,
+                cancellationToken);
+
+            return Json(ToRestaurantPickerPageJson(pickerPage));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return Unauthorized();
         }
         catch (BackendApiException ex)
         {
@@ -788,20 +829,25 @@ public sealed class EventController : Controller
 
         try
         {
-            var restaurants = await restaurantApiService.BrowseAllAsync(cancellationToken: cancellationToken);
+            var restaurantPage = await BuildRestaurantPickerPageAsync(
+                q: null,
+                cuisine: null,
+                priceTier: null,
+                page: 1,
+                includeNextMonthDiscountSlots: false,
+                cancellationToken);
 
             return model with
             {
                 GroupName = groupName,
                 GroupVisibility = groupVisibility,
-                Restaurants = restaurants
-                    .Select(restaurant => RestaurantPickerItem.FromDto(restaurant))
-                    .ToList(),
+                RestaurantPage = restaurantPage,
+                Restaurants = restaurantPage.Restaurants,
             };
         }
         catch
         {
-            return model with { GroupName = groupName, GroupVisibility = groupVisibility, Restaurants = [] };
+            return model with { GroupName = groupName, GroupVisibility = groupVisibility, RestaurantPage = RestaurantPickerPageModel.Empty, Restaurants = [] };
         }
     }
 
@@ -1014,6 +1060,7 @@ public sealed class EventController : Controller
                 model.SelectedRestaurantId.Value,
                 model.EventStartAt.Value,
                 model.Capacity.Value,
+                model.BrowserTimeZoneOffsetMinutes,
                 cancellationToken);
 
             if (compatibleSlots.Any(slot => slot.SlotId == model.SelectedSlotId.Value))
@@ -1041,9 +1088,10 @@ public sealed class EventController : Controller
         Guid restaurantId,
         DateTime eventStartAt,
         int capacity,
+        int? browserTimeZoneOffsetMinutes,
         CancellationToken cancellationToken)
     {
-        var eventStartAtUtc = new DateTimeOffset(eventStartAt, TimeSpan.Zero);
+        var eventStartAtUtc = EventCreateViewModel.ConvertLocalInputToUtc(eventStartAt, browserTimeZoneOffsetMinutes);
         var slots = await restaurantApiService.ListReservableSlotsAsync(restaurantId, cancellationToken);
 
         return slots
@@ -1054,6 +1102,95 @@ public sealed class EventController : Controller
             .ToArray();
     }
 
+    private async Task<RestaurantPickerPageModel> BuildRestaurantPickerPageAsync(
+        string? q,
+        string? cuisine,
+        PriceTier? priceTier,
+        int page,
+        bool includeNextMonthDiscountSlots,
+        CancellationToken cancellationToken)
+    {
+        var currentPage = Math.Max(page, 1);
+        var response = await restaurantApiService.BrowseAsync(
+            new BrowseRestaurantsQuery
+            {
+                Q = Normalize(q),
+                Cuisine = Normalize(cuisine),
+                PriceTier = priceTier,
+                Page = currentPage,
+                PageSize = EventCreateViewModel.RestaurantPickerPageSize,
+            },
+            cancellationToken);
+
+        var restaurants = new List<RestaurantPickerItem>();
+
+        foreach (var restaurant in response.Items)
+        {
+            var nextMonthDiscountSlots = includeNextMonthDiscountSlots
+                ? await TryGetNextMonthDiscountSlotsAsync(restaurant.RestaurantId, cancellationToken)
+                : [];
+
+            restaurants.Add(RestaurantPickerItem.FromDto(
+                restaurant,
+                nextMonthDiscountSlots: nextMonthDiscountSlots));
+        }
+
+        return new RestaurantPickerPageModel
+        {
+            Page = currentPage,
+            PageSize = EventCreateViewModel.RestaurantPickerPageSize,
+            TotalCount = response.TotalCount,
+            Restaurants = restaurants,
+        };
+    }
+
+    private async Task<IReadOnlyCollection<RestaurantSlotDto>> TryGetNextMonthDiscountSlotsAsync(
+        Guid restaurantId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var windowEnd = now.AddDays(30);
+
+        try
+        {
+            var slots = await restaurantApiService.ListReservableSlotsAsync(restaurantId, cancellationToken);
+
+            return slots
+                .Where(slot => slot.StartsAtUtc >= now && slot.StartsAtUtc <= windowEnd)
+                .Where(slot => slot.MinThresholdForDiscount.HasValue && slot.DiscountPercent.HasValue)
+                .OrderBy(slot => slot.StartsAtUtc)
+                .ThenBy(slot => slot.SlotId)
+                .ToArray();
+        }
+        catch (BackendApiException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            return [];
+        }
+    }
+
+    private static object ToRestaurantPickerPageJson(RestaurantPickerPageModel page) => new
+    {
+        page = page.Page,
+        pageSize = page.PageSize,
+        totalCount = page.TotalCount,
+        totalPages = page.TotalPages,
+        restaurants = page.Restaurants.Select(ToRestaurantPickerItemJson).ToArray(),
+    };
+
+    private static object ToRestaurantPickerItemJson(RestaurantPickerItem restaurant) => new
+    {
+        id = restaurant.RestaurantId,
+        name = restaurant.Name,
+        location = restaurant.Location,
+        priceTier = restaurant.PriceTier,
+        cuisine = restaurant.CuisineTags,
+        cuisineTags = restaurant.CuisineTagList,
+        lat = restaurant.Latitude,
+        lng = restaurant.Longitude,
+        googleMapsUrl = restaurant.GoogleMapsUrl,
+        discountSlots = restaurant.NextMonthDiscountSlots.Select(slot => ToRestaurantSlotJson(slot)).ToArray(),
+    };
+
     private static object ToRestaurantSlotJson(RestaurantPickerSlotItem slot) => new
     {
         id = slot.SlotId,
@@ -1063,6 +1200,9 @@ public sealed class EventController : Controller
         displayText = slot.DisplayText,
         discountText = slot.DiscountText,
     };
+
+    private static string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private Guid GetCurrentUserId()
     {

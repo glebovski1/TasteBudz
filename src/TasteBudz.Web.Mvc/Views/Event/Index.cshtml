@@ -4,7 +4,7 @@
     ViewData["Title"] = Model.IsQuickSearch ? "Quick Search" : "Events";
 }
 
-<section class="profile-shell">
+<section class="profile-shell event-index-page">
 
     <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
         <div>
@@ -168,6 +168,8 @@
                         <article class="card event-card quick-event-card" data-quick-event-card hidden="@(i != 0)">
                             <div class="event-card__header">
                                 <h3 class="event-card__title">@ev.Title</h3>
+                            </div>
+                            <div class="event-card__badges" aria-label="Event badges">
                                 <span class="pill">@ev.EventType</span>
                                 @if (ev.IsGroupLinked)
                                 {
@@ -226,6 +228,8 @@
                 <article class="card event-card">
                     <div class="event-card__header">
                         <h3 class="event-card__title">@ev.Title</h3>
+                    </div>
+                    <div class="event-card__badges" aria-label="Event badges">
                         <span class="pill">@ev.EventType</span>
                         @if (ev.IsGroupLinked)
                         {

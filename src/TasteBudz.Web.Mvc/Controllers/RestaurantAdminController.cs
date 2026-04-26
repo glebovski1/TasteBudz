@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.Services;
 using TasteBudz.Web.Mvc.ViewModels;
@@ -31,7 +32,12 @@ public sealed class RestaurantAdminController(
     }
 
     [HttpGet]
-    public async Task<IActionResult> Manage(Guid restaurantId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Manage(
+        Guid restaurantId,
+        int slotPage = 1,
+        RestaurantSlotStatus? slotStatus = null,
+        Guid? editSlotId = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -45,7 +51,7 @@ public sealed class RestaurantAdminController(
             }
 
             var slots = await restaurantApiService.ListManagedSlotsAsync(restaurantId, cancellationToken);
-            return View(BuildManageViewModel(restaurant, slots));
+            return View(BuildManageViewModel(restaurant, slots, slotPage, slotStatus, editSlotId));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -177,11 +183,40 @@ public sealed class RestaurantAdminController(
 
     private static RestaurantAdminManageViewModel BuildManageViewModel(
         RestaurantDto restaurant,
-        IReadOnlyCollection<RestaurantSlotDto> slots) =>
-        new()
+        IReadOnlyCollection<RestaurantSlotDto> slots,
+        int slotPage,
+        RestaurantSlotStatus? slotStatus,
+        Guid? editSlotId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var windowEnd = now.AddDays(30);
+        var filteredSlots = slots
+            .Where(slot => slot.StartsAtUtc >= now && slot.StartsAtUtc <= windowEnd)
+            .Where(slot => !slotStatus.HasValue || slot.Status == slotStatus.Value)
+            .OrderBy(slot => slot.StartsAtUtc)
+            .ThenBy(slot => slot.SlotId)
+            .ToArray();
+
+        var totalPages = Math.Max(1, (int)Math.Ceiling(filteredSlots.Length / (double)RestaurantAdminManageViewModel.SlotPageSize));
+        var currentPage = Math.Clamp(slotPage, 1, totalPages);
+        var visibleSlots = filteredSlots
+            .Skip((currentPage - 1) * RestaurantAdminManageViewModel.SlotPageSize)
+            .Take(RestaurantAdminManageViewModel.SlotPageSize)
+            .ToArray();
+        var editSlot = editSlotId.HasValue
+            ? visibleSlots.FirstOrDefault(slot => slot.SlotId == editSlotId.Value)
+            : null;
+
+        return new()
         {
             Restaurant = restaurant,
-            Slots = slots,
+            Slots = filteredSlots,
+            VisibleSlots = visibleSlots,
+            EditSlot = editSlot,
+            EditSlotForm = editSlot is null ? null : BuildEditSlotForm(restaurant.RestaurantId, editSlot),
+            SlotPage = currentPage,
+            SlotTotalCount = filteredSlots.Length,
+            SlotStatus = slotStatus,
             RestaurantForm = new ManagedRestaurantForm
             {
                 RestaurantId = restaurant.RestaurantId,
@@ -191,10 +226,35 @@ public sealed class RestaurantAdminController(
                 ZipCode = restaurant.ZipCode,
                 PriceTier = restaurant.PriceTier,
             },
-            SlotForm = new RestaurantSlotForm
-            {
-                RestaurantId = restaurant.RestaurantId,
-            },
+            SlotForm = BuildCreateSlotDefaults(restaurant.RestaurantId),
+        };
+    }
+
+    private static RestaurantSlotForm BuildCreateSlotDefaults(Guid restaurantId)
+    {
+        var startsAt = DateTime.Now.Date.AddDays(1).AddHours(18);
+
+        return new()
+        {
+            RestaurantId = restaurantId,
+            StartsAt = startsAt,
+            EndsAt = startsAt.AddHours(2),
+            CutoffAt = startsAt.AddHours(-1),
+            Capacity = 4,
+        };
+    }
+
+    private static RestaurantSlotEditForm BuildEditSlotForm(Guid restaurantId, RestaurantSlotDto slot) =>
+        new()
+        {
+            RestaurantId = restaurantId,
+            SlotId = slot.SlotId,
+            StartsAt = slot.StartsAtUtc.ToLocalTime().DateTime,
+            EndsAt = slot.EndsAtUtc.ToLocalTime().DateTime,
+            Capacity = slot.Capacity,
+            CutoffAt = slot.CutoffAtUtc.ToLocalTime().DateTime,
+            MinThresholdForDiscount = slot.MinThresholdForDiscount,
+            DiscountPercent = slot.DiscountPercent,
         };
 
     private async Task<IActionResult> RedirectToLoginAsync(CancellationToken cancellationToken)

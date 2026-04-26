@@ -1,10 +1,11 @@
+@using TasteBudz.Backend.Domain
 @model RestaurantAdminManageViewModel
 
 @{
     ViewData["Title"] = $"Manage {Model.Restaurant.Name}";
 }
 
-<section class="profile-shell">
+<section class="profile-shell restaurant-admin-manage-page">
     <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
         <div>
             <h1>@Model.Restaurant.Name</h1>
@@ -42,7 +43,7 @@
                 </div>
                 <div class="field">
                     <label asp-for="RestaurantForm.PriceTier"></label>
-                    <select asp-for="RestaurantForm.PriceTier" asp-items="Html.GetEnumSelectList<TasteBudz.Backend.Domain.PriceTier>()"></select>
+                    <select asp-for="RestaurantForm.PriceTier" asp-items="Html.GetEnumSelectList<PriceTier>()"></select>
                 </div>
                 <div class="button-row">
                     <button type="submit" class="button button--primary">Save Profile</button>
@@ -53,7 +54,7 @@
         <section class="panel stack">
             <div>
                 <h2>Create Slot</h2>
-                <p class="card__subtitle">Slots define a reservable window and capacity.</p>
+                <p class="card__subtitle">Defaults are set for tomorrow evening; add discount values only when needed.</p>
             </div>
             <form asp-action="CreateSlot" method="post" class="stack">
                 @Html.AntiForgeryToken()
@@ -76,11 +77,11 @@
                 </div>
                 <div class="field">
                     <label asp-for="SlotForm.MinThresholdForDiscount"></label>
-                    <input asp-for="SlotForm.MinThresholdForDiscount" type="number" min="2" max="8" />
+                    <input asp-for="SlotForm.MinThresholdForDiscount" type="number" min="2" max="8" placeholder="Optional" />
                 </div>
                 <div class="field">
                     <label asp-for="SlotForm.DiscountPercent"></label>
-                    <input asp-for="SlotForm.DiscountPercent" type="number" min="1" max="100" />
+                    <input asp-for="SlotForm.DiscountPercent" type="number" min="1" max="100" placeholder="Optional" />
                 </div>
                 <p class="muted-note">Optional discount simulation requires both a threshold and percentage.</p>
                 <div class="button-row">
@@ -91,115 +92,172 @@
     </div>
 
     <section class="panel stack">
-        <h2>Slots</h2>
-        @if (!Model.Slots.Any())
+        <div class="restaurant-slot-section-header">
+            <div>
+                <h2>Slots</h2>
+                <p class="card__subtitle">Showing next-30-day slots only.</p>
+            </div>
+            <form asp-action="Manage" method="get" class="restaurant-slot-filter">
+                <input type="hidden" name="restaurantId" value="@Model.Restaurant.RestaurantId" />
+                <input type="hidden" name="slotPage" value="1" />
+                <div class="field" style="margin:0;">
+                    <label for="slotStatus">Status</label>
+                    <select id="slotStatus" name="slotStatus">
+                        <option value="" selected="@(Model.SlotStatus is null)">All statuses</option>
+                        @foreach (var status in Enum.GetValues<RestaurantSlotStatus>())
+                        {
+                            <option value="@status" selected="@(Model.SlotStatus == status)">@status</option>
+                        }
+                    </select>
+                </div>
+                <button type="submit" class="button button--secondary">Apply</button>
+            </form>
+        </div>
+
+        @if (!Model.VisibleSlots.Any())
         {
-            <p class="empty-state">No slots have been created.</p>
+            <p class="empty-state">No matching slots in the next 30 days.</p>
         }
         else
         {
-            <div class="panel__items">
-                @foreach (var slot in Model.Slots)
+            <div class="restaurant-slot-list">
+                @foreach (var slot in Model.VisibleSlots)
                 {
-                    <article class="summary-card summary-card--split">
-                        <div>
-                            <strong>@slot.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</strong>
-                            <p class="muted-note">
-                                Ends @slot.EndsAtUtc.ToLocalTime().ToString("h:mm tt") |
-                                Capacity @slot.Capacity |
-                                Cutoff @slot.CutoffAtUtc.ToLocalTime().ToString("MMM d h:mm tt")
-                            </p>
-                            @if (slot.MinThresholdForDiscount.HasValue && slot.DiscountPercent.HasValue)
-                            {
-                                <p class="muted-note">@slot.DiscountPercent.Value% at @slot.MinThresholdForDiscount.Value guests</p>
-                            }
-                            <span class="pill">@slot.Status</span>
-                            @if (!string.IsNullOrWhiteSpace(slot.CancellationReason))
-                            {
-                                <p class="muted-note">@slot.CancellationReason</p>
-                            }
+                    var isEditable = Model.EditSlot?.SlotId == slot.SlotId && Model.EditSlotForm is not null;
+                    <article class="restaurant-slot-row" data-slot-id="@slot.SlotId">
+                        <div class="restaurant-slot-row__main">
+                            <div>
+                                <strong>@slot.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</strong>
+                                <p class="muted-note">
+                                    Ends @slot.EndsAtUtc.ToLocalTime().ToString("h:mm tt") |
+                                    Capacity @slot.Capacity |
+                                    Cutoff @slot.CutoffAtUtc.ToLocalTime().ToString("MMM d h:mm tt")
+                                </p>
+                                @if (slot.MinThresholdForDiscount.HasValue && slot.DiscountPercent.HasValue)
+                                {
+                                    <p class="muted-note">@slot.DiscountPercent.Value% at @slot.MinThresholdForDiscount.Value guests</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(slot.CancellationReason))
+                                {
+                                    <p class="muted-note">@slot.CancellationReason</p>
+                                }
+                            </div>
+                            <div class="restaurant-slot-row__actions">
+                                <span class="pill">@slot.Status</span>
+                                @if (slot.Status == RestaurantSlotStatus.Open)
+                                {
+                                    <a asp-action="Manage"
+                                       asp-route-restaurantId="@Model.Restaurant.RestaurantId"
+                                       asp-route-slotPage="@Model.SlotPage"
+                                       asp-route-slotStatus="@Model.SlotStatus"
+                                       asp-route-editSlotId="@slot.SlotId"
+                                       class="button button--secondary button--sm">Edit</a>
+                                    <details class="slot-cancel-panel">
+                                        <summary class="button button--danger button--sm">Cancel</summary>
+                                        <form asp-action="CancelSlot" method="post" class="stack">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="restaurantId" value="@Model.Restaurant.RestaurantId" />
+                                            <input type="hidden" name="slotId" value="@slot.SlotId" />
+                                            <div class="field">
+                                                <label for="reason-@slot.SlotId">Cancel reason</label>
+                                                <input id="reason-@slot.SlotId" name="reason" maxlength="250" placeholder="Optional reason" />
+                                            </div>
+                                            <p class="muted-note">Cancelling a reserved slot also cancels the linked event.</p>
+                                            <button type="submit"
+                                                    class="button button--danger"
+                                                    onclick="return confirm('Cancel this slot and any linked event?')">
+                                                Confirm Cancel
+                                            </button>
+                                        </form>
+                                    </details>
+                                }
+                            </div>
                         </div>
 
-                        <div class="summary-card__actions">
-                            @if (slot.Status == TasteBudz.Backend.Domain.RestaurantSlotStatus.Open)
-                            {
-                                <form asp-action="UpdateSlot" method="post" class="stack">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="RestaurantId" value="@Model.Restaurant.RestaurantId" />
-                                    <input type="hidden" name="SlotId" value="@slot.SlotId" />
-                                    <div class="slot-form-grid">
-                                        <div class="field">
-                                            <label for="slot-start-@slot.SlotId">Starts</label>
-                                            <input id="slot-start-@slot.SlotId"
-                                                   name="StartsAt"
-                                                   type="datetime-local"
-                                                   value="@slot.StartsAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
-                                        </div>
-                                        <div class="field">
-                                            <label for="slot-end-@slot.SlotId">Ends</label>
-                                            <input id="slot-end-@slot.SlotId"
-                                                   name="EndsAt"
-                                                   type="datetime-local"
-                                                   value="@slot.EndsAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
-                                        </div>
-                                        <div class="field">
-                                            <label for="slot-capacity-@slot.SlotId">Capacity</label>
-                                            <input id="slot-capacity-@slot.SlotId"
-                                                   name="Capacity"
-                                                   type="number"
-                                                   min="2"
-                                                   max="8"
-                                                   value="@slot.Capacity" />
-                                        </div>
-                                        <div class="field">
-                                            <label for="slot-cutoff-@slot.SlotId">Cutoff</label>
-                                            <input id="slot-cutoff-@slot.SlotId"
-                                                   name="CutoffAt"
-                                                   type="datetime-local"
-                                                   value="@slot.CutoffAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
-                                        </div>
-                                        <div class="field field--full">
-                                            <label for="slot-threshold-@slot.SlotId">Discount Threshold</label>
-                                            <input id="slot-threshold-@slot.SlotId"
-                                                   name="MinThresholdForDiscount"
-                                                   type="number"
-                                                   min="2"
-                                                   max="8"
-                                                   value="@slot.MinThresholdForDiscount" />
-                                        </div>
-                                        <div class="field field--full">
-                                            <label for="slot-discount-@slot.SlotId">Discount Percent</label>
-                                            <input id="slot-discount-@slot.SlotId"
-                                                   name="DiscountPercent"
-                                                   type="number"
-                                                   min="1"
-                                                   max="100"
-                                                   value="@slot.DiscountPercent" />
-                                        </div>
-                                    </div>
-                                    <p class="muted-note">Open slots can be edited until a host reserves them or you cancel them.</p>
-                                    <button type="submit" class="button button--secondary">Update Slot</button>
-                                </form>
-
-                                <form asp-action="CancelSlot" method="post" class="stack">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="restaurantId" value="@Model.Restaurant.RestaurantId" />
-                                    <input type="hidden" name="slotId" value="@slot.SlotId" />
+                        @if (isEditable)
+                        {
+                            <form asp-action="UpdateSlot" method="post" class="slot-edit-panel">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="RestaurantId" value="@Model.EditSlotForm!.RestaurantId" />
+                                <input type="hidden" name="SlotId" value="@Model.EditSlotForm.SlotId" />
+                                <div class="restaurant-slot-edit-grid">
                                     <div class="field">
-                                        <label for="reason-@slot.SlotId">Cancel reason</label>
-                                        <input id="reason-@slot.SlotId" name="reason" maxlength="250" placeholder="Reason" />
+                                        <label for="edit-slot-start">Starts</label>
+                                        <input id="edit-slot-start"
+                                               name="StartsAt"
+                                               type="datetime-local"
+                                               value="@Model.EditSlotForm.StartsAt?.ToString("yyyy-MM-ddTHH:mm")" />
                                     </div>
-                                    <p class="muted-note">If this slot is reserved, cancelling it also cancels the linked event.</p>
-                                    <button type="submit"
-                                            class="button button--danger"
-                                            onclick="return confirm('Cancel this slot and any linked event?')">
-                                        Cancel Slot
-                                    </button>
-                                </form>
-                            }
-                        </div>
+                                    <div class="field">
+                                        <label for="edit-slot-end">Ends</label>
+                                        <input id="edit-slot-end"
+                                               name="EndsAt"
+                                               type="datetime-local"
+                                               value="@Model.EditSlotForm.EndsAt?.ToString("yyyy-MM-ddTHH:mm")" />
+                                    </div>
+                                    <div class="field">
+                                        <label for="edit-slot-capacity">Capacity</label>
+                                        <input id="edit-slot-capacity"
+                                               name="Capacity"
+                                               type="number"
+                                               min="2"
+                                               max="8"
+                                               value="@Model.EditSlotForm.Capacity" />
+                                    </div>
+                                    <div class="field">
+                                        <label for="edit-slot-cutoff">Cutoff</label>
+                                        <input id="edit-slot-cutoff"
+                                               name="CutoffAt"
+                                               type="datetime-local"
+                                               value="@Model.EditSlotForm.CutoffAt?.ToString("yyyy-MM-ddTHH:mm")" />
+                                    </div>
+                                    <div class="field">
+                                        <label for="edit-slot-threshold">Discount Threshold</label>
+                                        <input id="edit-slot-threshold"
+                                               name="MinThresholdForDiscount"
+                                               type="number"
+                                               min="2"
+                                               max="8"
+                                               value="@Model.EditSlotForm.MinThresholdForDiscount" />
+                                    </div>
+                                    <div class="field">
+                                        <label for="edit-slot-discount">Discount Percent</label>
+                                        <input id="edit-slot-discount"
+                                               name="DiscountPercent"
+                                               type="number"
+                                               min="1"
+                                               max="100"
+                                               value="@Model.EditSlotForm.DiscountPercent" />
+                                    </div>
+                                </div>
+                                <div class="button-row">
+                                    <button type="submit" class="button button--primary">Update Slot</button>
+                                    <a asp-action="Manage"
+                                       asp-route-restaurantId="@Model.Restaurant.RestaurantId"
+                                       asp-route-slotPage="@Model.SlotPage"
+                                       asp-route-slotStatus="@Model.SlotStatus"
+                                       class="button button--secondary">Close</a>
+                                </div>
+                            </form>
+                        }
                     </article>
                 }
+            </div>
+
+            <div class="restaurant-slot-pagination">
+                <span class="muted-note">Page @Model.SlotPage of @Model.SlotTotalPages</span>
+                <div class="button-row">
+                    <a asp-action="Manage"
+                       asp-route-restaurantId="@Model.Restaurant.RestaurantId"
+                       asp-route-slotPage="@(Model.SlotPage - 1)"
+                       asp-route-slotStatus="@Model.SlotStatus"
+                       class="button button--secondary button--sm @(Model.SlotPage <= 1 ? "is-disabled" : "")">Prev</a>
+                    <a asp-action="Manage"
+                       asp-route-restaurantId="@Model.Restaurant.RestaurantId"
+                       asp-route-slotPage="@(Model.SlotPage + 1)"
+                       asp-route-slotStatus="@Model.SlotStatus"
+                       class="button button--secondary button--sm @(Model.SlotPage >= Model.SlotTotalPages ? "is-disabled" : "")">Next</a>
+                </div>
             </div>
         }
     </section>

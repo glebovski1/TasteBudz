@@ -9,7 +9,7 @@ namespace TasteBudz.Web.Mvc.IntegrationTests.Api;
 public sealed class RestaurantMvcTests
 {
     [Fact]
-    public async Task Index_BrowsesRestaurantsAndRendersAuthenticatedNavEntry()
+    public async Task Index_BrowsesRestaurantsWithoutPrimaryNavEntry()
     {
         using var factory = new TasteBudzMvcFactory();
         using var client = MvcTestHelpers.CreateClient(factory);
@@ -51,7 +51,7 @@ public sealed class RestaurantMvcTests
         Assert.Contains("123 Noodle St", html);
         Assert.Contains("Japanese", html);
         Assert.Contains("1.2 mi", html);
-        Assert.Contains("href=\"/Restaurant\"", html);
+        Assert.DoesNotContain("href=\"/Restaurant\">Restaurants</a>", html);
         Assert.Contains("href=\"/Event/CreateEvent\"", html);
         factory.BackendHandler.AssertDrained();
     }
@@ -80,7 +80,7 @@ public sealed class RestaurantMvcTests
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("href=\"/Restaurant\"", html);
+        Assert.DoesNotContain("href=\"/Restaurant\">Restaurants</a>", html);
         Assert.Contains("Manage Restaurants", html);
         Assert.Contains("href=\"/RestaurantAdmin\"", html);
         factory.BackendHandler.AssertDrained();

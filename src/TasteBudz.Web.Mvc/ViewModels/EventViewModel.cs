@@ -192,6 +192,8 @@ public sealed class EventSummaryItem
 
 public sealed record EventCreateViewModel
 {
+    public const int RestaurantPickerPageSize = 8;
+
     [MaxLength(120, ErrorMessage = "Title cannot exceed 120 characters.")]
     [Display(Name = "Event Title")]
     public string? Title { get; set; }
@@ -217,6 +219,7 @@ public sealed record EventCreateViewModel
     public Guid? SelectedRestaurantId { get; set; }
     public string? SelectedRestaurantName { get; set; }
     public Guid? SelectedSlotId { get; set; }
+    public int? BrowserTimeZoneOffsetMinutes { get; set; }
 
     public Guid? GroupId { get; set; }
     public string? GroupName { get; init; }
@@ -239,6 +242,7 @@ public sealed record EventCreateViewModel
         : "Public group events are open for direct joins.";
 
     public IReadOnlyList<RestaurantPickerItem> Restaurants { get; init; } = [];
+    public RestaurantPickerPage RestaurantPage { get; init; } = RestaurantPickerPage.Empty;
 
     public static IReadOnlyList<string> AvailableCuisineTags => CuisineData.AvailableCuisineTags;
 
@@ -251,7 +255,7 @@ public sealed record EventCreateViewModel
         return new()
         {
             EventType = EventType!.Value,
-            EventStartAtUtc = new DateTimeOffset(EventStartAt!.Value, TimeSpan.Zero),
+            EventStartAtUtc = ConvertLocalInputToUtc(EventStartAt!.Value, BrowserTimeZoneOffsetMinutes),
             Capacity = Capacity!.Value,
             Title = string.IsNullOrWhiteSpace(Title) ? null : Title.Trim(),
             CuisineTarget = cuisineTarget,
@@ -259,6 +263,32 @@ public sealed record EventCreateViewModel
             GroupId = GroupId,
         };
     }
+
+    public static DateTimeOffset ConvertLocalInputToUtc(DateTime localInput, int? browserTimeZoneOffsetMinutes)
+    {
+        if (browserTimeZoneOffsetMinutes.HasValue)
+        {
+            var offset = TimeSpan.FromMinutes(-browserTimeZoneOffsetMinutes.Value);
+            if (offset >= TimeSpan.FromHours(-14) && offset <= TimeSpan.FromHours(14))
+            {
+                return new DateTimeOffset(localInput, offset).ToUniversalTime();
+            }
+        }
+
+        var serverLocal = DateTime.SpecifyKind(localInput, DateTimeKind.Local);
+        return new DateTimeOffset(serverLocal).ToUniversalTime();
+    }
+}
+
+public sealed class RestaurantPickerPage
+{
+    public static RestaurantPickerPage Empty { get; } = new();
+
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = EventCreateViewModel.RestaurantPickerPageSize;
+    public int TotalCount { get; init; }
+    public IReadOnlyList<RestaurantPickerItem> Restaurants { get; init; } = [];
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
 }
 
 public sealed class RestaurantPickerItem
@@ -268,22 +298,32 @@ public sealed class RestaurantPickerItem
     public string Location { get; init; } = string.Empty;
     public string PriceTier { get; init; } = string.Empty;
     public string CuisineTags { get; init; } = string.Empty;
+    public IReadOnlyList<string> CuisineTagList { get; init; } = [];
     public double? Latitude { get; init; }
     public double? Longitude { get; init; }
     public string GoogleMapsUrl { get; init; } = string.Empty;
     public IReadOnlyList<RestaurantPickerSlotItem> AvailableSlots { get; init; } = [];
+    public IReadOnlyList<RestaurantPickerSlotItem> NextMonthDiscountSlots { get; init; } = [];
 
-    public static RestaurantPickerItem FromDto(RestaurantDto dto, IReadOnlyCollection<RestaurantSlotDto>? availableSlots = null) => new()
+    public static RestaurantPickerItem FromDto(
+        RestaurantDto dto,
+        IReadOnlyCollection<RestaurantSlotDto>? availableSlots = null,
+        IReadOnlyCollection<RestaurantSlotDto>? nextMonthDiscountSlots = null) => new()
     {
         RestaurantId = dto.RestaurantId,
         Name = dto.Name,
         Location = $"{dto.City}, {dto.State}",
         PriceTier = new string('$', (int)dto.PriceTier + 1),
         CuisineTags = string.Join(", ", dto.CuisineTags),
+        CuisineTagList = dto.CuisineTags.ToArray(),
         Latitude = dto.Latitude,
         Longitude = dto.Longitude,
         GoogleMapsUrl = RestaurantMapsLinkBuilder.BuildGoogleMapsUrl(dto),
         AvailableSlots = (availableSlots ?? Array.Empty<RestaurantSlotDto>())
+            .OrderBy(slot => slot.StartsAtUtc)
+            .Select(RestaurantPickerSlotItem.FromDto)
+            .ToList(),
+        NextMonthDiscountSlots = (nextMonthDiscountSlots ?? Array.Empty<RestaurantSlotDto>())
             .OrderBy(slot => slot.StartsAtUtc)
             .Select(RestaurantPickerSlotItem.FromDto)
             .ToList(),

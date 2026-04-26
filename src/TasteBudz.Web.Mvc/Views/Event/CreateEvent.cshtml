@@ -1,22 +1,26 @@
-﻿@model EventCreateViewModel
+@model EventCreateViewModel
 
 @{
     ViewData["Title"] = "Create Event";
 
-    // Serialize restaurant data for the map JS — only include those with coordinates
-    var mapRestaurants = Model.Restaurants
-        .Where(r => r.Latitude.HasValue && r.Longitude.HasValue)
-        .Select(r => new
+    var initialPage = new
+    {
+        page = Model.RestaurantPage.Page,
+        pageSize = Model.RestaurantPage.PageSize,
+        totalCount = Model.RestaurantPage.TotalCount,
+        totalPages = Model.RestaurantPage.TotalPages,
+        restaurants = Model.RestaurantPage.Restaurants.Select(r => new
         {
             id = r.RestaurantId,
             name = r.Name,
             location = r.Location,
             priceTier = r.PriceTier,
             cuisine = r.CuisineTags,
-            lat = r.Latitude!.Value,
-            lng = r.Longitude!.Value,
+            cuisineTags = r.CuisineTagList,
+            lat = r.Latitude,
+            lng = r.Longitude,
             googleMapsUrl = r.GoogleMapsUrl,
-            slots = r.AvailableSlots.Select(slot => new
+            discountSlots = r.NextMonthDiscountSlots.Select(slot => new
             {
                 id = slot.SlotId,
                 startsAtUtc = slot.StartsAtUtc,
@@ -25,16 +29,16 @@
                 displayText = slot.DisplayText,
                 discountText = slot.DiscountText,
             }),
-        });
-    var mapJson = System.Text.Json.JsonSerializer.Serialize(mapRestaurants);
+        }),
+    };
 
+    var initialPageJson = System.Text.Json.JsonSerializer.Serialize(initialPage);
     var allCuisines = EventCreateViewModel.AvailableCuisineTags;
 }
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-<section class="profile-shell">
-
+<section class="profile-shell create-event-page">
     <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
         <div>
             <h1>@(Model.IsGroupEvent ? "Create Group Event" : "Create Event")</h1>
@@ -68,7 +72,6 @@
         <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
 
         <div class="editor-grid">
-
             <section class="card stack" style="grid-column: 1 / -1;">
                 <div>
                     <h2 class="card__title">Event Details</h2>
@@ -77,14 +80,14 @@
                 <div class="editor-grid" style="gap: 1rem;">
                     <div class="field">
                         <label asp-for="Title"></label>
-                        <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday…" />
+                        <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday" />
                         <span asp-validation-for="Title" class="field-validation-error"></span>
                     </div>
                     <div class="field">
                         <label asp-for="CuisineTarget"></label>
                         <select asp-for="CuisineTarget">
                             <option value="">Any cuisine (optional)</option>
-                            @foreach (var c in EventCreateViewModel.AvailableCuisineTags)
+                            @foreach (var c in allCuisines)
                             {
                                 <option value="@c">@c</option>
                             }
@@ -124,7 +127,7 @@
                 }
                 <div class="field">
                     <label asp-for="Capacity"></label>
-                    <input asp-for="Capacity" type="number" min="2" max="8" placeholder="2–8 people" />
+                    <input asp-for="Capacity" type="number" min="2" max="8" placeholder="2-8 people" />
                     <span asp-validation-for="Capacity" class="field-validation-error"></span>
                 </div>
             </section>
@@ -143,112 +146,72 @@
                 </div>
             </section>
 
-            @* ── Restaurant picker ── *@
             <section class="card stack" style="grid-column: 1 / -1;">
                 <div>
                     <h2 class="card__title">Restaurant <span class="muted-note">(optional)</span></h2>
-                    <p class="card__subtitle">Filter the map to find a restaurant, then click a pin to select it. Pins load only for the current map area once you zoom in.</p>
+                    <p class="card__subtitle">Select from the list or map. Discount slots shown here cover the next 30 days.</p>
                 </div>
 
                 <input type="hidden" asp-for="SelectedRestaurantId" id="selectedRestaurantId" />
                 <input type="hidden" asp-for="SelectedSlotId" id="selectedSlotId" />
+                <input type="hidden" asp-for="BrowserTimeZoneOffsetMinutes" id="browserTimeZoneOffsetMinutes" />
 
-                @if (!Model.Restaurants.Any(r => r.Latitude.HasValue && r.Longitude.HasValue))
-                {
-                    <p class="empty-state">No restaurants with location data available. Try importing from the Admin panel.</p>
-                }
-                else
-                {
-                    @* ── Filter bar ── *@
-                    <div class="restaurant-filters" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
-
-                        <div class="field" style="margin:0;">
-                            <label for="filterName">Search by name</label>
-                            <input id="filterName" type="text" placeholder="e.g. Pizza…" autocomplete="off" />
-                        </div>
-
-                        <div class="field" style="margin:0;">
-                            <label for="filterCuisine">Cuisine</label>
-                            <select id="filterCuisine">
-                                <option value="">All cuisines</option>
-                                @foreach (var c in allCuisines)
-                                {
-                                    <option value="@c" selected="@(c.Equals(Model.CuisineTarget, StringComparison.OrdinalIgnoreCase))">@c</option>
-                                }
-                            </select>
-                        </div>
-
-                        <div class="field" style="margin:0;">
-                            <label for="filterPrice">Price</label>
-                            <select id="filterPrice">
-                                <option value="">Any price</option>
-                                <option value="$">$ — Budget</option>
-                                <option value="$$">$$ — Moderate</option>
-                                <option value="$$$">$$$ — Upscale</option>
-                                <option value="$$$$">$$$$ — Fine dining</option>
-                            </select>
-                        </div>
-
-                        <div class="field" style="margin:0;">
-                            <label for="filterDistance">Max distance</label>
-                            <select id="filterDistance">
-                                <option value="">Any distance</option>
-                                <option value="1">Within 1 mile</option>
-                                <option value="3">Within 3 miles</option>
-                                <option value="5">Within 5 miles</option>
-                                <option value="10">Within 10 miles</option>
-                                <option value="25">Within 25 miles</option>
-                            </select>
-                        </div>
-
-                        <label class="field" for="filterSlots" style="margin:0; align-self:end;">
-                            <span>Slots available</span>
-                            <input id="filterSlots" type="checkbox" />
-                        </label>
-
-                        <button type="button" id="clearFilters"
-                                class="button button--secondary"
-                                style="align-self:end; display:none;">
-                            Clear filters
-                        </button>
+                <div class="restaurant-filters">
+                    <div class="field" style="margin:0;">
+                        <label for="filterName">Search by name</label>
+                        <input id="filterName" type="text" placeholder="e.g. Pizza" autocomplete="off" />
                     </div>
+                    <div class="field" style="margin:0;">
+                        <label for="filterCuisine">Cuisine</label>
+                        <select id="filterCuisine">
+                            <option value="">All cuisines</option>
+                            @foreach (var c in allCuisines)
+                            {
+                                <option value="@c" selected="@(c.Equals(Model.CuisineTarget, StringComparison.OrdinalIgnoreCase))">@c</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field" style="margin:0;">
+                        <label for="filterPrice">Price</label>
+                        <select id="filterPrice">
+                            <option value="">Any price</option>
+                            <option value="One">$ - Budget</option>
+                            <option value="Two">$$ - Moderate</option>
+                            <option value="Three">$$$ - Upscale</option>
+                            <option value="Four">$$$$ - Fine dining</option>
+                        </select>
+                    </div>
+                    <button type="button" id="clearFilters" class="button button--secondary" style="align-self:end; display:none;">
+                        Clear
+                    </button>
+                </div>
 
-                    @* ── Results count ── *@
-                    <p id="filterCount" class="muted-note" style="margin:0;"></p>
+                <div class="restaurant-selection-bar" id="selectionBar">
+                    <span id="selectionLabel">No restaurant selected.</span>
+                    <button type="button" class="button button--secondary button--sm" id="clearSelection" style="display:none;">
+                        Clear
+                    </button>
+                </div>
 
-                    @* ── Randomizer ── *@
-                    <div class="randomizer-bar">
-                        <button type="button" id="randomBtn" class="button button--primary">
-                            🎲 Surprise Me!
-                        </button>
-                        <div class="randomizer-result" id="randomizerResult" hidden>
-                            <span class="randomizer-result__icon">🍽️</span>
-                            <div class="randomizer-result__info">
-                                <strong id="randName"></strong>
-                                <span id="randMeta"></span>
+                <div class="restaurant-picker-layout" aria-label="Restaurant picker">
+                    <section class="restaurant-picker-panel stack" aria-label="Restaurant list">
+                        <div class="restaurant-picker-toolbar">
+                            <p id="pickerCount" class="muted-note">Loading restaurants...</p>
+                            <div class="button-row restaurant-picker-pagination">
+                                <button type="button" id="restaurantPickerPrev" class="button button--secondary button--sm">Prev</button>
+                                <span id="restaurantPickerPageLabel" class="muted-note">Page 1</span>
+                                <button type="button" id="restaurantPickerNext" class="button button--secondary button--sm">Next</button>
                             </div>
-                            <button type="button" class="button button--secondary button--sm" id="randPickAnother">
-                                Pick another
-                            </button>
-                            <button type="button" class="button button--primary button--sm" id="randConfirm">
-                                Use this one
-                            </button>
                         </div>
-                    </div>
+                        <div id="restaurantPickerList" class="restaurant-picker-list" aria-live="polite"></div>
+                    </section>
 
-                    @* ── Map ── *@
-                    <div id="restaurantMap" class="restaurant-map"></div>
-
-                    @* ── Selection bar ── *@
-                    <div class="restaurant-selection-bar" id="selectionBar">
-                        <span id="selectionLabel">No restaurant selected.</span>
-                        <button type="button" class="button button--secondary button--sm" id="clearSelection" style="display:none;">
-                            Clear
-                        </button>
-                    </div>
-                }
+                    <section class="restaurant-picker-map-panel" aria-label="Restaurant map">
+                        <div id="restaurantPickerMap" class="restaurant-map"></div>
+                        <p class="muted-note">Map markers match the current restaurant page only. Open in Google Maps links use stored catalog locations.</p>
+                    </section>
+                </div>
             </section>
-
         </div>
 
         <div class="button-row">
@@ -265,9 +228,7 @@
                 <a asp-action="Index" class="button button--secondary">Cancel</a>
             }
         </div>
-
     </form>
-
 </section>
 
 @section Scripts {
@@ -275,569 +236,424 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         (function () {
-        const restaurants = @Html.Raw(mapJson);
-        const hiddenId    = document.getElementById("selectedRestaurantId");
-        const hiddenSlotId = document.getElementById("selectedSlotId");
-        const cuisineTarget = document.getElementById("CuisineTarget");
-        const eventStartAt = document.getElementById("EventStartAt");
-        const capacityInput = document.getElementById("Capacity");
-        const label       = document.getElementById("selectionLabel");
-        const clearBtn    = document.getElementById("clearSelection");
-        const mapEl       = document.getElementById("restaurantMap");
-        const filterName     = document.getElementById("filterName");
-        const filterCuisine  = document.getElementById("filterCuisine");
-        const filterPrice    = document.getElementById("filterPrice");
-        const filterDistance = document.getElementById("filterDistance");
-        const filterSlots    = document.getElementById("filterSlots");
-        const clearFilters   = document.getElementById("clearFilters");
-        const filterCount    = document.getElementById("filterCount");
-        const slotLookupUrl  = "@Url.Action("RestaurantSlots", "Event")";
-
-        const randomBtn       = document.getElementById("randomBtn");
-        const randomizerResult = document.getElementById("randomizerResult");
-        const randName        = document.getElementById("randName");
-        const randMeta        = document.getElementById("randMeta");
-        const randPickAnother = document.getElementById("randPickAnother");
-        const randConfirm     = document.getElementById("randConfirm");
-        const markerZoomThreshold = 13;
-
-        if (!mapEl || restaurants.length === 0) return;
-
-        restaurants.forEach(r => {
-        r.slots = [];
-        r.slotsLoaded = false;
-        r.slotsLoading = false;
-        r.slotLoadKey = null;
-        r.slotsError = null;
-        });
-
-        // ── Map setup ────────────────────────────────────────────────────────
-
-        const avgLat = restaurants.reduce((s, r) => s + r.lat, 0) / restaurants.length;
-        const avgLng = restaurants.reduce((s, r) => s + r.lng, 0) / restaurants.length;
-
-        const map = L.map("restaurantMap").setView([avgLat, avgLng], 13);
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-        }).addTo(map);
-
-        // ── Marker icons ─────────────────────────────────────────────────────
-
-        const defaultIcon = L.divIcon({
-        className: "map-pin",
-        html: "🍽️",
-        iconSize: [28, 28],
-        iconAnchor: [14, 28],
-        popupAnchor: [0, -28],
-        });
-
-        const selectedIcon = L.divIcon({
-        className: "map-pin map-pin--selected",
-        html: "📍",
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32],
-        });
-
-        // ── Build markers ────────────────────────────────────────────────────
-
-        const markerEntries = restaurants.map(r => ({
-        data: r,
-        marker: null,
-        matchesFilters: true,
-        isRendered: false,
-        }));
-
-        function ensureMarker(entry) {
-        if (entry.marker) return entry.marker;
-
-        const marker = L.marker([entry.data.lat, entry.data.lng], { icon: defaultIcon })
-        .bindPopup(createRestaurantPopup(entry.data));
-
-        marker.on("click", () => map.setView([entry.data.lat, entry.data.lng], Math.max(map.getZoom(), 15)));
-        entry.marker = marker;
-        return marker;
-        }
-
-        function clearSelection() {
-        hiddenId.value = "";
-        hiddenSlotId.value = "";
-        label.textContent = "No restaurant selected.";
-        clearBtn.style.display = "none";
-        updateMarkerIcons();
-        }
-
-        function updateMarkerIcons() {
-        const selectedId = hiddenId.value;
-
-        markerEntries.forEach(entry => {
-        if (!entry.isRendered) return;
-        const marker = ensureMarker(entry);
-        marker.setIcon(entry.data.id === selectedId ? selectedIcon : defaultIcon);
-        });
-        }
-
-        function syncMarkerRendering() {
-        const zoom = map.getZoom();
-        const zoomAllowsMarkers = zoom >= markerZoomThreshold;
-        const bounds = map.getBounds();
-        let rendered = 0;
-
-        markerEntries.forEach(entry => {
-        const shouldRender = zoomAllowsMarkers &&
-        entry.matchesFilters &&
-        bounds.contains([entry.data.lat, entry.data.lng]);
-
-        entry.isRendered = shouldRender;
-
-        if (shouldRender) {
-        rendered++;
-        const marker = ensureMarker(entry);
-        if (!map.hasLayer(marker)) marker.addTo(map);
-        } else if (entry.marker && map.hasLayer(entry.marker)) {
-        entry.marker.closePopup();
-        map.removeLayer(entry.marker);
-        }
-        });
-
-        updateMarkerIcons();
-        return { rendered, zoomAllowsMarkers };
-        }
-
-        function updateFilterCount(hasFilter) {
-        const { rendered, zoomAllowsMarkers } = syncMarkerRendering();
-        const matching = markerEntries.filter(entry => entry.matchesFilters).length;
-
-        if (!filterCount) return;
-
-        if (!zoomAllowsMarkers) {
-        filterCount.textContent = `Zoom in to level ${markerZoomThreshold} or closer to load restaurant pins for the current map area.`;
-        return;
-        }
-
-        const isViewportLimited = rendered < matching;
-        if (!hasFilter && !isViewportLimited) {
-        filterCount.textContent = `Showing ${rendered} restaurants in the current map area.`;
-        return;
-        }
-
-        const parts = [`Showing ${rendered} pins in the current map area`];
-        if (hasFilter || matching !== restaurants.length) {
-        parts.push(`${matching} filter matches`);
-        }
-
-        filterCount.textContent = parts.join(" · ");
-        }
-
-        map.on("moveend zoomend", () => {
-        const hasFilter = Boolean(
-        (filterName?.value ?? "").trim() ||
-        (filterCuisine?.value ?? "") ||
-        (filterPrice?.value ?? "") ||
-        (filterDistance?.value ?? "") ||
-        (filterSlots?.checked ?? false));
-
-        updateFilterCount(hasFilter);
-        });
-
-        function selectRestaurant(id, name, slot) {
-        if (slot && !slotFitsEvent(slot)) return;
-        hiddenId.value = id;
-        hiddenSlotId.value = slot?.id ?? "";
-        label.textContent = slot
-            ? "Selected: " + name + " · " + slot.displayText
-            : "Selected: " + name;
-        clearBtn.style.display = "inline-block";
-        if (cuisineTarget) cuisineTarget.value = "";
-        updateMarkerIcons();
-        }
-
-        function createRestaurantPopup(restaurant) {
-        const container = document.createElement("div");
-
-        const name = document.createElement("strong");
-        name.textContent = restaurant.name;
-        container.appendChild(name);
-        container.appendChild(document.createElement("br"));
-
-        container.appendChild(document.createTextNode(restaurant.location));
-        container.appendChild(document.createElement("br"));
-
-        const meta = document.createElement("span");
-        meta.style.color = "#888";
-        meta.textContent = restaurant.priceTier + " · " + restaurant.cuisine;
-        container.appendChild(meta);
-        container.appendChild(document.createElement("br"));
-
-        const slotWrap = document.createElement("div");
-        slotWrap.style.marginTop = "6px";
-        renderSlotList(restaurant, slotWrap);
-        loadSlotsForRestaurant(restaurant).then(() => renderSlotList(restaurant, slotWrap));
-
-        container.appendChild(slotWrap);
-        container.appendChild(document.createElement("br"));
-
-        const selectButton = document.createElement("button");
-        selectButton.type = "button";
-        selectButton.textContent = "Select";
-        selectButton.style.marginTop = "6px";
-        selectButton.style.padding = "4px 10px";
-        selectButton.style.background = "#e05a2b";
-        selectButton.style.color = "#fff";
-        selectButton.style.border = "none";
-        selectButton.style.borderRadius = "4px";
-        selectButton.style.cursor = "pointer";
-        selectButton.addEventListener("click", () => selectRestaurant(restaurant.id, restaurant.name, null));
-        container.appendChild(selectButton);
-        container.appendChild(document.createElement("br"));
-
-        const mapsLink = document.createElement("a");
-        mapsLink.href = restaurant.googleMapsUrl;
-        mapsLink.target = "_blank";
-        mapsLink.rel = "noopener noreferrer";
-        mapsLink.textContent = "Open in Google Maps";
-        mapsLink.style.display = "inline-block";
-        mapsLink.style.marginTop = "6px";
-        mapsLink.style.color = "#e05a2b";
-        mapsLink.style.fontWeight = "700";
-        container.appendChild(mapsLink);
-
-        return container;
-        }
-
-        clearBtn.addEventListener("click", () => {
-        clearSelection();
-        });
-
-        cuisineTarget?.addEventListener("change", () => {
-        if (!cuisineTarget.value) return;
-        clearSelection();
-        });
-
-        // ── Filtering ────────────────────────────────────────────────────────
-
-        function applyFilters() {
-        const nameQ     = (filterName?.value     ?? "").trim().toLowerCase();
-        const cuisineQ  = (filterCuisine?.value  ?? "").toLowerCase();
-        const priceQ    = (filterPrice?.value    ?? "");
-        const distanceQ = filterDistance?.value ? parseFloat(filterDistance.value) : null;
-        const slotsOnly = filterSlots?.checked ?? false;
-        const hasFilter = nameQ || cuisineQ || priceQ || distanceQ || slotsOnly;
-
-        if (clearFilters) clearFilters.style.display = hasFilter ? "inline-block" : "none";
-
-        const selectedId = hiddenId.value;
-
-        markerEntries.forEach(entry => {
-        const r = entry.data;
-        const cuisineStr = (r.cuisine ?? "").toLowerCase();
-        const priceStr   = (r.priceTier ?? "");
-
-        const matchName    = !nameQ      || r.name.toLowerCase().includes(nameQ);
-        const matchCuisine = !cuisineQ   || cuisineStr.split(",").map(s => s.trim()).includes(cuisineQ);
-        const matchPrice   = !priceQ     || priceStr === priceQ;
-        const matchDist    = !distanceQ  || (r._distance !== null && r._distance <= distanceQ);
-        const matchSlots   = !slotsOnly || hasLoadedCompatibleSlots(r);
-        entry.matchesFilters = matchName && matchCuisine && matchPrice && matchDist && matchSlots;
-        });
-
-        if (selectedId) {
-        const selectedEntry = markerEntries.find(entry => entry.data.id === selectedId);
-        if (selectedEntry && !selectedEntry.matchesFilters) {
-        clearSelection();
-        }
-        }
-
-        updateFilterCount(hasFilter);
-        }
-
-        filterName?.addEventListener("input", applyFilters);
-        filterCuisine?.addEventListener("change", applyFilters);
-        filterPrice?.addEventListener("change", applyFilters);
-        filterDistance?.addEventListener("change", applyFilters);
-        filterSlots?.addEventListener("change", async () => {
-        if (filterSlots.checked) await loadSlotsForAllRestaurants();
-        applyFilters();
-        });
-        eventStartAt?.addEventListener("change", handleSlotCriteriaChanged);
-        capacityInput?.addEventListener("change", handleSlotCriteriaChanged);
-
-        clearFilters?.addEventListener("click", () => {
-        if (filterName)     filterName.value     = "";
-        if (filterCuisine)  filterCuisine.value  = "";
-        if (filterPrice)    filterPrice.value    = "";
-        if (filterDistance) filterDistance.value = "";
-        if (filterSlots)    filterSlots.checked  = false;
-        applyFilters();
-        });
-
-        // ── Distance calculation ─────────────────────────────────────────────
-        // Compute each marker's distance from the map centre so the distance
-        // filter and randomizer can use it without re-querying the server.
-
-        function haversineMiles(lat1, lon1, lat2, lon2) {
-        const R = 3958.8;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2)**2 +
-        Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
-        return R * 2 * Math.asin(Math.sqrt(a));
-        }
-
-        markerEntries.forEach(entry => {
-        entry.data._distance = haversineMiles(avgLat, avgLng, entry.data.lat, entry.data.lng);
-        });
-
-        // Apply the pre-selected cuisine filter on page load
-        applyFilters();
-
-        // ── Randomizer ───────────────────────────────────────────────────────
-
-        let lastRandId = null;
-
-        function getFilteredCandidates() {
-        return markerEntries.filter(entry => entry.matchesFilters);
-        }
-
-        function pickRandom(exclude) {
-        const candidates = getFilteredCandidates();
-        const pool = candidates.filter(entry => entry.data.id !== exclude);
-        if (pool.length === 0) return candidates[0] ?? null;
-        return pool[Math.floor(Math.random() * pool.length)];
-        }
-
-        function showRandomResult(entry) {
-        if (!entry) {
-        randomizerResult.setAttribute("hidden", "");
-        return;
-        }
-        const r = entry.data;
-        lastRandId = r.id;
-        randName.textContent = r.name;
-        const slotCount = hasSlotCriteria() && r.slotsLoaded ? (r.slots ?? []).filter(slotFitsEvent).length : 0;
-        randMeta.textContent = [r.priceTier, r.cuisine, slotCount ? `${slotCount} open slot${slotCount === 1 ? "" : "s"}` : "", r._distance != null ? r._distance.toFixed(1) + " mi" : ""].filter(Boolean).join(" · ");
-        randomizerResult.removeAttribute("hidden");
-
-        // Pan map to the chosen restaurant
-        map.setView([r.lat, r.lng], Math.max(map.getZoom(), 15));
-        updateFilterCount(Boolean(
-        (filterName?.value ?? "").trim() ||
-        (filterCuisine?.value ?? "") ||
-        (filterPrice?.value ?? "") ||
-        (filterDistance?.value ?? "") ||
-        (filterSlots?.checked ?? false)));
-        }
-
-        randomBtn?.addEventListener("click", () => {
-        applyFilters();
-        const picked = pickRandom(null);
-        if (!picked) {
-        alert("No restaurants match the current filters. Try adjusting the cuisine, price, or distance.");
-        return;
-        }
-        showRandomResult(picked);
-        });
-
-        randPickAnother?.addEventListener("click", () => {
-        const picked = pickRandom(lastRandId);
-        showRandomResult(picked);
-        });
-
-        randConfirm?.addEventListener("click", () => {
-        if (!lastRandId) return;
-        const entry = markerEntries.find(item => item.data.id === lastRandId);
-        if (entry) selectRestaurant(lastRandId, entry.data.name, null);
-        randomizerResult.setAttribute("hidden", "");
-        lastRandId = null;
-        });
-
-        // ── Helpers ──────────────────────────────────────────────────────────
-
-        function renderSlotList(restaurant, slotWrap) {
-        slotWrap.innerHTML = "";
-
-        const slotTitle = document.createElement("div");
-        slotTitle.style.fontWeight = "700";
-        slotTitle.textContent = "Compatible slots";
-        slotWrap.appendChild(slotTitle);
-
-        if (!hasSlotCriteria()) {
-        const note = document.createElement("div");
-        note.style.color = "#666";
-        note.textContent = "Enter event time and capacity to see slots.";
-        slotWrap.appendChild(note);
-        return;
-        }
-
-        if (restaurant.slotsLoading) {
-        const note = document.createElement("div");
-        note.style.color = "#666";
-        note.textContent = "Loading slots...";
-        slotWrap.appendChild(note);
-        return;
-        }
-
-        if (restaurant.slotsError) {
-        const note = document.createElement("div");
-        note.style.color = "#8a1f11";
-        note.textContent = restaurant.slotsError;
-        slotWrap.appendChild(note);
-        return;
-        }
-
-        const slots = (restaurant.slots ?? []).filter(slotFitsEvent);
-        if (slots.length === 0) {
-        const note = document.createElement("div");
-        note.style.color = "#666";
-        note.textContent = "No compatible slots.";
-        slotWrap.appendChild(note);
-        return;
-        }
-
-        slots.forEach(slot => {
-        const row = document.createElement("div");
-        row.style.marginTop = "4px";
-
-        const text = document.createElement("span");
-        text.textContent = slot.displayText + (slot.discountText ? " · " + slot.discountText : "");
-        row.appendChild(text);
-
-        const slotButton = document.createElement("button");
-        slotButton.type = "button";
-        slotButton.textContent = "Use slot";
-        slotButton.style.marginLeft = "6px";
-        slotButton.style.padding = "3px 8px";
-        slotButton.style.background = "#273469";
-        slotButton.style.color = "#fff";
-        slotButton.style.border = "none";
-        slotButton.style.borderRadius = "4px";
-        slotButton.style.cursor = "pointer";
-        slotButton.addEventListener("click", () => selectRestaurant(restaurant.id, restaurant.name, slot));
-        row.appendChild(slotButton);
-
-        slotWrap.appendChild(row);
-        });
-        }
-
-        async function loadSlotsForAllRestaurants() {
-        if (!hasSlotCriteria()) return;
-        await Promise.all(restaurants.map(restaurant => loadSlotsForRestaurant(restaurant)));
-        }
-
-        async function loadSlotsForRestaurant(restaurant) {
-        const key = getSlotCriteriaKey();
-        if (!key) {
-        restaurant.slots = [];
-        restaurant.slotsLoaded = false;
-        restaurant.slotLoadKey = null;
-        restaurant.slotsError = null;
-        return;
-        }
-
-        if (restaurant.slotsLoaded && restaurant.slotLoadKey === key) return;
-        if (restaurant.slotsLoading) return;
-
-        restaurant.slotsLoading = true;
-        restaurant.slotsError = null;
-
-        try {
-        const url = new URL(slotLookupUrl, window.location.origin);
-        url.searchParams.set("restaurantId", restaurant.id);
-        url.searchParams.set("eventStartAt", eventStartAt.value);
-        url.searchParams.set("capacity", capacityInput.value);
-        const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
-        if (!response.ok) throw new Error("Slots unavailable.");
-        restaurant.slots = await response.json();
-        restaurant.slotsLoaded = true;
-        restaurant.slotLoadKey = key;
-        } catch {
-        restaurant.slots = [];
-        restaurant.slotsError = "Slots unavailable.";
-        } finally {
-        restaurant.slotsLoading = false;
-        }
-        }
-
-        async function handleSlotCriteriaChanged() {
-        clearSelectedSlot();
-        invalidateSlotCaches();
-        if (filterSlots?.checked) await loadSlotsForAllRestaurants();
-        applyFilters();
-        }
-
-        function clearSelectedSlot() {
-        if (!hiddenSlotId.value) return;
-        hiddenSlotId.value = "";
-        const selected = restaurants.find(r => r.id === hiddenId.value);
-        label.textContent = selected
-            ? "Selected: " + selected.name + " · choose a compatible slot again"
-            : "No restaurant selected.";
-        }
-
-        function invalidateSlotCaches() {
-        restaurants.forEach(restaurant => {
-        restaurant.slots = [];
-        restaurant.slotsLoaded = false;
-        restaurant.slotsLoading = false;
-        restaurant.slotLoadKey = null;
-        restaurant.slotsError = null;
-        });
-        }
-
-        function hasLoadedCompatibleSlots(restaurant) {
-        return hasSlotCriteria() &&
-        restaurant.slotsLoaded &&
-        restaurant.slotLoadKey === getSlotCriteriaKey() &&
-        (restaurant.slots ?? []).some(slotFitsEvent);
-        }
-
-        function hasSlotCriteria() {
-        return Boolean(getEventStartUtc() && getCapacityValue());
-        }
-
-        function getSlotCriteriaKey() {
-        const eventStart = getEventStartUtc();
-        const capacity = getCapacityValue();
-        if (!eventStart || !capacity) return null;
-        return eventStart.toISOString() + "|" + capacity;
-        }
-
-        function slotFitsEvent(slot) {
-        const eventStart = getEventStartUtc();
-        const capacity = getCapacityValue();
-
-        if (!eventStart || !capacity) return false;
-
-        const startsAt = new Date(slot.startsAtUtc);
-        const endsAt = new Date(slot.endsAtUtc);
-        const fitsTime = startsAt <= eventStart && eventStart <= endsAt;
-        const fitsCapacity = slot.capacity >= capacity;
-        return fitsTime && fitsCapacity;
-        }
-
-        function getCapacityValue() {
-        if (!capacityInput?.value) return null;
-        const parsed = parseInt(capacityInput.value, 10);
-        return Number.isNaN(parsed) ? null : parsed;
-        }
-
-        function getEventStartUtc() {
-        const value = eventStartAt?.value;
-        if (!value) return null;
-
-        const parsed = new Date(value + "Z");
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
-        }
-
-        function escHtml(str) {
-        return String(str ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-        }
-
+            const initialPage = @Html.Raw(initialPageJson);
+            const pageUrl = "@Url.Action("RestaurantPickerPage", "Event")";
+            const hiddenId = document.getElementById("selectedRestaurantId");
+            const hiddenSlotId = document.getElementById("selectedSlotId");
+            const browserTimeZoneOffset = document.getElementById("browserTimeZoneOffsetMinutes");
+            const cuisineTarget = document.getElementById("CuisineTarget");
+            const eventStartAt = document.getElementById("EventStartAt");
+            const capacityInput = document.getElementById("Capacity");
+            const listEl = document.getElementById("restaurantPickerList");
+            const mapEl = document.getElementById("restaurantPickerMap");
+            const countEl = document.getElementById("pickerCount");
+            const pageLabel = document.getElementById("restaurantPickerPageLabel");
+            const prevBtn = document.getElementById("restaurantPickerPrev");
+            const nextBtn = document.getElementById("restaurantPickerNext");
+            const filterName = document.getElementById("filterName");
+            const filterCuisine = document.getElementById("filterCuisine");
+            const filterPrice = document.getElementById("filterPrice");
+            const clearFilters = document.getElementById("clearFilters");
+            const selectionLabel = document.getElementById("selectionLabel");
+            const clearSelection = document.getElementById("clearSelection");
+
+            if (!listEl || !mapEl) return;
+
+            let currentPage = normalizePage(initialPage);
+            let selectedRestaurant = null;
+            let map = null;
+            let markerLayer = null;
+            let markersById = new Map();
+            let pendingTimer = null;
+
+            const defaultIcon = L.divIcon({
+                className: "map-pin",
+                html: "<span></span>",
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12],
+            });
+
+            const selectedIcon = L.divIcon({
+                className: "map-pin map-pin--selected",
+                html: "<span></span>",
+                iconSize: [28, 28],
+                iconAnchor: [14, 14],
+                popupAnchor: [0, -14],
+            });
+
+            initMap();
+            setBrowserTimeZoneOffset();
+            renderPage(currentPage);
+            if (hiddenId.value) {
+                selectRestaurant(hiddenId.value, null, { pan: false, scroll: false });
+            }
+            loadPickerPage(currentPage.page, { silent: true });
+
+            filterName?.addEventListener("input", debounceFilter);
+            filterCuisine?.addEventListener("change", () => loadPickerPage(1));
+            filterPrice?.addEventListener("change", () => loadPickerPage(1));
+            prevBtn?.addEventListener("click", () => loadPickerPage(currentPage.page - 1));
+            nextBtn?.addEventListener("click", () => loadPickerPage(currentPage.page + 1));
+            clearSelection?.addEventListener("click", () => clearRestaurantSelection());
+            cuisineTarget?.addEventListener("change", () => {
+                if (cuisineTarget.value) clearRestaurantSelection();
+            });
+            clearFilters?.addEventListener("click", () => {
+                if (filterName) filterName.value = "";
+                if (filterCuisine) filterCuisine.value = "";
+                if (filterPrice) filterPrice.value = "";
+                loadPickerPage(1);
+            });
+            browserTimeZoneOffset?.closest("form")?.addEventListener("submit", setBrowserTimeZoneOffset);
+
+            function debounceFilter() {
+                window.clearTimeout(pendingTimer);
+                pendingTimer = window.setTimeout(() => loadPickerPage(1), 250);
+            }
+
+            async function loadPickerPage(page, options) {
+                const targetPage = Math.max(1, page || 1);
+                const url = new URL(pageUrl, window.location.origin);
+                url.searchParams.set("page", String(targetPage));
+
+                const q = (filterName?.value || "").trim();
+                const cuisine = filterCuisine?.value || "";
+                const priceTier = filterPrice?.value || "";
+
+                if (q) url.searchParams.set("q", q);
+                if (cuisine) url.searchParams.set("cuisine", cuisine);
+                if (priceTier) url.searchParams.set("priceTier", priceTier);
+
+                setLoadingState(true, options?.silent === true);
+
+                try {
+                    const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
+                    if (!response.ok) throw new Error("Restaurants unavailable.");
+                    currentPage = normalizePage(await response.json());
+                    renderPage(currentPage);
+                    if (hiddenId.value) {
+                        selectRestaurant(hiddenId.value, hiddenSlotId.value ? { id: hiddenSlotId.value } : null, { pan: false, scroll: false });
+                    }
+                } catch {
+                    if (!options?.silent) {
+                        listEl.innerHTML = '<p class="empty-state">Could not load restaurants. Try again in a moment.</p>';
+                    }
+                } finally {
+                    setLoadingState(false, false);
+                }
+            }
+
+            function renderPage(page) {
+                renderList(page.restaurants);
+                renderMarkers(page.restaurants);
+                renderPagination(page);
+                updateClearFilters();
+            }
+
+            function renderList(restaurants) {
+                listEl.innerHTML = "";
+
+                if (restaurants.length === 0) {
+                    listEl.innerHTML = '<p class="empty-state">No restaurants match the current filters.</p>';
+                    return;
+                }
+
+                restaurants.forEach(restaurant => {
+                    const card = document.createElement("article");
+                    card.className = "restaurant-picker-card";
+                    card.dataset.restaurantId = restaurant.id;
+                    card.tabIndex = 0;
+
+                    const header = document.createElement("div");
+                    header.className = "restaurant-picker-card__header";
+
+                    const title = document.createElement("div");
+                    const name = document.createElement("strong");
+                    name.textContent = restaurant.name;
+                    const meta = document.createElement("span");
+                    meta.className = "restaurant-picker-card__meta";
+                    meta.textContent = [restaurant.location, restaurant.priceTier, restaurant.cuisine].filter(Boolean).join(" | ");
+                    title.append(name, meta);
+
+                    const selectButton = document.createElement("button");
+                    selectButton.type = "button";
+                    selectButton.className = "button button--secondary button--sm";
+                    selectButton.textContent = "Select";
+                    selectButton.addEventListener("click", event => {
+                        event.stopPropagation();
+                        selectRestaurant(restaurant.id, null, { pan: true, scroll: false });
+                    });
+
+                    header.append(title, selectButton);
+                    card.appendChild(header);
+
+                    if (restaurant.googleMapsUrl) {
+                        const mapsLink = document.createElement("a");
+                        mapsLink.href = restaurant.googleMapsUrl;
+                        mapsLink.target = "_blank";
+                        mapsLink.rel = "noopener noreferrer";
+                        mapsLink.className = "restaurant-picker-card__maps";
+                        mapsLink.textContent = "Open in Google Maps";
+                        mapsLink.addEventListener("click", event => event.stopPropagation());
+                        card.appendChild(mapsLink);
+                    }
+
+                    const slots = Array.isArray(restaurant.discountSlots) ? restaurant.discountSlots : [];
+                    if (slots.length > 0) {
+                        const slotsWrap = document.createElement("div");
+                        slotsWrap.className = "restaurant-picker-slots";
+
+                        const label = document.createElement("span");
+                        label.className = "restaurant-picker-slots__label";
+                        label.textContent = "Next 30 days";
+                        slotsWrap.appendChild(label);
+
+                        slots.slice(0, 2).forEach(slot => {
+                            const row = document.createElement("div");
+                            row.className = "restaurant-picker-slot";
+
+                            const text = document.createElement("span");
+                            text.textContent = slot.displayText + (slot.discountText ? " | " + slot.discountText : "");
+
+                            const slotButton = document.createElement("button");
+                            slotButton.type = "button";
+                            slotButton.className = "button button--primary button--sm";
+                            slotButton.textContent = "Use slot";
+                            slotButton.addEventListener("click", event => {
+                                event.stopPropagation();
+                                selectRestaurant(restaurant.id, slot, { pan: true, scroll: false });
+                                applySlot(slot);
+                            });
+
+                            row.append(text, slotButton);
+                            slotsWrap.appendChild(row);
+                        });
+
+                        card.appendChild(slotsWrap);
+                    } else {
+                        const note = document.createElement("p");
+                        note.className = "muted-note";
+                        note.textContent = "No discount slots in the next 30 days.";
+                        card.appendChild(note);
+                    }
+
+                    card.addEventListener("click", () => selectRestaurant(restaurant.id, null, { pan: true, scroll: false }));
+                    card.addEventListener("keydown", event => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            selectRestaurant(restaurant.id, null, { pan: true, scroll: false });
+                        }
+                    });
+
+                    listEl.appendChild(card);
+                });
+
+                syncSelectedState();
+            }
+
+            function renderMarkers(restaurants) {
+                markerLayer.clearLayers();
+                markersById = new Map();
+
+                const mapped = restaurants.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
+                mapped.forEach(restaurant => {
+                    const marker = L.marker([restaurant.lat, restaurant.lng], { icon: restaurant.id === hiddenId.value ? selectedIcon : defaultIcon });
+                    marker.bindPopup(buildPopup(restaurant));
+                    marker.on("click", () => selectRestaurant(restaurant.id, null, { pan: false, scroll: true }));
+                    marker.addTo(markerLayer);
+                    markersById.set(restaurant.id, marker);
+                });
+
+                if (mapped.length > 0) {
+                    const bounds = L.latLngBounds(mapped.map(r => [r.lat, r.lng]));
+                    map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14 });
+                } else {
+                    map.setView([39.1031, -84.5120], 12);
+                }
+            }
+
+            function buildPopup(restaurant) {
+                const container = document.createElement("div");
+                const name = document.createElement("strong");
+                name.textContent = restaurant.name;
+                container.appendChild(name);
+                container.appendChild(document.createElement("br"));
+                container.appendChild(document.createTextNode(restaurant.location));
+                container.appendChild(document.createElement("br"));
+
+                const meta = document.createElement("span");
+                meta.className = "muted-note";
+                meta.textContent = [restaurant.priceTier, restaurant.cuisine].filter(Boolean).join(" | ");
+                container.appendChild(meta);
+                container.appendChild(document.createElement("br"));
+
+                const selectButton = document.createElement("button");
+                selectButton.type = "button";
+                selectButton.textContent = "Select";
+                selectButton.className = "button button--primary button--sm restaurant-picker-popup-button";
+                selectButton.addEventListener("click", () => selectRestaurant(restaurant.id, null, { pan: false, scroll: true }));
+                container.appendChild(selectButton);
+
+                if (restaurant.googleMapsUrl) {
+                    container.appendChild(document.createElement("br"));
+                    const mapsLink = document.createElement("a");
+                    mapsLink.href = restaurant.googleMapsUrl;
+                    mapsLink.target = "_blank";
+                    mapsLink.rel = "noopener noreferrer";
+                    mapsLink.textContent = "Open in Google Maps";
+                    container.appendChild(mapsLink);
+                }
+
+                return container;
+            }
+
+            function selectRestaurant(id, slot, options) {
+                const restaurant = currentPage.restaurants.find(r => r.id === id);
+                if (!restaurant) {
+                    syncSelectedState();
+                    return;
+                }
+
+                selectedRestaurant = restaurant;
+                hiddenId.value = restaurant.id;
+                hiddenSlotId.value = slot?.id || "";
+                selectionLabel.textContent = slot?.displayText
+                    ? "Selected: " + restaurant.name + " | " + slot.displayText
+                    : "Selected: " + restaurant.name;
+                clearSelection.style.display = "inline-block";
+                if (cuisineTarget) cuisineTarget.value = "";
+
+                syncSelectedState();
+
+                const marker = markersById.get(restaurant.id);
+                if (marker) {
+                    marker.setIcon(selectedIcon);
+                    if (options?.pan) map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14));
+                    marker.openPopup();
+                }
+
+                if (options?.scroll) {
+                    document
+                        .querySelector(`[data-restaurant-id="${cssEscape(restaurant.id)}"]`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }
+            }
+
+            function clearRestaurantSelection() {
+                selectedRestaurant = null;
+                hiddenId.value = "";
+                hiddenSlotId.value = "";
+                selectionLabel.textContent = "No restaurant selected.";
+                clearSelection.style.display = "none";
+                syncSelectedState();
+            }
+
+            function syncSelectedState() {
+                const selectedId = hiddenId.value;
+
+                document.querySelectorAll(".restaurant-picker-card").forEach(card => {
+                    card.classList.toggle("restaurant-picker-card--selected", card.dataset.restaurantId === selectedId);
+                });
+
+                markersById.forEach((marker, id) => {
+                    marker.setIcon(id === selectedId ? selectedIcon : defaultIcon);
+                });
+            }
+
+            function applySlot(slot) {
+                if (eventStartAt && slot.startsAtUtc) {
+                    eventStartAt.value = formatDateTimeLocal(new Date(slot.startsAtUtc));
+                }
+
+                if (capacityInput && slot.capacity) {
+                    capacityInput.value = slot.capacity;
+                }
+            }
+
+            function setBrowserTimeZoneOffset() {
+                if (browserTimeZoneOffset) {
+                    browserTimeZoneOffset.value = String(new Date().getTimezoneOffset());
+                }
+            }
+
+            function formatDateTimeLocal(value) {
+                const pad = number => String(number).padStart(2, "0");
+                return value.getFullYear()
+                    + "-" + pad(value.getMonth() + 1)
+                    + "-" + pad(value.getDate())
+                    + "T" + pad(value.getHours())
+                    + ":" + pad(value.getMinutes());
+            }
+
+            function renderPagination(page) {
+                const totalPages = Math.max(1, page.totalPages || 1);
+                pageLabel.textContent = "Page " + page.page + " of " + totalPages;
+                prevBtn.disabled = page.page <= 1;
+                nextBtn.disabled = page.page >= totalPages;
+
+                const first = page.totalCount === 0 ? 0 : ((page.page - 1) * page.pageSize) + 1;
+                const last = Math.min(page.totalCount, page.page * page.pageSize);
+                countEl.textContent = page.totalCount === 0
+                    ? "No restaurants found."
+                    : "Showing " + first + "-" + last + " of " + page.totalCount + " restaurants.";
+            }
+
+            function setLoadingState(isLoading, silent) {
+                if (isLoading && !silent) {
+                    countEl.textContent = "Loading restaurants...";
+                }
+                prevBtn.disabled = isLoading || currentPage.page <= 1;
+                nextBtn.disabled = isLoading || currentPage.page >= Math.max(1, currentPage.totalPages || 1);
+            }
+
+            function updateClearFilters() {
+                const hasFilters = Boolean((filterName?.value || "").trim() || filterCuisine?.value || filterPrice?.value);
+                clearFilters.style.display = hasFilters ? "inline-block" : "none";
+            }
+
+            function initMap() {
+                map = L.map("restaurantPickerMap", { scrollWheelZoom: false }).setView([39.1031, -84.5120], 12);
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 19,
+                }).addTo(map);
+                markerLayer = L.layerGroup().addTo(map);
+            }
+
+            function normalizePage(page) {
+                const restaurants = Array.isArray(page?.restaurants)
+                    ? page.restaurants.map(normalizeRestaurant)
+                    : [];
+
+                return {
+                    page: Math.max(1, Number(page?.page) || 1),
+                    pageSize: Math.max(1, Number(page?.pageSize) || 8),
+                    totalCount: Math.max(0, Number(page?.totalCount) || 0),
+                    totalPages: Math.max(1, Number(page?.totalPages) || 1),
+                    restaurants,
+                };
+            }
+
+            function normalizeRestaurant(restaurant) {
+                return {
+                    id: String(restaurant.id),
+                    name: restaurant.name || "Restaurant",
+                    location: restaurant.location || "",
+                    priceTier: restaurant.priceTier || "",
+                    cuisine: restaurant.cuisine || "",
+                    cuisineTags: Array.isArray(restaurant.cuisineTags) ? restaurant.cuisineTags : [],
+                    lat: restaurant.lat === null || restaurant.lat === undefined ? null : Number(restaurant.lat),
+                    lng: restaurant.lng === null || restaurant.lng === undefined ? null : Number(restaurant.lng),
+                    googleMapsUrl: restaurant.googleMapsUrl || "",
+                    discountSlots: Array.isArray(restaurant.discountSlots) ? restaurant.discountSlots : [],
+                };
+            }
+
+            function cssEscape(value) {
+                if (window.CSS && CSS.escape) return CSS.escape(value);
+                return String(value).replace(/["\\]/g, "\\$&");
+            }
         }());
     </script>
 }
