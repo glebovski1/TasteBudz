@@ -531,6 +531,7 @@ Keep `TasteBudzDbContext` and module repository boundaries as the runtime persis
 ### Consequences
 - ADR-023 remains the historical SQLite-only MVP decision, but this ADR supersedes it for production Azure deployment.
 - Local development and integration tests stay simple and deterministic with SQLite.
+- Development and integration-test SQLite startup may apply explicit additive compatibility updates to older local database files before required-schema validation.
 - Azure production can use Azure SQL by configuration without changing application code.
 - Database deployment is a manual release step, not application startup behavior.
 - Repository and service boundaries remain unchanged; persistence entities still must not be exposed as API contracts.
@@ -689,3 +690,24 @@ The normal event browse endpoint returns all events the caller is allowed to vie
 - The Events tab can show full, completed, cancelled, group-linked, and ordinary event history without weakening Closed-event privacy.
 - Quick Search remains focused on active Open events with available seats.
 - Clients must not treat `recommended=true` as a generic browse mode for historical or full events.
+
+## [ADR-036] OpenStreetMap Restaurant Import Is Preview-First and Duplicate-Safe
+
+- Date: 2026-04-27
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+
+Large OpenStreetMap imports can add hundreds or thousands of restaurants at once. A one-click import without geography context or duplicate review makes the demo catalog harder to trust and can slow admin workflows.
+
+### Decision
+
+Admin OpenStreetMap import uses a preview-first flow. Admins choose a Cincinnati-focused ZIP/radius region or explicit manual bounds, review candidates, and commit selected external ids. The backend re-runs the same Overpass query during commit and imports only selected candidates that are still non-duplicates. Duplicate detection checks provider-qualified and legacy OpenStreetMap ids, exact normalized name/address matches, exact normalized name within 0.1 miles, and simplified same-ZIP name matches within 0.25 miles. Duplicate candidates are skipped; merge, overwrite, and override behavior remain out of scope.
+
+### Consequences
+
+- Admins can review import scope and candidate quality before adding records.
+- User-facing restaurant browse remains local catalog-backed and does not call OpenStreetMap live.
+- Large catalogs remain manageable through paged admin search instead of full-page rendering.
+- Future duplicate override or merge tooling must be approved separately.

@@ -12,6 +12,7 @@ public sealed record AdminIndexViewModel
     public IReadOnlyCollection<ModerationReportDto> PendingReports { get; init; } = [];
     public bool RestaurantOperationsAvailable { get; init; }
     public IReadOnlyCollection<RestaurantAssignmentPanelItem> RestaurantAssignments { get; init; } = [];
+    public int RestaurantCatalogTotalCount { get; init; }
     public IReadOnlyCollection<PasswordResetRequestDto> OpenPasswordResetRequests { get; init; } = [];
     public PasswordResetTokenDto? GeneratedPasswordResetToken { get; init; }
 }
@@ -44,9 +45,26 @@ public sealed class AdminSupportThreadsViewModel
 
 public sealed class AdminRestaurantsViewModel
 {
+    public const int PageSize = 25;
+
     public AdminRestaurantCatalogForm CreateForm { get; init; } = new();
     public IReadOnlyCollection<AdminRestaurantCatalogItemViewModel> Restaurants { get; init; } = [];
+    public IReadOnlyDictionary<Guid, IReadOnlyCollection<RestaurantAdminAssignmentDto>> AssignmentsByRestaurantId { get; init; } =
+        new Dictionary<Guid, IReadOnlyCollection<RestaurantAdminAssignmentDto>>();
     public IReadOnlyCollection<string> SuggestedCuisineTags { get; init; } = [];
+    public string? Q { get; init; }
+    public AdminRestaurantCatalogStatus? FilterStatus { get; init; }
+    public AdminRestaurantCatalogSource? FilterSource { get; init; }
+    public int CurrentPage { get; init; } = 1;
+    public int TotalCount { get; init; }
+    public Guid? EditRestaurantId { get; init; }
+    public RestaurantImportPreviewForm ImportForm { get; init; } = new();
+    public RestaurantImportPreviewDto? ImportPreview { get; init; }
+
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+    public AdminRestaurantCatalogItemViewModel? EditItem => EditRestaurantId.HasValue
+        ? Restaurants.FirstOrDefault(item => item.Restaurant.RestaurantId == EditRestaurantId.Value)
+        : null;
 }
 
 public sealed class AdminRestaurantCatalogItemViewModel
@@ -107,5 +125,50 @@ public sealed class AdminRestaurantCatalogForm
         ZipCode = dto.ZipCode,
         PriceTier = dto.PriceTier,
         CuisineTagsText = string.Join(", ", dto.CuisineTags),
+    };
+}
+
+public class RestaurantImportPreviewForm
+{
+    [MaxLength(40)]
+    public string? Preset { get; set; } = "cincinnati";
+
+    [RegularExpression("^[0-9]{5}$")]
+    public string? ZipCode { get; set; } = "45202";
+
+    [Range(1, 50)]
+    public double? RadiusMiles { get; set; } = 25;
+
+    public double? South { get; set; }
+    public double? West { get; set; }
+    public double? North { get; set; }
+    public double? East { get; set; }
+
+    public RestaurantImportPreviewQuery ToQuery() => new()
+    {
+        Preset = Preset,
+        ZipCode = ZipCode,
+        RadiusMiles = RadiusMiles,
+        South = South,
+        West = West,
+        North = North,
+        East = East,
+    };
+}
+
+public sealed class RestaurantImportCommitForm : RestaurantImportPreviewForm
+{
+    public List<string> SelectedExternalPlaceIds { get; set; } = [];
+
+    public CommitRestaurantImportRequest ToRequest() => new()
+    {
+        Preset = Preset,
+        ZipCode = ZipCode,
+        RadiusMiles = RadiusMiles,
+        South = South,
+        West = West,
+        North = North,
+        East = East,
+        SelectedExternalPlaceIds = SelectedExternalPlaceIds,
     };
 }

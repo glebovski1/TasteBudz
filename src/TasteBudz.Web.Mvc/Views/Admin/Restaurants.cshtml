@@ -3,19 +3,137 @@
 @{
     ViewData["Title"] = "Restaurant Catalog";
     var priceTiers = Enum.GetValues<TasteBudz.Backend.Domain.PriceTier>();
+    var statusValues = Enum.GetValues<TasteBudz.Backend.Modules.Restaurants.AdminRestaurantCatalogStatus>();
+    var sourceValues = Enum.GetValues<TasteBudz.Backend.Modules.Restaurants.AdminRestaurantCatalogSource>();
+    var editItem = Model.EditItem;
 }
 
 <div class="admin-shell">
     <div class="admin-header">
         <div>
-            <span class="eyebrow">🍽️ Catalog</span>
+            <span class="eyebrow">Catalog</span>
             <h1 class="admin-title">Restaurant Catalog</h1>
-            <p class="admin-subtitle">Create, update, archive, and restore restaurant records. Saves geocode the address so restaurants appear on the map.</p>
+            <p class="admin-subtitle">Review imports, maintain restaurant records, and assign restaurant admins.</p>
         </div>
         <div class="button-row">
             <a asp-action="Index" class="button button--secondary">Back To Admin</a>
         </div>
     </div>
+
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">OpenStreetMap Import Preview</h2>
+        </div>
+        <form asp-action="PreviewRestaurantImport" method="post" class="stack">
+            @Html.AntiForgeryToken()
+            <div class="editor-grid">
+                <div class="field">
+                    <label for="Preset">Preset</label>
+                    <input id="Preset" name="Preset" value="@Model.ImportForm.Preset" maxlength="40" />
+                </div>
+                <div class="field">
+                    <label for="ZipCode">ZIP center</label>
+                    <input id="ZipCode" name="ZipCode" value="@Model.ImportForm.ZipCode" maxlength="5" />
+                </div>
+                <div class="field">
+                    <label for="RadiusMiles">Radius miles</label>
+                    <input id="RadiusMiles" name="RadiusMiles" type="number" min="1" max="50" step="1" value="@Model.ImportForm.RadiusMiles" />
+                </div>
+            </div>
+            <details>
+                <summary>Manual bounds</summary>
+                <div class="editor-grid" style="margin-top:0.75rem;">
+                    <div class="field">
+                        <label for="South">South</label>
+                        <input id="South" name="South" type="number" step="0.0001" value="@Model.ImportForm.South" />
+                    </div>
+                    <div class="field">
+                        <label for="West">West</label>
+                        <input id="West" name="West" type="number" step="0.0001" value="@Model.ImportForm.West" />
+                    </div>
+                    <div class="field">
+                        <label for="North">North</label>
+                        <input id="North" name="North" type="number" step="0.0001" value="@Model.ImportForm.North" />
+                    </div>
+                    <div class="field">
+                        <label for="East">East</label>
+                        <input id="East" name="East" type="number" step="0.0001" value="@Model.ImportForm.East" />
+                    </div>
+                </div>
+            </details>
+            <div class="button-row">
+                <button type="submit" class="button button--primary">Preview Import Candidates</button>
+            </div>
+        </form>
+
+        @if (Model.ImportPreview is not null)
+        {
+            <div class="summary-card" style="margin-top:1rem;">
+                <strong>@Model.ImportPreview.Geography.Label</strong>
+                <p class="muted-note">
+                    @Model.ImportPreview.CandidateCount candidates,
+                    @Model.ImportPreview.ImportableCount importable,
+                    @Model.ImportPreview.DuplicateCount duplicates.
+                </p>
+            </div>
+
+            <form asp-action="CommitRestaurantImport" method="post" class="stack" style="margin-top:1rem;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Preset" value="@Model.ImportForm.Preset" />
+                <input type="hidden" name="ZipCode" value="@Model.ImportForm.ZipCode" />
+                <input type="hidden" name="RadiusMiles" value="@Model.ImportForm.RadiusMiles" />
+                <input type="hidden" name="South" value="@Model.ImportForm.South" />
+                <input type="hidden" name="West" value="@Model.ImportForm.West" />
+                <input type="hidden" name="North" value="@Model.ImportForm.North" />
+                <input type="hidden" name="East" value="@Model.ImportForm.East" />
+
+                <div class="report-list">
+                    @foreach (var candidate in Model.ImportPreview.Candidates.Take(100))
+                    {
+                        <article class="report-card card">
+                            <div class="report-card__header">
+                                <div>
+                                    <strong>@candidate.Name</strong>
+                                    <p class="muted-note">
+                                        @(string.IsNullOrWhiteSpace(candidate.StreetAddress)
+                                            ? $"{candidate.City}, {candidate.State} {candidate.ZipCode}"
+                                            : $"{candidate.StreetAddress}, {candidate.City}, {candidate.State} {candidate.ZipCode}")
+                                    </p>
+                                </div>
+                                <div class="button-row">
+                                    <span class="pill">@candidate.CuisineText</span>
+                                    @if (candidate.IsDuplicate)
+                                    {
+                                        <span class="pill">Duplicate</span>
+                                    }
+                                    else
+                                    {
+                                        <label class="checkbox-inline">
+                                            <input type="checkbox" name="SelectedExternalPlaceIds" value="@candidate.ExternalPlaceId" checked />
+                                            Import
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                            <p class="muted-note">
+                                @candidate.ExternalPlaceId - @candidate.Latitude.ToString("F4"), @candidate.Longitude.ToString("F4")
+                            </p>
+                            @if (candidate.IsDuplicate)
+                            {
+                                <p class="muted-note">@candidate.DuplicateReason @(string.IsNullOrWhiteSpace(candidate.MatchingRestaurantName) ? "" : $"Matched {candidate.MatchingRestaurantName}.")</p>
+                            }
+                        </article>
+                    }
+                </div>
+
+                <div class="button-row">
+                    <button type="submit" class="button button--primary" disabled="@(Model.ImportPreview.ImportableCount == 0)">
+                        Import Selected Restaurants
+                    </button>
+                </div>
+            </form>
+        }
+    </section>
 
     <section class="admin-section">
         <div class="admin-section__header">
@@ -70,6 +188,39 @@
             <h2 class="admin-section__title">Catalog Entries</h2>
         </div>
 
+        <form asp-action="Restaurants" method="get" class="editor-grid" style="margin-bottom:1rem;">
+            <div class="field">
+                <label for="q">Search</label>
+                <input id="q" name="q" value="@Model.Q" placeholder="Name, city, ZIP, cuisine" />
+            </div>
+            <div class="field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    @foreach (var status in statusValues)
+                    {
+                        <option value="@status" selected="@(status == Model.FilterStatus)">@status</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="source">Source</label>
+                <select id="source" name="source">
+                    @foreach (var source in sourceValues)
+                    {
+                        <option value="@source" selected="@(source == Model.FilterSource)">@source</option>
+                    }
+                </select>
+            </div>
+            <div class="button-row" style="align-self:end;">
+                <button type="submit" class="button button--primary">Filter</button>
+                <a asp-action="Restaurants" class="button button--secondary">Clear</a>
+            </div>
+        </form>
+
+        <p class="muted-note">
+            Showing page @Model.CurrentPage of @Model.TotalPages (@Model.TotalCount total).
+        </p>
+
         @if (!Model.Restaurants.Any())
         {
             <p class="muted-note">No restaurants found.</p>
@@ -79,6 +230,10 @@
             <div class="report-list">
                 @foreach (var item in Model.Restaurants)
                 {
+                    var assignments = Model.AssignmentsByRestaurantId.TryGetValue(item.Restaurant.RestaurantId, out var value)
+                        ? value
+                        : (IReadOnlyCollection<TasteBudz.Backend.Modules.Restaurants.RestaurantAdminAssignmentDto>)Array.Empty<TasteBudz.Backend.Modules.Restaurants.RestaurantAdminAssignmentDto>();
+
                     <article class="report-card card">
                         <div class="report-card__header">
                             <div>
@@ -88,70 +243,53 @@
                                         ? $"{item.Restaurant.City}, {item.Restaurant.State} {item.Restaurant.ZipCode}"
                                         : $"{item.Restaurant.StreetAddress}, {item.Restaurant.City}, {item.Restaurant.State} {item.Restaurant.ZipCode}")
                                 </p>
+                                <p class="muted-note">@string.Join(", ", item.Restaurant.CuisineTags)</p>
                             </div>
                             <div class="button-row">
                                 <span class="pill">@(item.Restaurant.IsArchived ? "Archived" : "Active")</span>
-                                @if (item.Restaurant.Latitude.HasValue && item.Restaurant.Longitude.HasValue)
-                                {
-                                    <span class="pill">@item.Restaurant.Latitude.Value.ToString("F4"), @item.Restaurant.Longitude.Value.ToString("F4")</span>
-                                }
-                                else
-                                {
-                                    <span class="pill">No Coordinates</span>
-                                }
+                                <span class="pill">@(item.Restaurant.ExternalPlaceId?.StartsWith("osm:", StringComparison.OrdinalIgnoreCase) == true ? "OpenStreetMap" : "Manual")</span>
+                                <a asp-action="Restaurants"
+                                   asp-route-q="@Model.Q"
+                                   asp-route-status="@Model.FilterStatus"
+                                   asp-route-source="@Model.FilterSource"
+                                   asp-route-page="@Model.CurrentPage"
+                                   asp-route-editRestaurantId="@item.Restaurant.RestaurantId"
+                                   class="button button--secondary button--sm">Edit</a>
                             </div>
                         </div>
 
-                        <form asp-action="UpdateCatalogRestaurant" method="post" class="stack">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="RestaurantId" value="@item.Form.RestaurantId" />
-                            <div class="editor-grid">
-                                <div class="field">
-                                    <label>Name</label>
-                                    <input name="Name" value="@item.Form.Name" maxlength="160" />
-                                </div>
-                                <div class="field">
-                                    <label>Street Address</label>
-                                    <input name="StreetAddress" value="@item.Form.StreetAddress" maxlength="160" />
-                                </div>
-                                <div class="field">
-                                    <label>City</label>
-                                    <input name="City" value="@item.Form.City" maxlength="80" />
-                                </div>
-                                <div class="field">
-                                    <label>State</label>
-                                    <input name="State" value="@item.Form.State" maxlength="2" />
-                                </div>
-                                <div class="field">
-                                    <label>ZIP Code</label>
-                                    <input name="ZipCode" value="@item.Form.ZipCode" maxlength="10" />
-                                </div>
-                                <div class="field">
-                                    <label>Price Tier</label>
-                                    <select name="PriceTier">
-                                        @foreach (var priceTier in priceTiers)
-                                        {
-                                            if (priceTier == item.Form.PriceTier)
-                                            {
-                                                <option value="@priceTier" selected>@priceTier</option>
-                                            }
-                                            else
-                                            {
-                                                <option value="@priceTier">@priceTier</option>
-                                            }
-                                        }
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label>Cuisine Tags</label>
-                                <input name="CuisineTagsText" value="@item.Form.CuisineTagsText" />
-                                <p class="muted-note">Comma-separated tags. Suggested tags: @string.Join(", ", Model.SuggestedCuisineTags)</p>
-                            </div>
-                            <div class="button-row">
-                                <button type="submit" class="button button--primary">Save Changes</button>
-                            </div>
-                        </form>
+                        <div class="summary-card">
+                            <strong>Restaurant admins</strong>
+                            @if (!assignments.Any())
+                            {
+                                <p class="muted-note">No restaurant admins assigned.</p>
+                            }
+                            else
+                            {
+                                @foreach (var assignment in assignments)
+                                {
+                                    <div class="member-row">
+                                        <div class="member-row__info">
+                                            <strong>@assignment.Username</strong>
+                                            <span>@assignment.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                        </div>
+                                        <form asp-action="RevokeRestaurantAdmin" method="post" style="margin-left:auto;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
+                                            <input type="hidden" name="userId" value="@assignment.UserId" />
+                                            <button type="submit" class="button button--danger button--sm">Revoke</button>
+                                        </form>
+                                    </div>
+                                }
+                            }
+
+                            <form asp-action="AssignRestaurantAdmin" method="post" class="button-row" style="margin-top:0.75rem;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
+                                <input name="username" maxlength="80" placeholder="username" />
+                                <button type="submit" class="button button--secondary button--sm">Assign</button>
+                            </form>
+                        </div>
 
                         <div class="button-row" style="margin-top:0.75rem;">
                             @if (item.Restaurant.IsArchived)
@@ -159,7 +297,7 @@
                                 <form asp-action="RestoreRestaurant" method="post">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
-                                    <button type="submit" class="button button--secondary">Restore</button>
+                                    <button type="submit" class="button button--secondary button--sm">Restore</button>
                                 </form>
                             }
                             else
@@ -167,11 +305,7 @@
                                 <form asp-action="ArchiveRestaurant" method="post">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
-                                    <button type="submit"
-                                            class="button button--danger"
-                                            onclick="return confirm('Archive this restaurant so it no longer appears in browse and suggestions?')">
-                                        Archive
-                                    </button>
+                                    <button type="submit" class="button button--danger button--sm">Archive</button>
                                 </form>
                             }
                         </div>
@@ -179,5 +313,78 @@
                 }
             </div>
         }
+
+        <div class="button-row" style="margin-top:1rem;">
+            <a asp-action="Restaurants"
+               asp-route-q="@Model.Q"
+               asp-route-status="@Model.FilterStatus"
+               asp-route-source="@Model.FilterSource"
+               asp-route-page="@(Math.Max(1, Model.CurrentPage - 1))"
+               class="button button--secondary @(Model.CurrentPage <= 1 ? "disabled" : "")">Previous</a>
+            <span class="muted-note">Page @Model.CurrentPage of @Model.TotalPages</span>
+            <a asp-action="Restaurants"
+               asp-route-q="@Model.Q"
+               asp-route-status="@Model.FilterStatus"
+               asp-route-source="@Model.FilterSource"
+               asp-route-page="@(Math.Min(Model.TotalPages, Model.CurrentPage + 1))"
+               class="button button--secondary @(Model.CurrentPage >= Model.TotalPages ? "disabled" : "")">Next</a>
+        </div>
     </section>
+
+    @if (editItem is not null)
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Edit @editItem.Restaurant.Name</h2>
+            </div>
+            <form asp-action="UpdateCatalogRestaurant" method="post" class="stack">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RestaurantId" value="@editItem.Form.RestaurantId" />
+                <div class="editor-grid">
+                    <div class="field">
+                        <label>Name</label>
+                        <input name="Name" value="@editItem.Form.Name" maxlength="160" />
+                    </div>
+                    <div class="field">
+                        <label>Street Address</label>
+                        <input name="StreetAddress" value="@editItem.Form.StreetAddress" maxlength="160" />
+                    </div>
+                    <div class="field">
+                        <label>City</label>
+                        <input name="City" value="@editItem.Form.City" maxlength="80" />
+                    </div>
+                    <div class="field">
+                        <label>State</label>
+                        <input name="State" value="@editItem.Form.State" maxlength="2" />
+                    </div>
+                    <div class="field">
+                        <label>ZIP Code</label>
+                        <input name="ZipCode" value="@editItem.Form.ZipCode" maxlength="10" />
+                    </div>
+                    <div class="field">
+                        <label>Price Tier</label>
+                        <select name="PriceTier">
+                            @foreach (var priceTier in priceTiers)
+                            {
+                                <option value="@priceTier" selected="@(priceTier == editItem.Form.PriceTier)">@priceTier</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Cuisine Tags</label>
+                    <input name="CuisineTagsText" value="@editItem.Form.CuisineTagsText" />
+                </div>
+                <div class="button-row">
+                    <button type="submit" class="button button--primary">Save Changes</button>
+                    <a asp-action="Restaurants"
+                       asp-route-q="@Model.Q"
+                       asp-route-status="@Model.FilterStatus"
+                       asp-route-source="@Model.FilterSource"
+                       asp-route-page="@Model.CurrentPage"
+                       class="button button--secondary">Cancel</a>
+                </div>
+            </form>
+        </section>
+    }
 </div>

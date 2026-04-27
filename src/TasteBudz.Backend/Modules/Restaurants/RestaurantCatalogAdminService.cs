@@ -1,6 +1,7 @@
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Contracts;
 
 namespace TasteBudz.Backend.Modules.Restaurants;
 
@@ -23,6 +24,56 @@ public sealed class RestaurantCatalogAdminService(
             .ThenBy(restaurant => restaurant.Name, StringComparer.OrdinalIgnoreCase)
             .Select(ToAdminDto)
             .ToArray();
+    }
+
+    public async Task<ListResponse<AdminRestaurantCatalogItemDto>> SearchAsync(
+        CurrentUser currentUser,
+        AdminRestaurantSearchQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(currentUser);
+
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        var restaurants = await restaurantRepository.ListAsync(includeArchived: true, cancellationToken: cancellationToken);
+        var filtered = restaurants.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var q = query.Q.Trim();
+            filtered = filtered.Where(restaurant =>
+                restaurant.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                restaurant.City.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                restaurant.ZipCode.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                (restaurant.StreetAddress?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                restaurant.CuisineTags.Any(tag => tag.Contains(q, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        filtered = query.Status switch
+        {
+            AdminRestaurantCatalogStatus.Active => filtered.Where(restaurant => !restaurant.IsArchived),
+            AdminRestaurantCatalogStatus.Archived => filtered.Where(restaurant => restaurant.IsArchived),
+            _ => filtered,
+        };
+
+        filtered = query.Source switch
+        {
+            AdminRestaurantCatalogSource.Manual => filtered.Where(restaurant => !IsOpenStreetMapRestaurant(restaurant)),
+            AdminRestaurantCatalogSource.OpenStreetMap => filtered.Where(IsOpenStreetMapRestaurant),
+            _ => filtered,
+        };
+
+        var ordered = filtered
+            .OrderBy(restaurant => restaurant.IsArchived)
+            .ThenBy(restaurant => restaurant.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var items = ordered
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(ToAdminDto)
+            .ToArray();
+
+        return new ListResponse<AdminRestaurantCatalogItemDto>(items, ordered.Length);
     }
 
     public async Task<AdminRestaurantCatalogItemDto> CreateAsync(
@@ -195,6 +246,9 @@ public sealed class RestaurantCatalogAdminService(
             restaurant.Longitude,
             restaurant.ExternalPlaceId,
             restaurant.IsArchived);
+
+    private static bool IsOpenStreetMapRestaurant(Restaurant restaurant) =>
+        restaurant.ExternalPlaceId?.StartsWith("osm:", StringComparison.OrdinalIgnoreCase) == true;
 
     private sealed record NormalizedRestaurantCatalogRequest(
         string Name,

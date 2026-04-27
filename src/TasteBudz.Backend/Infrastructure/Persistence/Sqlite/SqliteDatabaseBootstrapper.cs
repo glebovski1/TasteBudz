@@ -24,13 +24,21 @@ public static class SqliteDatabaseBootstrapper
 
         if (canInitialize)
         {
+            var hasAnyUserAccounts = await HasAnyUserAccountsAsync(connectionString, cancellationToken);
+            var hasDevelopmentSeedAccounts =
+                hasAnyUserAccounts &&
+                await HasDevelopmentSeedUserAccountsAsync(connectionString, cancellationToken);
             var shouldSeedTestData =
                 seedTestDataOnStartup &&
-                !await HasAnyUserAccountsAsync(connectionString, cancellationToken);
+                (!hasAnyUserAccounts || hasDevelopmentSeedAccounts);
 
-            if (seedTestDataOnStartup && !shouldSeedTestData)
+            if (seedTestDataOnStartup && hasAnyUserAccounts && !hasDevelopmentSeedAccounts)
             {
-                logger.LogInformation("Skipping development test-data seed because the SQLite database already contains user accounts.");
+                logger.LogInformation("Skipping development test-data seed because the SQLite database contains user accounts that do not match the known demo seed set.");
+            }
+            else if (seedTestDataOnStartup && hasDevelopmentSeedAccounts)
+            {
+                logger.LogInformation("Applying idempotent development test-data seed to update the existing local SQLite demo database.");
             }
 
             await InitializeSchemaAsync(connectionString, shouldSeedTestData, cancellationToken);
@@ -93,6 +101,8 @@ public static class SqliteDatabaseBootstrapper
             Environment.NewLine,
             new[] { schemaScript, seedScript, testDataScript }.Where(script => !string.IsNullOrWhiteSpace(script)));
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await ApplyLocalSchemaUpdatesAsync(connection, cancellationToken);
     }
 
     private static async Task ValidateRequiredSchemaAsync(string connectionString, CancellationToken cancellationToken)
@@ -122,6 +132,54 @@ public static class SqliteDatabaseBootstrapper
                 }
             }
         }
+    }
+
+    private static async Task ApplyLocalSchemaUpdatesAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        await AddColumnIfMissingAsync(
+            connection,
+            tableName: "RestaurantSlots",
+            columnName: "DiscountPercent",
+            columnDefinition: "INTEGER NULL",
+            cancellationToken);
+    }
+
+    private static async Task AddColumnIfMissingAsync(
+        SqliteConnection connection,
+        string tableName,
+        string columnName,
+        string columnDefinition,
+        CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(connection, tableName, cancellationToken))
+        {
+            return;
+        }
+
+        var actualColumns = await ListColumnsAsync(connection, tableName, cancellationToken);
+
+        if (actualColumns.Contains(columnName))
+        {
+            return;
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            $"ALTER TABLE {QuoteSqliteIdentifier(tableName)} ADD COLUMN {QuoteSqliteIdentifier(columnName)} {columnDefinition};";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<bool> TableExistsAsync(
+        SqliteConnection connection,
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $name;";
+        command.Parameters.AddWithValue("$name", tableName);
+        var count = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+
+        return count == 1;
     }
 
     private static async Task<HashSet<string>> ListColumnsAsync(
@@ -178,6 +236,33 @@ public static class SqliteDatabaseBootstrapper
         }
 
         command.CommandText = "SELECT COUNT(*) FROM UserAccounts;";
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) > 0;
+    }
+
+    private static async Task<bool> HasDevelopmentSeedUserAccountsAsync(string connectionString, CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM UserAccounts
+            WHERE Id IN (
+                '00000000-0000-0000-0000-000000000101',
+                '00000000-0000-0000-0000-000000000102',
+                '00000000-0000-0000-0000-000000000103',
+                '00000000-0000-0000-0000-000000000104',
+                '00000000-0000-0000-0000-000000000105',
+                '00000000-0000-0000-0000-000000000106',
+                '00000000-0000-0000-0000-000000000107',
+                '00000000-0000-0000-0000-000000000108',
+                '00000000-0000-0000-0000-000000000109',
+                '00000000-0000-0000-0000-000000000110'
+            );
+            """;
+
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) > 0;
     }
 

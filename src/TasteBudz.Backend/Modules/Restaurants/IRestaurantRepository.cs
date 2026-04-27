@@ -12,6 +12,11 @@ public interface IRestaurantRepository
 
     Task<Restaurant?> GetAsync(Guid restaurantId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<Guid>> ListRestaurantIdsWithDiscountSlotsAsync(
+        DateTimeOffset startsAtFromUtc,
+        DateTimeOffset startsAtToUtc,
+        CancellationToken cancellationToken = default);
+
     Task SaveAsync(Restaurant restaurant, CancellationToken cancellationToken = default);
 
     Task<(double Latitude, double Longitude)?> GetZipCoordinatesAsync(string zipCode, CancellationToken cancellationToken = default);

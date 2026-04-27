@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Modules.Restaurants;
 
@@ -15,6 +16,12 @@ public sealed class AdminRestaurantsController(
     [HttpGet]
     public Task<IReadOnlyCollection<AdminRestaurantCatalogItemDto>> List(CancellationToken cancellationToken) =>
         restaurantCatalogAdminService.ListAsync(currentUserAccessor.GetRequiredCurrentUser(), cancellationToken);
+
+    [HttpGet("search")]
+    public Task<ListResponse<AdminRestaurantCatalogItemDto>> Search(
+        [FromQuery] AdminRestaurantSearchQuery query,
+        CancellationToken cancellationToken) =>
+        restaurantCatalogAdminService.SearchAsync(currentUserAccessor.GetRequiredCurrentUser(), query, cancellationToken);
 
     [HttpPost]
     public Task<AdminRestaurantCatalogItemDto> Create(

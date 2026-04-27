@@ -54,6 +54,26 @@ public sealed class RestaurantsController(
         return Ok(new ImportRestaurantsResultDto(inserted, $"Import complete. {inserted} new restaurants added."));
     }
 
+    [HttpGet("import/preview")]
+    [Authorize(Roles = "Admin")]
+    public Task<RestaurantImportPreviewDto> PreviewImport(
+        [FromQuery] RestaurantImportPreviewQuery query,
+        CancellationToken cancellationToken) =>
+        overpassImporter.PreviewAsync(query, cancellationToken);
+
+    [HttpPost("import/commit")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ImportRestaurantsResultDto> CommitImport(
+        [FromBody] CommitRestaurantImportRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await overpassImporter.CommitAsync(request, cancellationToken);
+        return new ImportRestaurantsResultDto(
+            result.Inserted,
+            $"Import complete. {result.Inserted} new restaurants added. {result.Skipped} skipped.",
+            result.Skipped);
+    }
+
     private void EnsureSlotsEnabled()
     {
         if (!featureFlagService.IsRestaurantsOperationsEnabled() ||

@@ -181,6 +181,10 @@
                             <option value="Four">$$$$ - Fine dining</option>
                         </select>
                     </div>
+                    <label class="checkbox-inline" style="align-self:end;">
+                        <input type="checkbox" id="filterDiscountSlots" />
+                        Discount slots only
+                    </label>
                     <button type="button" id="clearFilters" class="button button--secondary" style="align-self:end; display:none;">
                         Clear
                     </button>
@@ -253,6 +257,7 @@
             const filterName = document.getElementById("filterName");
             const filterCuisine = document.getElementById("filterCuisine");
             const filterPrice = document.getElementById("filterPrice");
+            const filterDiscountSlots = document.getElementById("filterDiscountSlots");
             const clearFilters = document.getElementById("clearFilters");
             const selectionLabel = document.getElementById("selectionLabel");
             const clearSelection = document.getElementById("clearSelection");
@@ -293,6 +298,7 @@
             filterName?.addEventListener("input", debounceFilter);
             filterCuisine?.addEventListener("change", () => loadPickerPage(1));
             filterPrice?.addEventListener("change", () => loadPickerPage(1));
+            filterDiscountSlots?.addEventListener("change", () => loadPickerPage(1));
             prevBtn?.addEventListener("click", () => loadPickerPage(currentPage.page - 1));
             nextBtn?.addEventListener("click", () => loadPickerPage(currentPage.page + 1));
             clearSelection?.addEventListener("click", () => clearRestaurantSelection());
@@ -303,6 +309,7 @@
                 if (filterName) filterName.value = "";
                 if (filterCuisine) filterCuisine.value = "";
                 if (filterPrice) filterPrice.value = "";
+                if (filterDiscountSlots) filterDiscountSlots.checked = false;
                 loadPickerPage(1);
             });
             browserTimeZoneOffset?.closest("form")?.addEventListener("submit", setBrowserTimeZoneOffset);
@@ -320,10 +327,12 @@
                 const q = (filterName?.value || "").trim();
                 const cuisine = filterCuisine?.value || "";
                 const priceTier = filterPrice?.value || "";
+                const discountSlotsOnly = filterDiscountSlots?.checked === true;
 
                 if (q) url.searchParams.set("q", q);
                 if (cuisine) url.searchParams.set("cuisine", cuisine);
                 if (priceTier) url.searchParams.set("priceTier", priceTier);
+                if (discountSlotsOnly) url.searchParams.set("discountSlotsOnly", "true");
 
                 setLoadingState(true, options?.silent === true);
 
@@ -608,7 +617,7 @@
             }
 
             function updateClearFilters() {
-                const hasFilters = Boolean((filterName?.value || "").trim() || filterCuisine?.value || filterPrice?.value);
+                const hasFilters = Boolean((filterName?.value || "").trim() || filterCuisine?.value || filterPrice?.value || filterDiscountSlots?.checked);
                 clearFilters.style.display = hasFilters ? "inline-block" : "none";
             }
 

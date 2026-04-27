@@ -211,11 +211,17 @@ public sealed class AdminController : Controller
 
     [HttpGet]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> Restaurants(CancellationToken cancellationToken)
+    public async Task<IActionResult> Restaurants(
+        string? q,
+        AdminRestaurantCatalogStatus? status,
+        AdminRestaurantCatalogSource? source,
+        int page = 1,
+        Guid? editRestaurantId = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return View(await BuildRestaurantCatalogViewModelAsync(cancellationToken));
+            return View(await BuildRestaurantCatalogViewModelAsync(q, status, source, page, editRestaurantId, importPreview: null, importForm: null, cancellationToken));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -242,7 +248,63 @@ public sealed class AdminController : Controller
             TempData["StatusMessage"] = $"Import failed: {ex.Message}";
         }
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Restaurants));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> PreviewRestaurantImport(RestaurantImportPreviewForm form, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Import geography is invalid.";
+            return RedirectToAction(nameof(Restaurants));
+        }
+
+        try
+        {
+            var preview = await restaurantApiService.PreviewImportFromOverpassAsync(form.ToQuery(), cancellationToken);
+            TempData["StatusMessage"] = $"Preview found {preview.CandidateCount} candidates, {preview.ImportableCount} importable.";
+            return View("Restaurants", await BuildRestaurantCatalogViewModelAsync(null, null, null, 1, null, preview, form, cancellationToken));
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Import preview failed: {ex.Message}";
+            return RedirectToAction(nameof(Restaurants));
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CommitRestaurantImport(RestaurantImportCommitForm form, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["StatusMessage"] = "Import selection is invalid.";
+            return RedirectToAction(nameof(Restaurants));
+        }
+
+        try
+        {
+            var result = await restaurantApiService.CommitImportFromOverpassAsync(form.ToRequest(), cancellationToken);
+            TempData["StatusMessage"] = result.Message;
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Import failed: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Restaurants));
     }
 
     [HttpPost]
@@ -353,7 +415,7 @@ public sealed class AdminController : Controller
         if (string.IsNullOrWhiteSpace(username))
         {
             TempData["StatusMessage"] = "Username is required.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Restaurants));
         }
 
         try
@@ -375,7 +437,7 @@ public sealed class AdminController : Controller
                 : $"Assignment failed: {ex.Message}";
         }
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Restaurants));
     }
 
     [HttpPost]
@@ -399,7 +461,7 @@ public sealed class AdminController : Controller
                 : $"Revoke failed: {ex.Message}";
         }
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(Restaurants));
     }
 
     private async Task<AdminIndexViewModel> BuildIndexViewModelAsync(CancellationToken cancellationToken)
@@ -407,7 +469,7 @@ public sealed class AdminController : Controller
         var reports = await moderationApiService.ListReportsAsync(
             new BrowseModerationReportsQuery { Status = ModerationReportStatus.Pending, PageSize = 50 },
             cancellationToken);
-        var (restaurantOperationsAvailable, restaurantAssignments) = await BuildRestaurantAssignmentPanelAsync(cancellationToken);
+        var (restaurantOperationsAvailable, restaurantCatalogTotalCount) = await BuildRestaurantSummaryAsync(cancellationToken);
         var openPasswordResetRequests = User.IsInRole("Admin")
             ? await authApiService.ListOpenPasswordResetRequestsAsync(cancellationToken)
             : [];
@@ -416,62 +478,92 @@ public sealed class AdminController : Controller
         {
             PendingReports = reports.Items,
             RestaurantOperationsAvailable = restaurantOperationsAvailable,
-            RestaurantAssignments = restaurantAssignments,
+            RestaurantAssignments = [],
+            RestaurantCatalogTotalCount = restaurantCatalogTotalCount,
             OpenPasswordResetRequests = openPasswordResetRequests,
         };
     }
 
-    private async Task<(bool Available, IReadOnlyCollection<RestaurantAssignmentPanelItem> Items)> BuildRestaurantAssignmentPanelAsync(CancellationToken cancellationToken)
+    private async Task<(bool Available, int TotalCount)> BuildRestaurantSummaryAsync(CancellationToken cancellationToken)
     {
         if (!User.IsInRole("Admin"))
         {
-            return (false, []);
+            return (false, 0);
         }
 
-        var restaurants = await restaurantApiService.BrowseAllAsync(cancellationToken: cancellationToken);
-        var items = new List<RestaurantAssignmentPanelItem>(restaurants.Count);
-
-        foreach (var restaurant in restaurants)
+        try
         {
-            IReadOnlyCollection<RestaurantAdminAssignmentDto> assignments;
+            var restaurants = await restaurantApiService.SearchAdminRestaurantsAsync(
+                new AdminRestaurantSearchQuery { Page = 1, PageSize = 1, Status = AdminRestaurantCatalogStatus.All },
+                cancellationToken);
+            return (true, restaurants.TotalCount);
+        }
+        catch (BackendApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return (false, 0);
+        }
+    }
 
+    private async Task<AdminRestaurantsViewModel> BuildRestaurantCatalogViewModelAsync(
+        string? q,
+        AdminRestaurantCatalogStatus? status,
+        AdminRestaurantCatalogSource? source,
+        int page,
+        Guid? editRestaurantId,
+        RestaurantImportPreviewDto? importPreview,
+        RestaurantImportPreviewForm? importForm,
+        CancellationToken cancellationToken)
+    {
+        var currentPage = Math.Max(1, page);
+        var restaurants = await restaurantApiService.SearchAdminRestaurantsAsync(
+            new AdminRestaurantSearchQuery
+            {
+                Q = string.IsNullOrWhiteSpace(q) ? null : q.Trim(),
+                Status = status ?? AdminRestaurantCatalogStatus.All,
+                Source = source ?? AdminRestaurantCatalogSource.All,
+                Page = currentPage,
+                PageSize = AdminRestaurantsViewModel.PageSize,
+            },
+            cancellationToken);
+        var assignmentsByRestaurantId = new Dictionary<Guid, IReadOnlyCollection<RestaurantAdminAssignmentDto>>();
+
+        foreach (var restaurant in restaurants.Items)
+        {
             try
             {
-                assignments = await restaurantApiService.ListAdminAssignmentsAsync(restaurant.RestaurantId, cancellationToken);
+                assignmentsByRestaurantId[restaurant.RestaurantId] =
+                    await restaurantApiService.ListAdminAssignmentsAsync(restaurant.RestaurantId, cancellationToken);
             }
             catch (BackendApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
-                return (false, []);
+                assignmentsByRestaurantId[restaurant.RestaurantId] = [];
             }
-
-            items.Add(new RestaurantAssignmentPanelItem
-            {
-                Restaurant = restaurant,
-                Assignments = assignments,
-            });
         }
 
-        return (true, items);
-    }
-
-    private async Task<AdminRestaurantsViewModel> BuildRestaurantCatalogViewModelAsync(CancellationToken cancellationToken)
-    {
-        var restaurants = await restaurantApiService.ListAdminRestaurantsAsync(cancellationToken);
         var suggestedCuisineTags = CuisineData.AvailableCuisineTags
             .Append("Other")
-            .Concat(restaurants.SelectMany(item => item.CuisineTags))
+            .Concat(restaurants.Items.SelectMany(item => item.CuisineTags))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return new AdminRestaurantsViewModel
         {
-            Restaurants = restaurants.Select(restaurant => new AdminRestaurantCatalogItemViewModel
+            Restaurants = restaurants.Items.Select(restaurant => new AdminRestaurantCatalogItemViewModel
             {
                 Restaurant = restaurant,
                 Form = AdminRestaurantCatalogForm.FromDto(restaurant),
             }).ToArray(),
+            AssignmentsByRestaurantId = assignmentsByRestaurantId,
             SuggestedCuisineTags = suggestedCuisineTags,
+            Q = q,
+            FilterStatus = status ?? AdminRestaurantCatalogStatus.All,
+            FilterSource = source ?? AdminRestaurantCatalogSource.All,
+            CurrentPage = currentPage,
+            TotalCount = restaurants.TotalCount,
+            EditRestaurantId = editRestaurantId,
+            ImportPreview = importPreview,
+            ImportForm = importForm ?? new RestaurantImportPreviewForm(),
         };
     }
 

@@ -11,6 +11,8 @@ public sealed class BrowseRestaurantsQuery
 
     public PriceTier? PriceTier { get; init; }
 
+    public bool HasDiscountSlots { get; init; }
+
     [RegularExpression("^[0-9]{5}$")]
     public string? ZipCode { get; init; }
 

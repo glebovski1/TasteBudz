@@ -31,6 +31,31 @@ public sealed class InMemoryRestaurantRepository(InMemoryTasteBudzStore store) :
         }
     }
 
+    public Task<IReadOnlyCollection<Guid>> ListRestaurantIdsWithDiscountSlotsAsync(
+        DateTimeOffset startsAtFromUtc,
+        DateTimeOffset startsAtToUtc,
+        CancellationToken cancellationToken = default)
+    {
+        lock (store.SyncRoot)
+        {
+            var reservedSlotIds = store.EventSlotReservations.Values
+                .Where(reservation => reservation.Status == EventSlotReservationStatus.Active)
+                .Select(reservation => reservation.SlotId)
+                .ToHashSet();
+            var restaurantIds = store.RestaurantSlots.Values
+                .Where(slot => slot.Status == RestaurantSlotStatus.Open)
+                .Where(slot => slot.StartsAtUtc >= startsAtFromUtc && slot.StartsAtUtc <= startsAtToUtc)
+                .Where(slot => slot.CutoffAtUtc >= startsAtFromUtc)
+                .Where(slot => slot.MinThresholdForDiscount.HasValue && slot.DiscountPercent.HasValue)
+                .Where(slot => !reservedSlotIds.Contains(slot.Id))
+                .Select(slot => slot.RestaurantId)
+                .Distinct()
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyCollection<Guid>>(restaurantIds);
+        }
+    }
+
     public Task SaveAsync(Restaurant restaurant, CancellationToken cancellationToken = default)
     {
         lock (store.SyncRoot)

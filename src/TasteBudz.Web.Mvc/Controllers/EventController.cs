@@ -710,6 +710,7 @@ public sealed class EventController : Controller
         string? q,
         string? cuisine,
         PriceTier? priceTier,
+        bool discountSlotsOnly = false,
         int page = 1,
         CancellationToken cancellationToken = default)
     {
@@ -720,6 +721,7 @@ public sealed class EventController : Controller
                 cuisine,
                 priceTier,
                 page,
+                discountSlotsOnly,
                 includeNextMonthDiscountSlots: true,
                 cancellationToken);
 
@@ -834,6 +836,7 @@ public sealed class EventController : Controller
                 cuisine: null,
                 priceTier: null,
                 page: 1,
+                discountSlotsOnly: false,
                 includeNextMonthDiscountSlots: false,
                 cancellationToken);
 
@@ -1107,6 +1110,7 @@ public sealed class EventController : Controller
         string? cuisine,
         PriceTier? priceTier,
         int page,
+        bool discountSlotsOnly,
         bool includeNextMonthDiscountSlots,
         CancellationToken cancellationToken)
     {
@@ -1117,6 +1121,7 @@ public sealed class EventController : Controller
                 Q = Normalize(q),
                 Cuisine = Normalize(cuisine),
                 PriceTier = priceTier,
+                HasDiscountSlots = discountSlotsOnly,
                 Page = currentPage,
                 PageSize = EventCreateViewModel.RestaurantPickerPageSize,
             },

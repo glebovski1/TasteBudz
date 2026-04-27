@@ -76,9 +76,31 @@ public sealed class RestaurantApiService
             "/api/v1/restaurants/import",
             cancellationToken: cancellationToken);
 
+    public Task<RestaurantImportPreviewDto> PreviewImportFromOverpassAsync(
+        RestaurantImportPreviewQuery query,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<RestaurantImportPreviewDto>(
+            BuildImportPreviewPath(query),
+            cancellationToken);
+
+    public Task<ImportResultDto> CommitImportFromOverpassAsync(
+        CommitRestaurantImportRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CommitRestaurantImportRequest, ImportResultDto>(
+            "/api/v1/restaurants/import/commit",
+            request,
+            cancellationToken: cancellationToken);
+
     public Task<IReadOnlyCollection<AdminRestaurantCatalogItemDto>> ListAdminRestaurantsAsync(CancellationToken cancellationToken = default) =>
         backendHttpClient.GetAsync<IReadOnlyCollection<AdminRestaurantCatalogItemDto>>(
             "/api/v1/admin/restaurants",
+            cancellationToken);
+
+    public Task<ListResponse<AdminRestaurantCatalogItemDto>> SearchAdminRestaurantsAsync(
+        AdminRestaurantSearchQuery query,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<ListResponse<AdminRestaurantCatalogItemDto>>(
+            BuildAdminRestaurantSearchPath(query),
             cancellationToken);
 
     public Task<AdminRestaurantCatalogItemDto> CreateAdminRestaurantAsync(
@@ -181,6 +203,8 @@ public sealed class RestaurantApiService
             builder.Add("cuisine", query.Cuisine);
         if (query.PriceTier.HasValue)
             builder.Add("priceTier", query.PriceTier.Value.ToString());
+        if (query.HasDiscountSlots)
+            builder.Add("hasDiscountSlots", "true");
         if (!string.IsNullOrWhiteSpace(query.ZipCode))
             builder.Add("zipCode", query.ZipCode);
         if (query.RadiusMiles.HasValue)
@@ -211,12 +235,52 @@ public sealed class RestaurantApiService
         return $"/api/v1/restaurants/suggestions{builder.ToQueryString()}";
     }
 
+    private static string BuildAdminRestaurantSearchPath(AdminRestaurantSearchQuery query)
+    {
+        var builder = new QueryBuilder();
+
+        if (!string.IsNullOrWhiteSpace(query.Q))
+            builder.Add("q", query.Q);
+        if (query.Status.HasValue)
+            builder.Add("status", query.Status.Value.ToString());
+        if (query.Source.HasValue)
+            builder.Add("source", query.Source.Value.ToString());
+
+        builder.Add("page", query.Page.ToString(CultureInfo.InvariantCulture));
+        builder.Add("pageSize", query.PageSize.ToString(CultureInfo.InvariantCulture));
+
+        return $"/api/v1/admin/restaurants/search{builder.ToQueryString()}";
+    }
+
+    private static string BuildImportPreviewPath(RestaurantImportPreviewQuery query)
+    {
+        var builder = new QueryBuilder();
+
+        if (!string.IsNullOrWhiteSpace(query.Preset))
+            builder.Add("preset", query.Preset);
+        if (!string.IsNullOrWhiteSpace(query.ZipCode))
+            builder.Add("zipCode", query.ZipCode);
+        if (query.RadiusMiles.HasValue)
+            builder.Add("radiusMiles", query.RadiusMiles.Value.ToString(CultureInfo.InvariantCulture));
+        if (query.South.HasValue)
+            builder.Add("south", query.South.Value.ToString(CultureInfo.InvariantCulture));
+        if (query.West.HasValue)
+            builder.Add("west", query.West.Value.ToString(CultureInfo.InvariantCulture));
+        if (query.North.HasValue)
+            builder.Add("north", query.North.Value.ToString(CultureInfo.InvariantCulture));
+        if (query.East.HasValue)
+            builder.Add("east", query.East.Value.ToString(CultureInfo.InvariantCulture));
+
+        return $"/api/v1/restaurants/import/preview{builder.ToQueryString()}";
+    }
+
     private static BrowseRestaurantsQuery CloneBrowseQuery(BrowseRestaurantsQuery query, int page, int pageSize) =>
         new()
         {
             Q = query.Q,
             Cuisine = query.Cuisine,
             PriceTier = query.PriceTier,
+            HasDiscountSlots = query.HasDiscountSlots,
             ZipCode = query.ZipCode,
             RadiusMiles = query.RadiusMiles,
             Page = page,

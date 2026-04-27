@@ -176,12 +176,10 @@ public sealed class AdminMvcTests
     }
 
     [Fact]
-    public async Task AdminIndex_LoadsRestaurantAssignmentsBeyondTheFirstCatalogPage()
+    public async Task AdminIndex_RendersRestaurantCatalogSummaryWithoutLoadingAssignments()
     {
         using var factory = new TasteBudzMvcFactory();
         using var client = MvcTestHelpers.CreateClient(factory);
-        var firstRestaurantId = Guid.NewGuid();
-        var secondRestaurantId = Guid.NewGuid();
 
         await MvcTestHelpers.LoginThroughUiAsync(
             client,
@@ -198,34 +196,10 @@ public sealed class AdminMvcTests
                 new ListResponse<ModerationReportDto>(Array.Empty<ModerationReportDto>(), 0)));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
-            "/api/v1/restaurants?page=1&pageSize=2000",
+            "/api/v1/admin/restaurants/search?status=All&page=1&pageSize=1",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new ListResponse<RestaurantDto>(
-                    new[]
-                    {
-                        new RestaurantDto(firstRestaurantId, "First Page Ramen", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, null),
-                    },
-                    2)));
-        factory.BackendHandler.Enqueue(
-            HttpMethod.Get,
-            "/api/v1/restaurants?page=2&pageSize=2000",
-            (_, _) => StubBackendApiHandler.Json(
-                HttpStatusCode.OK,
-                new ListResponse<RestaurantDto>(
-                    new[]
-                    {
-                        new RestaurantDto(secondRestaurantId, "Second Page Sushi", "Cincinnati", "OH", "45220", PriceTier.Three, new[] { "Sushi" }, 39.13, -84.5, null, null),
-                    },
-                    2)));
-        factory.BackendHandler.Enqueue(
-            HttpMethod.Get,
-            $"/api/v1/admin/restaurants/{firstRestaurantId}/admin-assignments",
-            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantAdminAssignmentDto>()));
-        factory.BackendHandler.Enqueue(
-            HttpMethod.Get,
-            $"/api/v1/admin/restaurants/{secondRestaurantId}/admin-assignments",
-            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantAdminAssignmentDto>()));
+                new ListResponse<AdminRestaurantCatalogItemDto>(Array.Empty<AdminRestaurantCatalogItemDto>(), 1001)));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/admin/users/password-reset-requests",
@@ -235,8 +209,9 @@ public sealed class AdminMvcTests
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("First Page Ramen", html);
-        Assert.Contains("Second Page Sushi", html);
+        Assert.Contains("1001 restaurant catalog entries", html);
+        Assert.Contains("Open Restaurant Catalog", html);
+        Assert.DoesNotContain("admin-assignments", string.Join('\n', factory.BackendHandler.Requests.Select(request => request.PathAndQuery)));
         factory.BackendHandler.AssertDrained();
     }
 
@@ -321,10 +296,10 @@ public sealed class AdminMvcTests
                 new ListResponse<ModerationReportDto>(Array.Empty<ModerationReportDto>(), 0)));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
-            "/api/v1/restaurants?page=1&pageSize=2000",
+            "/api/v1/admin/restaurants/search?status=All&page=1&pageSize=1",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
-                new ListResponse<RestaurantDto>(Array.Empty<RestaurantDto>(), 0)));
+                new ListResponse<AdminRestaurantCatalogItemDto>(Array.Empty<AdminRestaurantCatalogItemDto>(), 0)));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
             "/api/v1/admin/users/password-reset-requests",

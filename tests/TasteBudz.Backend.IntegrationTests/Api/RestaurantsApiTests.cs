@@ -4,9 +4,11 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using TasteBudz.Backend.Controllers;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.IntegrationTests.Shared;
+using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Restaurants;
 
@@ -92,6 +94,183 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Riverfront Grill", restaurant.Name);
+    }
+
+    [Fact]
+    public async Task Browse_WithHasDiscountSlots_ReturnsOnlyOpenUnreservedDiscountedRestaurants()
+    {
+        factory.ResetState();
+        using var client = factory.CreateClient();
+        var makiId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var riverfrontId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var openDiscountSlotId = Guid.NewGuid();
+        var reservedDiscountSlotId = Guid.NewGuid();
+        var reservedEventId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        var host = await ApiTestHelpers.RegisterAsync(client, username: "slot-host", email: "slot-host@example.com");
+        ApiTestHelpers.SetBearer(client, host.AccessToken);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var eventRepository = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+            var operationsRepository = scope.ServiceProvider.GetRequiredService<IRestaurantOperationsRepository>();
+
+            await operationsRepository.SaveSlotAsync(new RestaurantSlot(
+                openDiscountSlotId,
+                makiId,
+                now.AddDays(7),
+                now.AddDays(7).AddHours(2),
+                4,
+                now.AddDays(6),
+                2,
+                15,
+                RestaurantSlotStatus.Open,
+                now,
+                now,
+                null,
+                null));
+            await operationsRepository.SaveSlotAsync(new RestaurantSlot(
+                reservedDiscountSlotId,
+                riverfrontId,
+                now.AddDays(8),
+                now.AddDays(8).AddHours(2),
+                4,
+                now.AddDays(7),
+                2,
+                20,
+                RestaurantSlotStatus.Open,
+                now,
+                now,
+                null,
+                null));
+            await eventRepository.SaveAsync(new Event(
+                reservedEventId,
+                host.CurrentUser.UserId,
+                "Reserved slot dinner",
+                EventType.Open,
+                EventStatus.Open,
+                now.AddDays(8).AddHours(1),
+                now.AddDays(7),
+                4,
+                2,
+                riverfrontId,
+                null,
+                null,
+                null,
+                now,
+                now,
+                null,
+                null));
+            await operationsRepository.SaveReservationAsync(new EventSlotReservation(
+                Guid.NewGuid(),
+                reservedEventId,
+                reservedDiscountSlotId,
+                EventSlotReservationStatus.Active,
+                now,
+                null,
+                null));
+        }
+
+        var response = await client.GetAsync("/api/v1/restaurants?hasDiscountSlots=true&page=1&pageSize=10");
+        var browse = await response.Content.ReadFromJsonAsync<ListResponse<RestaurantDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(browse!.Items, restaurant => restaurant.RestaurantId == makiId);
+        Assert.DoesNotContain(browse.Items, restaurant => restaurant.RestaurantId == riverfrontId);
+    }
+
+    [Fact]
+    public async Task ImportPreviewAndCommit_DedupeAndImportOnlySelectedCandidates()
+    {
+        using var baseFactory = new TasteBudzApiFactory();
+        baseFactory.ResetState();
+        using var overpassFactory = baseFactory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddHttpClient("Overpass")
+                    .ConfigurePrimaryHttpMessageHandler(() => new StubOverpassHandler(OverpassPreviewPayload));
+            });
+        });
+        using var client = overpassFactory.CreateClient();
+
+        var admin = await ApiTestHelpers.RegisterAsync(client, username: "admin-import", email: "admin-import@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(overpassFactory.Services, admin.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(client, admin.AccessToken);
+
+        using (var scope = overpassFactory.Services.CreateScope())
+        {
+            var restaurantRepository = scope.ServiceProvider.GetRequiredService<IRestaurantRepository>();
+            await restaurantRepository.SaveAsync(new Restaurant(
+                Guid.NewGuid(),
+                "Legacy Id Cafe",
+                "Cincinnati",
+                "OH",
+                "45202",
+                39.1068,
+                -84.5121,
+                PriceTier.Two,
+                new[] { "American" },
+                "osm:777",
+                "100 Main St"));
+            await restaurantRepository.SaveAsync(new Restaurant(
+                Guid.NewGuid(),
+                "Address Twin",
+                "Cincinnati",
+                "OH",
+                "45202",
+                39.107,
+                -84.5122,
+                PriceTier.Two,
+                new[] { "American" },
+                null,
+                "200 Main St"));
+        }
+
+        var previewResponse = await client.GetAsync("/api/v1/restaurants/import/preview?preset=cincinnati&zipCode=45202&radiusMiles=25");
+        var preview = await previewResponse.Content.ReadFromJsonAsync<RestaurantImportPreviewDto>(ApiTestHelpers.JsonOptions);
+
+        var commitResponse = await client.PostAsJsonAsync(
+            "/api/v1/restaurants/import/commit",
+            new CommitRestaurantImportRequest
+            {
+                Preset = "cincinnati",
+                ZipCode = "45202",
+                RadiusMiles = 25,
+                SelectedExternalPlaceIds = new[] { "osm:node:1001" },
+            },
+            ApiTestHelpers.JsonOptions);
+        var commit = await commitResponse.Content.ReadFromJsonAsync<ImportRestaurantsResultDto>(ApiTestHelpers.JsonOptions);
+
+        var repeatResponse = await client.PostAsJsonAsync(
+            "/api/v1/restaurants/import/commit",
+            new CommitRestaurantImportRequest
+            {
+                Preset = "cincinnati",
+                ZipCode = "45202",
+                RadiusMiles = 25,
+                SelectedExternalPlaceIds = new[] { "osm:node:1001" },
+            },
+            ApiTestHelpers.JsonOptions);
+        var repeat = await repeatResponse.Content.ReadFromJsonAsync<ImportRestaurantsResultDto>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
+        Assert.Equal(4, preview!.CandidateCount);
+        Assert.Equal(1, preview.ImportableCount);
+        Assert.Equal(3, preview.DuplicateCount);
+        Assert.Contains(preview.Candidates, candidate => candidate.ExternalPlaceId == "osm:node:777" && candidate.IsDuplicate);
+        Assert.Contains(preview.Candidates, candidate => candidate.Name == "Address Twin" && candidate.IsDuplicate);
+        Assert.Contains(preview.Candidates, candidate => candidate.Name == "Maki Social" && candidate.IsDuplicate);
+        Assert.Contains(preview.Candidates, candidate => candidate.Name == "Preview Pho" && !candidate.IsDuplicate);
+
+        Assert.Equal(HttpStatusCode.OK, commitResponse.StatusCode);
+        Assert.Equal(1, commit!.Inserted);
+        Assert.Equal(0, commit.Skipped);
+
+        Assert.Equal(HttpStatusCode.OK, repeatResponse.StatusCode);
+        Assert.Equal(0, repeat!.Inserted);
+        Assert.Equal(1, repeat.Skipped);
     }
 
     [Fact]
@@ -228,5 +407,83 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
 
             return Task.FromResult(results.Dequeue());
         }
+    }
+
+    private const string OverpassPreviewPayload = """
+        {
+          "elements": [
+            {
+              "type": "node",
+              "id": 777,
+              "lat": 39.1068,
+              "lon": -84.5121,
+              "tags": {
+                "amenity": "restaurant",
+                "name": "Legacy Id Cafe",
+                "addr:housenumber": "100",
+                "addr:street": "Main St",
+                "addr:city": "Cincinnati",
+                "addr:state": "OH",
+                "addr:postcode": "45202",
+                "cuisine": "american"
+              }
+            },
+            {
+              "type": "node",
+              "id": 778,
+              "lat": 39.107,
+              "lon": -84.5122,
+              "tags": {
+                "amenity": "restaurant",
+                "name": "Address Twin",
+                "addr:housenumber": "200",
+                "addr:street": "Main St",
+                "addr:city": "Cincinnati",
+                "addr:state": "OH",
+                "addr:postcode": "45202",
+                "cuisine": "american"
+              }
+            },
+            {
+              "type": "node",
+              "id": 779,
+              "lat": 39.1276,
+              "lon": -84.5201,
+              "tags": {
+                "amenity": "restaurant",
+                "name": "Maki Social",
+                "addr:city": "Cincinnati",
+                "addr:state": "OH",
+                "addr:postcode": "45220",
+                "cuisine": "sushi"
+              }
+            },
+            {
+              "type": "node",
+              "id": 1001,
+              "lat": 39.108,
+              "lon": -84.511,
+              "tags": {
+                "amenity": "restaurant",
+                "name": "Preview Pho",
+                "addr:housenumber": "300",
+                "addr:street": "Main St",
+                "addr:city": "Cincinnati",
+                "addr:state": "OH",
+                "addr:postcode": "45202",
+                "cuisine": "pho"
+              }
+            }
+          ]
+        }
+        """;
+
+    private sealed class StubOverpassHandler(string payload) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload),
+            });
     }
 }

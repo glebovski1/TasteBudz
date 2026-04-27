@@ -2,19 +2,24 @@
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Infrastructure.Time;
 
 namespace TasteBudz.Backend.Modules.Restaurants;
 
 /// <summary>
 /// Builds the restaurant browse response from the configured restaurant repository.
 /// </summary>
-public sealed class RestaurantSearchService(IRestaurantRepository restaurantRepository)
+public sealed class RestaurantSearchService(IRestaurantRepository restaurantRepository, IClock clock)
 {
     public async Task<ListResponse<RestaurantDto>> BrowseAsync(BrowseRestaurantsQuery query, CancellationToken cancellationToken = default)
     {
         var restaurants = await restaurantRepository.ListAsync(cancellationToken: cancellationToken);
         var referencePoint = await ResolveReferencePointAsync(query.ZipCode, cancellationToken);
-        var filtered = ApplyFilters(restaurants, query.Q, query.Cuisine, query.PriceTier, referencePoint, query.RadiusMiles)
+        var now = clock.UtcNow;
+        var discountRestaurantIds = query.HasDiscountSlots
+            ? (await restaurantRepository.ListRestaurantIdsWithDiscountSlotsAsync(now, now.AddDays(30), cancellationToken)).ToHashSet()
+            : null;
+        var filtered = ApplyFilters(restaurants, query.Q, query.Cuisine, query.PriceTier, referencePoint, query.RadiusMiles, discountRestaurantIds)
             .Select(restaurant => ToDto(restaurant, referencePoint))
             .OrderBy(restaurant => restaurant.DistanceMiles ?? double.MaxValue)
             .ThenBy(restaurant => restaurant.Name, StringComparer.OrdinalIgnoreCase)
@@ -52,9 +57,15 @@ public sealed class RestaurantSearchService(IRestaurantRepository restaurantRepo
         string? cuisine,
         PriceTier? priceTier,
         (double Latitude, double Longitude)? referencePoint,
-        double? radiusMiles)
+        double? radiusMiles,
+        IReadOnlySet<Guid>? discountRestaurantIds = null)
     {
         var result = restaurants;
+
+        if (discountRestaurantIds is not null)
+        {
+            result = result.Where(restaurant => discountRestaurantIds.Contains(restaurant.Id));
+        }
 
         if (!string.IsNullOrWhiteSpace(query))
         {

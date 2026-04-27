@@ -21,7 +21,7 @@ public sealed class RestaurantApiServiceTests
 
         context.BackendHandler.Enqueue(
             HttpMethod.Get,
-            "/api/v1/restaurants?q=ramen&cuisine=Japanese&priceTier=Three&zipCode=45220&radiusMiles=5.5&page=2&pageSize=15",
+            "/api/v1/restaurants?q=ramen&cuisine=Japanese&priceTier=Three&hasDiscountSlots=true&zipCode=45220&radiusMiles=5.5&page=2&pageSize=15",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
                 new ListResponse<RestaurantDto>(
@@ -51,6 +51,7 @@ public sealed class RestaurantApiServiceTests
             Q = "ramen",
             Cuisine = "Japanese",
             PriceTier = PriceTier.Three,
+            HasDiscountSlots = true,
             ZipCode = "45220",
             RadiusMiles = 5.5,
             Page = 2,
@@ -111,6 +112,58 @@ public sealed class RestaurantApiServiceTests
     }
 
     [Fact]
+    public async Task ImportPreviewAndCommit_SendExpectedRoutes()
+    {
+        var context = new BackendApiServiceTestContext();
+        await context.SignInAsync();
+        var service = context.CreateService(client => new RestaurantApiService(client));
+
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants/import/preview?preset=cincinnati&zipCode=45202&radiusMiles=10&south=39&west=-85&north=40&east=-84",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new RestaurantImportPreviewDto(
+                    new RestaurantImportGeographyDto("Manual bounds", 39, -85, 40, -84, null, null, null),
+                    Array.Empty<RestaurantImportCandidateDto>(),
+                    0,
+                    0,
+                    0)));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Post,
+            "/api/v1/restaurants/import/commit",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ImportResultDto(1, "Import complete. 1 new restaurants added. 0 skipped.", 0)));
+
+        var preview = await service.PreviewImportFromOverpassAsync(new RestaurantImportPreviewQuery
+        {
+            Preset = "cincinnati",
+            ZipCode = "45202",
+            RadiusMiles = 10,
+            South = 39,
+            West = -85,
+            North = 40,
+            East = -84,
+        });
+        var commit = await service.CommitImportFromOverpassAsync(new CommitRestaurantImportRequest
+        {
+            Preset = "cincinnati",
+            ZipCode = "45202",
+            RadiusMiles = 10,
+            SelectedExternalPlaceIds = new[] { "osm:node:1001" },
+        });
+
+        Assert.Equal("Manual bounds", preview.Geography.Label);
+        Assert.Equal(1, commit.Inserted);
+        Assert.Contains(
+            "\"selectedExternalPlaceIds\":[\"osm:node:1001\"]",
+            context.BackendHandler.Requests.Single(request => request.PathAndQuery == "/api/v1/restaurants/import/commit").Body);
+        Assert.All(context.BackendHandler.Requests, request => Assert.Equal("access-token", request.AuthorizationParameter));
+        context.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task ImportFromOverpassAsync_SendsExpectedRoute()
     {
         var context = new BackendApiServiceTestContext();
@@ -159,6 +212,12 @@ public sealed class RestaurantApiServiceTests
             HttpMethod.Get,
             "/api/v1/admin/restaurants",
             (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, new[] { adminRestaurant }));
+        context.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/admin/restaurants/search?q=ramen&status=Active&source=OpenStreetMap&page=2&pageSize=25",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<AdminRestaurantCatalogItemDto>(new[] { adminRestaurant }, 1)));
         context.BackendHandler.Enqueue(
             HttpMethod.Post,
             "/api/v1/admin/restaurants",
@@ -225,6 +284,14 @@ public sealed class RestaurantApiServiceTests
             (_, _) => new HttpResponseMessage(HttpStatusCode.NoContent));
 
         await service.ListAdminRestaurantsAsync();
+        await service.SearchAdminRestaurantsAsync(new AdminRestaurantSearchQuery
+        {
+            Q = "ramen",
+            Status = AdminRestaurantCatalogStatus.Active,
+            Source = AdminRestaurantCatalogSource.OpenStreetMap,
+            Page = 2,
+            PageSize = 25,
+        });
         await service.CreateAdminRestaurantAsync(new SaveRestaurantCatalogRequest
         {
             Name = "Ramen House",

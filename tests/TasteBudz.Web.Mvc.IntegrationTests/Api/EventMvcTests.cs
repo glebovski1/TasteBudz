@@ -86,6 +86,8 @@ public sealed class EventMvcTests
         Assert.Contains("restaurantPickerList", html);
         Assert.Contains("restaurantPickerMap", html);
         Assert.Contains("selectedSlotId", html);
+        Assert.Contains("filterDiscountSlots", html);
+        Assert.Contains("Discount slots only", html);
         Assert.Contains("browserTimeZoneOffsetMinutes", html);
         Assert.DoesNotContain($"/api/v1/restaurants/{restaurantId}/slots", string.Join('\n', factory.BackendHandler.Requests.Select(request => request.PathAndQuery)));
         factory.BackendHandler.AssertDrained();
@@ -180,6 +182,49 @@ public sealed class EventMvcTests
         Assert.Contains("15% at 2 guests", json);
         Assert.DoesNotContain(nonDiscountedSlotId.ToString(), json);
         Assert.DoesNotContain(laterDiscountSlotId.ToString(), json);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task RestaurantPickerPage_WithDiscountSlotsOnly_ForwardsBackendFilter()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var restaurantId = Guid.NewGuid();
+        var discountedSlotId = Guid.NewGuid();
+        var nextMonthSlotStart = DateTimeOffset.UtcNow.AddDays(10);
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/restaurants?hasDiscountSlots=true&page=1&pageSize=8",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<RestaurantDto>(
+                    new[]
+                    {
+                        new RestaurantDto(restaurantId, "Discount Ramen", "Cincinnati", "OH", "45220", PriceTier.Two, new[] { "Japanese" }, 39.14, -84.51, null, 1.2),
+                    },
+                    1)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/restaurants/{restaurantId}/slots",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new RestaurantSlotDto(discountedSlotId, restaurantId, nextMonthSlotStart, nextMonthSlotStart.AddHours(2), 4, nextMonthSlotStart.AddHours(-1), 3, 10, RestaurantSlotStatus.Open, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null),
+                }));
+
+        using var response = await client.GetAsync("/Event/RestaurantPickerPage?discountSlotsOnly=true&page=1");
+        var json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Discount Ramen", json);
+        Assert.Contains(discountedSlotId.ToString(), json);
+        Assert.Contains("10% at 3 guests", json);
         factory.BackendHandler.AssertDrained();
     }
 

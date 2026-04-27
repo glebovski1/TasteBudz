@@ -46,6 +46,33 @@ public sealed class SqliteRestaurantRepository(TasteBudzDbContext dbContext) : I
         return MapRestaurant(restaurant, cuisineLinks.Select(link => cuisines[link.CuisineId].Name));
     }
 
+    public async Task<IReadOnlyCollection<Guid>> ListRestaurantIdsWithDiscountSlotsAsync(
+        DateTimeOffset startsAtFromUtc,
+        DateTimeOffset startsAtToUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var reservedSlotIds = await dbContext.EventSlotReservations
+            .AsNoTracking()
+            .Where(reservation => reservation.Status == EventSlotReservationStatus.Active)
+            .Select(reservation => reservation.SlotId)
+            .ToListAsync(cancellationToken);
+
+        var reservedSlotIdSet = reservedSlotIds.ToHashSet();
+        var discountSlots = await dbContext.RestaurantSlots
+            .AsNoTracking()
+            .Where(slot => slot.Status == RestaurantSlotStatus.Open)
+            .Where(slot => slot.MinThresholdForDiscount != null && slot.DiscountPercent != null)
+            .ToListAsync(cancellationToken);
+
+        return discountSlots
+            .Where(slot => slot.StartsAtUtc >= startsAtFromUtc && slot.StartsAtUtc <= startsAtToUtc)
+            .Where(slot => slot.CutoffAtUtc >= startsAtFromUtc)
+            .Where(slot => !reservedSlotIdSet.Contains(slot.Id))
+            .Select(slot => slot.RestaurantId)
+            .Distinct()
+            .ToArray();
+    }
+
     public async Task SaveAsync(Restaurant restaurant, CancellationToken cancellationToken = default)
     {
         var entity = await dbContext.Restaurants.FirstOrDefaultAsync(item => item.Id == restaurant.Id, cancellationToken);

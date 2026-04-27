@@ -113,23 +113,14 @@
             }
         </section>
 
-        <!-- Restaurant Data -->
         <section class="admin-section">
             <div class="admin-section__header">
                 <h2 class="admin-section__title">Restaurant Catalog</h2>
             </div>
             <p class="muted-note" style="margin-bottom:0.75rem;">
-                Import restaurant data from OpenStreetMap into the local catalog.
-                This is safe to run more than once; existing OpenStreetMap records are skipped.
+                Use the paginated catalog page to preview OpenStreetMap candidates, import selected restaurants, and avoid duplicates.
             </p>
-            <form asp-action="ImportRestaurants" method="post" style="display:inline;">
-                @Html.AntiForgeryToken()
-                <button type="submit"
-                        class="button button--primary"
-                        onclick="return confirm('Run restaurant import from OpenStreetMap? This may take a minute.')">
-                    Import Restaurants from OpenStreetMap
-                </button>
-            </form>
+            <a asp-action="Restaurants" class="button button--primary">Open Restaurant Catalog</a>
         </section>
 
         <section class="admin-section">
@@ -141,65 +132,14 @@
             {
                 <p class="muted-note">Restaurant operations are not enabled.</p>
             }
-            else if (!Model.RestaurantAssignments.Any())
-            {
-                <p class="muted-note">No restaurants are available for assignment.</p>
-            }
             else
             {
-                <div class="report-list">
-                    @foreach (var item in Model.RestaurantAssignments)
-                    {
-                        <article class="report-card card">
-                            <div class="report-card__header">
-                                <div>
-                                    <strong>@item.Restaurant.Name</strong>
-                                    <p class="muted-note">@item.Restaurant.City, @item.Restaurant.State @item.Restaurant.ZipCode</p>
-                                </div>
-                            </div>
-
-                            @if (!item.Assignments.Any())
-                            {
-                                <p class="muted-note">No restaurant admins assigned.</p>
-                            }
-                            else
-                            {
-                                <div class="panel__items">
-                                    @foreach (var assignment in item.Assignments)
-                                    {
-                                        <div class="summary-card member-row">
-                                            <div class="member-row__info">
-                                                <strong>@assignment.Username</strong>
-                                                <span>@assignment.CreatedAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
-                                            </div>
-                                            <form asp-action="RevokeRestaurantAdmin" method="post" style="margin-left:auto;">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
-                                                <input type="hidden" name="userId" value="@assignment.UserId" />
-                                                <button type="submit"
-                                                        class="button button--danger"
-                                                        onclick="return confirm('Revoke this restaurant admin assignment?')">
-                                                    Revoke
-                                                </button>
-                                            </form>
-                                        </div>
-                                    }
-                                </div>
-                            }
-
-                            <form asp-action="AssignRestaurantAdmin" method="post" class="stack" style="margin-top:0.75rem;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="restaurantId" value="@item.Restaurant.RestaurantId" />
-                                <div class="field">
-                                    <label for="assign-@item.Restaurant.RestaurantId">Username</label>
-                                    <input id="assign-@item.Restaurant.RestaurantId" name="username" maxlength="80" placeholder="username" />
-                                </div>
-                                <div class="button-row">
-                                    <button type="submit" class="button button--primary">Assign Admin</button>
-                                </div>
-                            </form>
-                        </article>
-                    }
+                <div class="summary-card">
+                    <strong>@Model.RestaurantCatalogTotalCount restaurant catalog entries</strong>
+                    <p class="muted-note">Use the paginated catalog page to edit restaurants and manage restaurant-admin assignments.</p>
+                    <div class="button-row">
+                        <a asp-action="Restaurants" class="button button--primary">Open Restaurant Catalog</a>
+                    </div>
                 </div>
             }
         </section>

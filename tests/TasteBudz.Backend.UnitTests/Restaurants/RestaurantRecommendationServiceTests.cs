@@ -3,6 +3,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Profiles;
@@ -202,7 +203,7 @@ public sealed class RestaurantRecommendationServiceTests
         var eventRepository = new InMemoryEventRepository(store);
         var groupRepository = new InMemoryGroupRepository(store);
         var profileRepository = new InMemoryProfileRepository(store);
-        var searchService = new RestaurantSearchService(restaurantRepository);
+        var searchService = new RestaurantSearchService(restaurantRepository, new SystemClock());
         return new RestaurantRecommendationService(restaurantRepository, eventRepository, groupRepository, profileRepository, searchService);
     }
 }

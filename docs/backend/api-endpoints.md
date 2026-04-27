@@ -34,6 +34,7 @@ Key DTO families:
 - `RecurringAvailabilityWindowDto` and `OneOffAvailabilityWindowDto`
 - `PasswordResetRequestAcceptedDto` and `PasswordResetRequestDto`
 - `RestaurantDto`
+- `RestaurantImportPreviewDto`, `RestaurantImportCandidateDto`
 - `AdminRestaurantCatalogItemDto`
 - `EventSummaryDto`, `EventDetailDto`, `EventParticipantDto`, `EventFeedbackDto`, `EventFeedbackPhotoDto`
 - `GroupSummaryDto`, `GroupDetailDto`, `GroupInviteDto`
@@ -195,8 +196,11 @@ Multipart avatar upload shape:
 | Browse Restaurants | GET | `/api/v1/restaurants` | Browse/search/filter restaurants | Yes |
 | Get Restaurant Detail | GET | `/api/v1/restaurants/{restaurantId}` | Return restaurant details | Yes |
 | Get Restaurant Suggestions | GET | `/api/v1/restaurants/suggestions` | Return simple suggestion list | Yes |
-| Import Restaurants | POST | `/api/v1/restaurants/import` | Import OpenStreetMap restaurants into the local catalog | Admin |
+| Preview Restaurant Import | GET | `/api/v1/restaurants/import/preview` | Preview geographically scoped OpenStreetMap import candidates with duplicate status | Admin |
+| Commit Restaurant Import | POST | `/api/v1/restaurants/import/commit` | Import selected non-duplicate OpenStreetMap candidates after re-querying Overpass | Admin |
+| Import Restaurants | POST | `/api/v1/restaurants/import` | Internal helper for default OpenStreetMap import flow | Admin |
 | List Restaurant Catalog Entries | GET | `/api/v1/admin/restaurants` | Return all catalog entries, including archived ones | Admin |
+| Search Restaurant Catalog Entries | GET | `/api/v1/admin/restaurants/search` | Return paged/filterable admin catalog entries | Admin |
 | Create Restaurant Catalog Entry | POST | `/api/v1/admin/restaurants` | Create a restaurant and geocode its address into stored coordinates | Admin |
 | Update Restaurant Catalog Entry | PATCH | `/api/v1/admin/restaurants/{restaurantId}` | Update a catalog record and refresh stored coordinates from its address | Admin |
 | Archive Restaurant Catalog Entry | POST | `/api/v1/admin/restaurants/{restaurantId}/archive` | Remove a restaurant from browse/suggestion results without deleting references | Admin |
@@ -204,14 +208,30 @@ Multipart avatar upload shape:
 
 Query parameters:
 
-- browse: `q`, `cuisine`, `priceTier`, `zipCode`, `radiusMiles`, `page`, `pageSize`
+- browse: `q`, `cuisine`, `priceTier`, `hasDiscountSlots`, `zipCode`, `radiusMiles`, `page`, `pageSize`
 - suggestions: `eventId`, `groupId`, `zipCode`, `radiusMiles`, `cuisineTags[]`
+- admin search: `q`, `status=All|Active|Archived`, `source=All|Manual|OpenStreetMap`, `page`, `pageSize`
+- import preview: `preset`, `zipCode`, `radiusMiles`, or manual bounds `south`, `west`, `north`, `east`
+
+Representative import commit request shape:
+
+```json
+{
+  "preset": "cincinnati",
+  "zipCode": "45202",
+  "radiusMiles": 25,
+  "selectedExternalPlaceIds": ["osm:node:123456"]
+}
+```
 
 Contract notes:
 
 - MVP suggestions remain simple and deterministic.
 - Midpoint logic is service behavior, not a separate domain entity.
-- The import endpoint is an admin-only catalog maintenance operation; user-facing restaurant browse/search remains local catalog-backed.
+- `hasDiscountSlots=true` returns restaurants with at least one open, unreserved slot in the next rolling 30 days where `minThresholdForDiscount` and `discountPercent` are both set.
+- Import preview/commit endpoints are admin-only catalog maintenance operations; user-facing restaurant browse/search remains local catalog-backed.
+- Import commit re-runs the same Overpass query, imports only selected external ids, and skips duplicate candidates instead of merging or overwriting existing restaurants.
+- Duplicate import detection checks provider-qualified and legacy OpenStreetMap ids, exact normalized name/address, exact normalized name near matching coordinates, and simplified same-ZIP name matches near matching coordinates.
 - Admin catalog create/update operations geocode the saved address into stored latitude/longitude and may also persist a provider-qualified OpenStreetMap identifier when available.
 - `RestaurantDto` may include optional `streetAddress` alongside existing city/state/ZIP data.
 - Archived restaurants are excluded from browse/suggestion results but may still be returned by direct id lookups where an existing event or admin tool references them.

@@ -66,6 +66,24 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task OldRestaurantSlotsTable_WithInitializationEnabled_AddsDiscountPercentOnStartup()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:InitializeSqliteOnStartup"] = "true",
+            ["Persistence:SeedTestDataOnStartup"] = "false",
+        });
+
+        await CreateOldRestaurantSlotsTableWithoutDiscountPercentAsync(customFactory.ConnectionString);
+
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("DiscountPercent", await ListColumnsAsync(customFactory.ConnectionString, "RestaurantSlots"));
+    }
+
+    [Fact]
     public async Task SeedTestDataOnStartup_WhenEnabled_PopulatesDevelopmentAccounts()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
@@ -194,6 +212,33 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task SeedTestDataOnStartup_WhenDatabaseAlreadyHasSeedUsers_AppliesIncrementalSeedRecords()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+
+        await SqliteDatabaseBootstrapper.RecreateDatabaseAsync(customFactory.ConnectionString);
+        await InsertUserAsync(
+            customFactory.ConnectionString,
+            id: "00000000-0000-0000-0000-000000000101",
+            username: "alex",
+            email: "alex@tastebudz.local");
+
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "UserAccounts") >= 10);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "Events") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "RestaurantSlots", "DiscountPercent IS NOT NULL") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ChatMessages") >= 1);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "ModerationReports", "Status = 0") >= 1);
+    }
+
+    [Fact]
     public async Task SqliteBootstrapper_CreatesEventFeedbackSchema()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
@@ -257,6 +302,32 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
                 EventId TEXT NULL,
                 StorageUrl TEXT NOT NULL,
                 CreatedAtUtc TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task CreateOldRestaurantSlotsTableWithoutDiscountPercentAsync(string connectionString)
+    {
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            CREATE TABLE RestaurantSlots (
+                Id TEXT NOT NULL PRIMARY KEY,
+                RestaurantId TEXT NOT NULL,
+                StartsAtUtc TEXT NOT NULL,
+                EndsAtUtc TEXT NOT NULL,
+                Capacity INTEGER NOT NULL,
+                CutoffAtUtc TEXT NOT NULL,
+                MinThresholdForDiscount INTEGER NULL,
+                Status INTEGER NOT NULL,
+                CreatedAtUtc TEXT NOT NULL,
+                UpdatedAtUtc TEXT NOT NULL,
+                CancelledAtUtc TEXT NULL,
+                CancellationReason TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync();

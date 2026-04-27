@@ -1,5 +1,6 @@
 // Unit tests for the restaurant catalog browse filters.
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
+using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.UnitTests.Restaurants;
@@ -14,7 +15,7 @@ public sealed class RestaurantSearchServiceTests
     {
         var store = new InMemoryTasteBudzStore();
         store.Reset();
-        var service = new RestaurantSearchService(new InMemoryRestaurantRepository(store));
+        var service = new RestaurantSearchService(new InMemoryRestaurantRepository(store), new SystemClock());
 
         var result = await service.BrowseAsync(new BrowseRestaurantsQuery
         {
