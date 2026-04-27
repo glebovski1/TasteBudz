@@ -160,6 +160,39 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task SeedTestDataOnStartup_WhenEnabled_IncludesActiveSlotAndRecommendationSignalDemoEvents()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "EventSlotReservations", "Status = 0") >= 4);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "DiscountActivations", "IsActive = 1") >= 2);
+        Assert.True(await CountRowsAsync(customFactory.ConnectionString, "RestaurantSlots", "Status = 0 AND MinThresholdForDiscount IS NOT NULL AND DiscountPercent IS NOT NULL") >= 5);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN EventSlotReservations r ON e.Id = r.EventId JOIN DiscountActivations d ON r.Id = d.ReservationId JOIN EventParticipants p ON e.Id = p.EventId JOIN RestaurantCuisines rc ON e.SelectedRestaurantId = rc.RestaurantId",
+            "e.Title = 'Sushi Budz Discount Table' AND r.Status = 0 AND d.IsActive = 1 AND d.IsFinalized = 0 AND p.UserId = '00000000-0000-0000-0000-000000000102' AND p.State = 1 AND rc.CuisineId IN ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002')") >= 2);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN RestaurantCuisines rc ON e.SelectedRestaurantId = rc.RestaurantId",
+            "e.Title = 'Sushi Preference Test Table' AND rc.CuisineId IN ('10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002')") >= 2);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN EventParticipants p ON e.Id = p.EventId",
+            "e.Title = 'Brooke Riverfront Grill Meetup' AND e.SelectedRestaurantId = '55555555-5555-5555-5555-555555555555' AND p.UserId = '00000000-0000-0000-0000-000000000102' AND p.State = 1") >= 1);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN EventParticipants p ON e.Id = p.EventId",
+            "e.Title = 'Nearby Campus Noodles Walkup' AND e.SelectedRestaurantId = '44444444-4444-4444-4444-444444444444' AND p.UserId = '00000000-0000-0000-0000-000000000104' AND p.State = 1") >= 1);
+    }
+
+    [Fact]
     public async Task SeedTestDataOnStartup_WhenDisabled_DoesNotPopulateDevelopmentAccounts()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>

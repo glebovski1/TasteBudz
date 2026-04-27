@@ -161,9 +161,9 @@ Not yet implemented from later/feature-flagged API shape:
 Current automated test status as of 2026-04-26 after `dotnet test TasteBudz.sln -c Release --no-build --logger "trx"`:
 
 - 119 backend unit tests
-- 77 backend integration tests
-- 83 MVC integration tests
-- 279 passing solution tests total
+- 82 backend integration tests
+- 89 MVC integration tests
+- 290 passing solution tests total
 
 Current covered areas:
 

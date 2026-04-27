@@ -125,16 +125,19 @@ The current tracked snapshot was rebuilt from:
 
 At the moment, the shared snapshot contains:
 
-- 40 tables
+- 45 tables
 - 13 cuisines
 - 7 ZIP coordinate rows
 - 8 restaurants
-- 6 user accounts
-- 2 groups
-- 3 events
-- 3 chat threads
+- 10 user accounts
+- 8 groups
+- 21 events
+- 8 restaurant slots
+- 4 active event-slot reservations
+- 3 discount activation rows, including 2 active discounts
+- 14 chat threads
 - 4 notifications
-- 1 moderation report
+- 2 moderation reports
 - 1 moderation action
 - 1 active restriction
 - 1 audit log entry
@@ -194,10 +197,14 @@ All seeded scenario accounts use the same password:
 | devon | devon@tastebudz.local | TasteBudz123! | User, Moderator |
 | emery | emery@tastebudz.local | TasteBudz123! | User, Admin |
 | fin | fin@tastebudz.local | TasteBudz123! | User |
+| gina | gina@tastebudz.local | TasteBudz123! | User, RestaurantAdmin |
+| harper | harper@tastebudz.local | TasteBudz123! | User |
+| iris | iris@tastebudz.local | TasteBudz123! | User |
+| jordan | jordan@tastebudz.local | TasteBudz123! | User |
 
 ### User accounts
 
-The current snapshot contains 6 scenario users.
+The current snapshot contains 10 scenario users.
 
 | Username | Display name | Roles | Home ZIP | Social goal | Discovery |
 |---|---|---|---|---|---|
@@ -207,6 +214,10 @@ The current snapshot contains 6 scenario users.
 | devon | Devon Brooks | User, Moderator | 45219 | Networking | Enabled |
 | emery | Emery Stone | User, Admin | 41011 | Networking | Enabled |
 | fin | Fin Carter | User | 45212 | Friends | Disabled |
+| gina | Gina Patel | User, RestaurantAdmin | 45202 | Friends | Enabled |
+| harper | Harper Wells | User | 45208 | Dating | Enabled |
+| iris | Iris Nguyen | User | 45208 | Friends | Enabled |
+| jordan | Jordan Lee | User | 45212 | Networking | Disabled |
 
 ### User preference data
 
@@ -216,6 +227,10 @@ The current snapshot contains 6 scenario users.
 - devon: cuisine `Thai`; spice `Medium`
 - emery: cuisine `American`; spice `Medium`; dietary flag `Gluten-Aware`
 - fin: cuisine `Mexican`; spice `Hot`; allergy `Dairy`
+- gina: cuisines `Tacos`, `Vegetarian`; spice `Medium`
+- harper: cuisine `Mediterranean`; spice `Mild`
+- iris: cuisine `Vietnamese`; spice `Hot`
+- jordan: cuisine `Pizza`; spice `Medium`
 
 ### Availability
 
@@ -259,6 +274,14 @@ Blocks:
   - visibility: Private
   - active members: casey, devon
 
+- Additional local demo groups
+  - Downtown Lunch Crew: public, owner brooke
+  - Northside Vegetarian Nights: public, owner gina
+  - Admin Review Table: private, owner emery
+  - Hyde Park Brunch Budz: public, owner harper
+  - Late Night Pizza Circle: public, owner jordan
+  - Moderator Safety Sandbox: private, owner devon
+
 Group invites:
 
 - Quiet Table: devon invited by casey, status `Accepted`
@@ -294,6 +317,22 @@ Group invites:
   - min participants: 2
   - restaurant: Late Night Pizza Co
   - participants: brooke joined, alex joined, fin left
+
+Additional local demo event coverage:
+
+- Future open, full, confirmed, cancelled, and completed events across Clifton, Downtown, Hyde Park, Pizza, Vegetarian, and Moderator review contexts.
+- Active event-slot reservation examples:
+  - `Sushi Budz Discount Table`: Maki Social, active reserved slot, active 15% discount, visible in Alex quick search because it matches cuisine preferences and has a Bud already joined.
+  - `Hyde Park Brunch Open Table`: Little Saigon Table, active reserved slot, discount not active yet.
+  - `Brooke Riverfront Grill Meetup`: Riverfront Grill, active reserved slot without a discount.
+  - `Full Late Night Pizza Table`: Late Night Pizza Co, active reserved slot and active 10% discount.
+- Recommendation-logic examples for alex:
+  - `Sushi Budz Discount Table`: distance + cuisine preference + Bud signal.
+  - `Sushi Preference Test Table`: distance + cuisine preference signal.
+  - `Brooke Riverfront Grill Meetup`: distance + Bud signal.
+  - `Nearby Campus Noodles Walkup`: distance-only signal.
+- Create-event discount-slot examples:
+  - unreserved next-30-day discounted slots exist for Queen City Curry and Garden Falafel.
 
 ### Chat seed data
 
