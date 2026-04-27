@@ -4707,6 +4707,11 @@ img, video, iframe, table {
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
+.group-public-card--compact {
+    grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
+    min-height: 11rem;
+}
+
 .group-public-card:hover {
     transform: translateY(-3px);
     border-color: rgba(239, 107, 63, 0.2);
@@ -4803,7 +4808,6 @@ img, video, iframe, table {
     align-items: center;
 }
 
-.group-public-card__meta span,
 .group-membership-hint {
     display: inline-flex;
     min-height: 2rem;
@@ -4831,8 +4835,9 @@ img, video, iframe, table {
     justify-content: flex-start;
 }
 
-.group-public-card__actions .button {
+.group-public-card__actions .interest-card__text-action {
     min-width: 6.5rem;
+    text-align: center;
 }
 
 .group-showcase-card {
@@ -5878,7 +5883,7 @@ img, video, iframe, table {
         width: 100%;
     }
 
-    .group-public-card__actions .button {
+    .group-public-card__actions .interest-card__text-action {
         flex: 1 1 9rem;
     }
 

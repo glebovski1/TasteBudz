@@ -212,30 +212,38 @@
                 {
                     @foreach (var item in Model.ActiveGroups)
                     {
-                        <article class="summary-card interest-card interest-card--group">
-                            <div class="interest-card__header">
-                                <div class="interest-card__avatar-shell interest-card__avatar-shell--initial" aria-hidden="true">
-                                    <span class="interest-card__avatar">@item.Initial</span>
-                                </div>
+                        <article class="summary-card interest-card interest-card--group group-public-card group-public-card--compact @item.WallpaperCssClass">
+                            <a asp-controller="Group"
+                               asp-action="Manage"
+                               asp-route-groupId="@item.GroupId"
+                               class="group-public-card__preview"
+                               aria-label="Open @item.Name">
+                                <span class="group-public-card__preview-label">@item.VisibilitySummary</span>
+                            </a>
 
-                                <div class="interest-card__body">
-                                    <div class="interest-card__heading">
-                                        <strong class="interest-card__title">@item.Name</strong>
-                                        <span class="interest-card__subtitle">@item.MembershipLabel</span>
+                            <div class="group-public-card__content">
+                                <div class="group-public-card__topline">
+                                    <div>
+                                        <a asp-controller="Group"
+                                           asp-action="Manage"
+                                           asp-route-groupId="@item.GroupId"
+                                           class="group-public-card__name"
+                                           aria-label="Open @item.Name">
+                                            @item.Name
+                                        </a>
+                                        <p class="group-public-card__desc">@item.SummaryText</p>
                                     </div>
 
-                                    <div class="interest-card__chips">
-                                        <span class="interest-card__chip">@item.VisibilityLabel</span>
-                                        <span class="interest-card__chip interest-card__chip--muted">@item.MembershipLabel</span>
-                                        <span class="interest-card__chip interest-card__chip--accent group-membership-hint">
-                                            @item.MembershipHint
-                                        </span>
-                                    </div>
-
-                                    <p class="interest-card__summary">@item.SummaryText</p>
+                                    <span class="group-membership-hint">@item.MembershipHint</span>
                                 </div>
 
-                                <div class="interest-card__actions interest-card__actions--top">
+                                <div class="group-public-card__meta interest-card__chips">
+                                    <span class="interest-card__chip">@item.VisibilityLabel</span>
+                                    <span class="interest-card__chip interest-card__chip--muted">@item.MembershipLabel</span>
+                                    <span class="interest-card__chip interest-card__chip--accent">@item.AccessLabel</span>
+                                </div>
+
+                                <div class="interest-card__actions group-public-card__actions">
                                     <a asp-controller="Group"
                                        asp-action="Manage"
                                        asp-route-groupId="@item.GroupId"
@@ -245,12 +253,6 @@
                                        asp-route-groupId="@item.GroupId"
                                        class="interest-card__text-action">Chat</a>
                                 </div>
-                            </div>
-
-                            <div class="interest-card__facts">
-                                <span class="interest-card__fact">@item.VisibilityLabel</span>
-                                <span class="interest-card__fact">@item.MembershipLabel</span>
-                                <span class="interest-card__fact">@item.AccessLabel</span>
                             </div>
                         </article>
                     }

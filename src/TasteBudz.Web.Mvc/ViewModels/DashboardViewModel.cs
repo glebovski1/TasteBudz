@@ -60,7 +60,7 @@ public sealed class DashboardViewModel
                     item.IsGroupLinked))
                 .ToArray(),
             ActiveGroups = dto.ActiveGroups
-                .Select(item => new DashboardGroupCardViewModel(item.GroupId, item.Name, item.Description, item.Visibility, item.ActiveMemberCount))
+                .Select(item => new DashboardGroupCardViewModel(item.GroupId, item.Name, item.Description, item.Visibility, item.WallpaperTheme, item.ActiveMemberCount))
                 .ToArray(),
             Budz = dto.Budz
                 .Select(item => new DashboardBudCardViewModel(item.UserId, item.Username, item.DisplayName, item.Bio, item.SocialGoal, item.HomeAreaZipCode, item.AvatarMediaAssetId, item.CuisineTags, item.DietaryFlags, item.ConnectedAtUtc))
@@ -144,6 +144,7 @@ public sealed record DashboardGroupCardViewModel(
     string Name,
     string? Description,
     GroupVisibility Visibility,
+    GroupWallpaperTheme WallpaperTheme,
     int ActiveMemberCount)
 {
     public string Initial => DashboardCardFormatting.GetInitial(Name);
@@ -155,6 +156,10 @@ public sealed record DashboardGroupCardViewModel(
     public string AccessLabel => Visibility == GroupVisibility.Public ? "Open to direct joins" : "Invite-only membership";
 
     public string MembershipHint => "You're in";
+
+    public string VisibilitySummary => Visibility == GroupVisibility.Public ? "Open group" : "Invite only";
+
+    public string WallpaperCssClass => $"group-wallpaper--{WallpaperTheme.ToString().ToLowerInvariant()}";
 
     public string SummaryText =>
         string.IsNullOrWhiteSpace(Description)
