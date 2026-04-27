@@ -18,7 +18,7 @@
             <a href="/Notifications" class="notif-dropdown__see-all">See all</a>
         </div>
         <div class="notif-dropdown__list" id="notifDropdownList">
-            <p class="notif-dropdown__empty">Loading…</p>
+            <p class="notif-dropdown__empty">Loading...</p>
         </div>
     </div>
 </div>
@@ -80,10 +80,10 @@
         }
 
         async function loadDropdown() {
-            list.innerHTML = '<p class="notif-dropdown__empty">Loading…</p>';
+            list.innerHTML = '<p class="notif-dropdown__empty">Loading...</p>';
             const data = await fetchSummary();
             if (!data) {
-                list.innerHTML = '<p class="notif-dropdown__empty">Could not load notifications.</p>';
+                list.innerHTML = '<p class="notif-dropdown__empty notif-action-status" role="alert">Could not load notifications.</p>';
                 return;
             }
             renderDropdown(data);
@@ -133,20 +133,29 @@
         // ── Mark read ──────────────────────────────────────────────────────────
 
         window._notifMarkRead = async function (id, btn) {
+            const item = btn.closest(".notif-dropdown__item");
+            btn.disabled = true;
+
             try {
                 const res = await fetch(`/Notifications/MarkRead/${id}`, {
                     method: "POST",
                     headers: { "X-CSRF-TOKEN": csrfToken() },
                 });
                 if (res.ok) {
-                    const item = btn.closest(".notif-dropdown__item");
                     item.classList.remove("notif-dropdown__item--unread");
                     btn.remove();
                     // Refresh badge count
                     const data = await fetchSummary();
                     if (data) updateBadge(data.unreadCount);
+                    return;
                 }
-            } catch { /* silent */ }
+
+                showDropdownError(item, "Could not mark this notification as read.");
+            } catch {
+                showDropdownError(item, "Could not mark this notification as read.");
+            } finally {
+                if (btn.isConnected) btn.disabled = false;
+            }
         };
 
         // Exposed so the Notifications page can trigger a refresh after inline mark-read
@@ -196,6 +205,13 @@
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;");
+        }
+
+        function showDropdownError(item, message) {
+            item?.querySelector(".notif-action-status")?.remove();
+            item?.insertAdjacentHTML(
+                "beforeend",
+                `<p class="notif-action-status" role="alert">${escHtml(message)}</p>`);
         }
 
     }());

@@ -251,11 +251,15 @@
                        asp-route-restaurantId="@Model.Restaurant.RestaurantId"
                        asp-route-slotPage="@(Model.SlotPage - 1)"
                        asp-route-slotStatus="@Model.SlotStatus"
+                       aria-disabled="@(Model.SlotPage <= 1 ? "true" : "false")"
+                       tabindex="@(Model.SlotPage <= 1 ? "-1" : null)"
                        class="button button--secondary button--sm @(Model.SlotPage <= 1 ? "is-disabled" : "")">Prev</a>
                     <a asp-action="Manage"
                        asp-route-restaurantId="@Model.Restaurant.RestaurantId"
                        asp-route-slotPage="@(Model.SlotPage + 1)"
                        asp-route-slotStatus="@Model.SlotStatus"
+                       aria-disabled="@(Model.SlotPage >= Model.SlotTotalPages ? "true" : "false")"
+                       tabindex="@(Model.SlotPage >= Model.SlotTotalPages ? "-1" : null)"
                        class="button button--secondary button--sm @(Model.SlotPage >= Model.SlotTotalPages ? "is-disabled" : "")">Next</a>
                 </div>
             </div>

@@ -6,6 +6,8 @@
     var statusValues = Enum.GetValues<TasteBudz.Backend.Modules.Restaurants.AdminRestaurantCatalogStatus>();
     var sourceValues = Enum.GetValues<TasteBudz.Backend.Modules.Restaurants.AdminRestaurantCatalogSource>();
     var editItem = Model.EditItem;
+    var isFirstPage = Model.CurrentPage <= 1;
+    var isLastPage = Model.CurrentPage >= Model.TotalPages;
 }
 
 <div class="admin-shell">
@@ -320,14 +322,18 @@
                asp-route-status="@Model.FilterStatus"
                asp-route-source="@Model.FilterSource"
                asp-route-page="@(Math.Max(1, Model.CurrentPage - 1))"
-               class="button button--secondary @(Model.CurrentPage <= 1 ? "disabled" : "")">Previous</a>
+               aria-disabled="@(isFirstPage ? "true" : "false")"
+               tabindex="@(isFirstPage ? "-1" : null)"
+               class="button button--secondary @(isFirstPage ? "is-disabled" : "")">Previous</a>
             <span class="muted-note">Page @Model.CurrentPage of @Model.TotalPages</span>
             <a asp-action="Restaurants"
                asp-route-q="@Model.Q"
                asp-route-status="@Model.FilterStatus"
                asp-route-source="@Model.FilterSource"
                asp-route-page="@(Math.Min(Model.TotalPages, Model.CurrentPage + 1))"
-               class="button button--secondary @(Model.CurrentPage >= Model.TotalPages ? "disabled" : "")">Next</a>
+               aria-disabled="@(isLastPage ? "true" : "false")"
+               tabindex="@(isLastPage ? "-1" : null)"
+               class="button button--secondary @(isLastPage ? "is-disabled" : "")">Next</a>
         </div>
     </section>
 

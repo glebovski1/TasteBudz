@@ -15,11 +15,14 @@
 
     @if (!Model.Items.Any())
     {
-        <div class="panel" style="text-align: center; padding: 3rem 1.4rem;">
-            <p class="empty-state">
-                You're not part of any events or groups yet —
-                <a asp-controller="Group" asp-action="Index">browse groups</a> to get started.
-            </p>
+        <div class="panel empty-state-shell">
+            <span class="empty-state-shell__icon" aria-hidden="true">TB</span>
+            <h2 class="empty-state-shell__title">No chats yet.</h2>
+            <p class="empty-state-shell__copy">Join a group or event first, then your conversations will collect here.</p>
+            <div class="button-row">
+                <a asp-controller="Group" asp-action="Index" class="button button--secondary">Browse Groups</a>
+                <a asp-controller="Event" asp-action="Index" class="button button--primary">Browse Events</a>
+            </div>
         </div>
     }
     else

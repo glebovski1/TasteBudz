@@ -84,6 +84,59 @@ public sealed class AdminRestaurantCatalogMvcTests
     }
 
     [Fact]
+    public async Task RestaurantCatalogPage_DisablesBoundaryPaginationConsistently()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var restaurantId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(
+            client,
+            factory,
+            isOnboardingComplete: true,
+            roles: new[] { UserRole.User, UserRole.Admin });
+        factory.BackendHandler.Requests.Clear();
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/admin/restaurants/search?status=All&source=All&page=1&pageSize=25",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new TasteBudz.Backend.Contracts.ListResponse<AdminRestaurantCatalogItemDto>(
+                    new[]
+                    {
+                        new AdminRestaurantCatalogItemDto(
+                            restaurantId,
+                            "Ramen House",
+                            "123 Elm St",
+                            "Cincinnati",
+                            "OH",
+                            "45220",
+                            PriceTier.Three,
+                            new[] { "Japanese" },
+                            39.14,
+                            -84.51,
+                            null,
+                            false),
+                    },
+                    1)));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/admin/restaurants/{restaurantId}/admin-assignments",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, Array.Empty<RestaurantAdminAssignmentDto>()));
+
+        using var response = await client.GetAsync("/Admin/Restaurants");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("aria-disabled=\"true\"", html);
+        Assert.Contains("tabindex=\"-1\"", html);
+        Assert.Contains("is-disabled", html);
+        Assert.DoesNotContain("button--secondary disabled", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task RestaurantCatalogPreview_RendersImportCandidatesAndDuplicateWarnings()
     {
         using var factory = new TasteBudzMvcFactory();

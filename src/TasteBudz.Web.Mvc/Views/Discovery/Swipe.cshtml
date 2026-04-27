@@ -15,8 +15,13 @@
 
     @if (Model.Candidates.Count == 0)
     {
-        <div class="panel" style="text-align: center; padding: 3rem 1.4rem;">
-            <p class="empty-state">No new candidates right now — check back soon!</p>
+        <div class="panel empty-state-shell">
+            <span class="empty-state-shell__icon" aria-hidden="true">TB</span>
+            <h2 class="empty-state-shell__title">No new Budz right now.</h2>
+            <p class="empty-state-shell__copy">Check back later or review your profile so other food people know your vibe.</p>
+            <div class="button-row">
+                <a asp-controller="Profile" asp-action="Edit" class="button button--secondary">Update Profile</a>
+            </div>
         </div>
     }
     else
@@ -74,11 +79,11 @@
             </div>
 
             <div class="swipe-buttons" id="swipeButtons">
-                <button class="swipe-btn swipe-btn--pass" id="btnPass" aria-label="Pass">✕</button>
-                <button class="swipe-btn swipe-btn--like" id="btnLike" aria-label="Like">♥</button>
+                <button class="swipe-btn swipe-btn--pass" id="btnPass" aria-label="Pass">&times;</button>
+                <button class="swipe-btn swipe-btn--like" id="btnLike" aria-label="Like">&#9829;</button>
             </div>
 
-            <p class="swipe-status empty-state" id="swipeStatus" aria-live="polite"></p>
+            <p class="swipe-status status-note" id="swipeStatus" aria-live="polite"></p>
         </div>
     }
 
@@ -94,10 +99,11 @@
     const btnPass    = document.getElementById("btnPass");
     const statusEl   = document.getElementById("swipeStatus");
     const token      = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? "";
+    let isSwipeInFlight = false;
 
     if (!container) return;
 
-    // ── Card stack helpers ───────────────────────────────────────────────────
+    // Card stack helpers
 
     function topCard() {
         const cards = container.querySelectorAll(".swipecard:not(.swipecard--gone)");
@@ -118,16 +124,31 @@
 
     refreshStack();
 
-    function dismissCard(card, direction) {
+    async function dismissCard(card, direction) {
+        if (isSwipeInFlight) return;
+
         const userId = card.dataset.userId;
         const decision = direction === "like" ? 0 : 1;
+        isSwipeInFlight = true;
+        setSwipeButtonsDisabled(true);
+        showStatus("Saving your swipe...");
+
+        const result = await postSwipe(userId, decision);
+        if (!result) {
+            resetCard(card);
+            showStatus("We could not save that swipe. Please try again.");
+            setSwipeButtonsDisabled(false);
+            isSwipeInFlight = false;
+            return;
+        }
 
         card.classList.add("swipecard--gone", `swipecard--exit-${direction}`);
         refreshStack();
+        showStatus("");
 
-        postSwipe(userId, decision).then(result => {
+        Promise.resolve(result).then(result => {
             if (result?.isBudMatch) {
-                showStatus("🎉 It's a match! You and this Bud are now connected.");
+                showStatus("It's a match! You and this Bud are now connected.");
             }
         });
 
@@ -135,11 +156,13 @@
         card.addEventListener("animationend", () => {
             refreshStack();
             if (!topCard()) {
-                showStatus("You've seen everyone for now — check back soon!");
+                showStatus("You've seen everyone for now - check back soon!");
                 if (document.getElementById("swipeButtons")) {
                     document.getElementById("swipeButtons").style.display = "none";
                 }
             }
+            setSwipeButtonsDisabled(false);
+            isSwipeInFlight = false;
         }, { once: true });
     }
 
@@ -147,7 +170,23 @@
         if (statusEl) statusEl.textContent = msg;
     }
 
-    // ── Button clicks ────────────────────────────────────────────────────────
+    function setSwipeButtonsDisabled(disabled) {
+        [btnPass, btnLike].forEach(button => {
+            if (button) button.disabled = disabled;
+        });
+        container.setAttribute("aria-busy", disabled ? "true" : "false");
+    }
+
+    function resetCard(card) {
+        card.classList.remove("swipecard--gone", "swipecard--exit-like", "swipecard--exit-pass");
+        card.style.transform = "";
+        card.querySelectorAll(".swipe-indicator").forEach(indicator => {
+            indicator.style.opacity = 0;
+        });
+        refreshStack();
+    }
+
+    // Button clicks
 
     btnLike?.addEventListener("click", () => {
         const card = topCard();
@@ -159,11 +198,12 @@
         if (card) dismissCard(card, "pass");
     });
 
-    // ── Drag-to-swipe ────────────────────────────────────────────────────────
+    // Drag-to-swipe
 
     let startX = 0, currentX = 0, dragging = false, activeCard = null;
 
     container.addEventListener("pointerdown", e => {
+        if (isSwipeInFlight) return;
         activeCard = topCard();
         if (!activeCard) return;
         dragging = true;
@@ -206,7 +246,7 @@
         currentX = 0;
     });
 
-    // ── Backend POST ─────────────────────────────────────────────────────────
+    // Backend POST
 
     async function postSwipe(userId, decision) {
         try {
@@ -220,7 +260,7 @@
             });
 
             if (response.status === 401) {
-                // Session expired — hard redirect to login.
+                // Session expired - hard redirect to login.
                 window.location.href = "/Account/Login";
                 return null;
             }

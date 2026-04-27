@@ -39,7 +39,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <section class="profile-shell create-event-page">
-    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+    <div class="card profile-banner profile-banner--split">
         <div>
             <h1>@(Model.IsGroupEvent ? "Create Group Event" : "Create Event")</h1>
             @if (Model.IsGroupEvent)
@@ -72,12 +72,12 @@
         <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
 
         <div class="editor-grid">
-            <section class="card stack" style="grid-column: 1 / -1;">
+            <section class="card stack layout-span-full">
                 <div>
                     <h2 class="card__title">Event Details</h2>
                     <p class="card__subtitle">Give your event a name and choose a cuisine theme.</p>
                 </div>
-                <div class="editor-grid" style="gap: 1rem;">
+                <div class="editor-grid grid-gap-sm">
                     <div class="field">
                         <label asp-for="Title"></label>
                         <input asp-for="Title" placeholder="e.g. Sushi Night, Taco Tuesday" />
@@ -146,7 +146,7 @@
                 </div>
             </section>
 
-            <section class="card stack" style="grid-column: 1 / -1;">
+            <section class="card stack layout-span-full">
                 <div>
                     <h2 class="card__title">Restaurant <span class="muted-note">(optional)</span></h2>
                     <p class="card__subtitle">Select from the list or map. Discount slots shown here cover the next 30 days.</p>
@@ -157,11 +157,11 @@
                 <input type="hidden" asp-for="BrowserTimeZoneOffsetMinutes" id="browserTimeZoneOffsetMinutes" />
 
                 <div class="restaurant-filters">
-                    <div class="field" style="margin:0;">
+                    <div class="field field--flush">
                         <label for="filterName">Search by name</label>
                         <input id="filterName" type="text" placeholder="e.g. Pizza" autocomplete="off" />
                     </div>
-                    <div class="field" style="margin:0;">
+                    <div class="field field--flush">
                         <label for="filterCuisine">Cuisine</label>
                         <select id="filterCuisine">
                             <option value="">All cuisines</option>
@@ -171,7 +171,7 @@
                             }
                         </select>
                     </div>
-                    <div class="field" style="margin:0;">
+                    <div class="field field--flush">
                         <label for="filterPrice">Price</label>
                         <select id="filterPrice">
                             <option value="">Any price</option>
@@ -181,11 +181,11 @@
                             <option value="Four">$$$$ - Fine dining</option>
                         </select>
                     </div>
-                    <label class="checkbox-inline" style="align-self:end;">
+                    <label class="checkbox-inline align-end">
                         <input type="checkbox" id="filterDiscountSlots" />
                         Discount slots only
                     </label>
-                    <button type="button" id="clearFilters" class="button button--secondary" style="align-self:end; display:none;">
+                    <button type="button" id="clearFilters" class="button button--secondary align-end" style="display:none;">
                         Clear
                     </button>
                 </div>

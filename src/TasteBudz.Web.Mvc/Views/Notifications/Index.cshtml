@@ -6,7 +6,7 @@
 
 <section class="profile-shell">
 
-    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+    <div class="card profile-banner profile-banner--split">
         <div>
             <h1>Notifications</h1>
             <p>
@@ -31,10 +31,14 @@
         }
     </div>
 
+    <p class="notif-action-status" id="notificationActionStatus" role="status" aria-live="polite" hidden></p>
+
     @if (!Model.HasAny)
     {
-        <div class="panel" style="text-align: center; padding: 3rem 1.4rem;">
-            <p class="empty-state">No notifications yet — check back after connecting with some Budz!</p>
+        <div class="panel empty-state-shell">
+            <span class="empty-state-shell__icon" aria-hidden="true">TB</span>
+            <h2 class="empty-state-shell__title">No notifications yet.</h2>
+            <p class="empty-state-shell__copy">Connect with Budz, join groups, or create an event and updates will show up here.</p>
         </div>
     }
     else
@@ -42,7 +46,7 @@
         @if (Model.Unread.Count > 0)
         {
             <section class="panel stack">
-                <h2 style="margin:0; letter-spacing:-0.02em;">New</h2>
+                <h2 class="section-title">New</h2>
                 <div class="notif-list">
                     @foreach (var notif in Model.Unread)
                     {
@@ -92,7 +96,7 @@
         @if (Model.Read.Count > 0)
         {
             <section class="panel stack">
-                <h2 style="margin:0; letter-spacing:-0.02em; color: var(--muted);">Earlier</h2>
+                <h2 class="section-title section-title--muted">Earlier</h2>
                 <div class="notif-list">
                     @foreach (var notif in Model.Read)
                     {
@@ -121,8 +125,12 @@
 @section Scripts {
     <script>
         const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? "";
+        const actionStatus = document.getElementById("notificationActionStatus");
 
         async function markRead(id, btn) {
+            setActionStatus("");
+            btn.disabled = true;
+
             try {
                 const res = await fetch(`/Notifications/MarkRead/${id}`, {
                     method: "POST",
@@ -136,8 +144,25 @@
 
                     // Update unread count in nav bell if present
                     if (window.refreshNotifBell) window.refreshNotifBell();
+                    return;
                 }
-            } catch { /* silent */ }
+
+                setActionStatus("Could not mark this notification as read.");
+            } catch {
+                setActionStatus("Could not mark this notification as read.");
+            } finally {
+                if (btn.isConnected) btn.disabled = false;
+            }
+        }
+
+        function setActionStatus(message) {
+            if (!actionStatus) return;
+            actionStatus.textContent = message;
+            if (message) {
+                actionStatus.removeAttribute("hidden");
+            } else {
+                actionStatus.setAttribute("hidden", "");
+            }
         }
     </script>
     @Html.AntiForgeryToken()

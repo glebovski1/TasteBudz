@@ -6,7 +6,7 @@
 
 <section class="profile-shell event-index-page">
 
-    <div class="card profile-banner" style="grid-template-columns: 1fr auto;">
+    <div class="card profile-banner profile-banner--split">
         <div>
             <h1>@(Model.IsQuickSearch ? "Quick Event Search" : "Food Events")</h1>
             <p>
@@ -39,12 +39,12 @@
     {
         <div class="card stack">
             <form asp-action="Index" method="get" class="stack">
-                <div class="button-row" style="align-items: stretch;">
-                    <div class="field" style="flex: 1; gap: 0;">
+                <div class="button-row events-filter-row">
+                    <div class="field">
                         <input type="text"
                                name="q"
                                value="@Model.SearchQuery"
-                               placeholder="Search events…"
+                               placeholder="Search events..."
                                aria-label="Search events" />
                     </div>
                     <button type="submit" class="button button--primary">Search</button>
@@ -126,21 +126,50 @@
     }
     else if (!Model.Events.Any())
     {
-        <div class="panel">
-            <p class="empty-state">
+        <div class="panel empty-state-shell">
+            <span class="empty-state-shell__icon" aria-hidden="true">TB</span>
+            <h2 class="empty-state-shell__title">
                 @if (Model.IsQuickSearch)
                 {
-                    <span>No recommended events right now. Try the standard browse tab or create your own.</span>
+                    <span>No recommended events right now.</span>
                 }
                 else if (string.IsNullOrWhiteSpace(Model.SearchQuery))
                 {
-                    <span>No events yet — be the first to create one!</span>
+                    <span>No events yet.</span>
                 }
                 else
                 {
                     <span>No events matched "@Model.SearchQuery".</span>
                 }
+            </h2>
+            <p class="empty-state-shell__copy">
+                @if (Model.IsQuickSearch)
+                {
+                    <span>Try the standard browse tab or create your own dinner plan.</span>
+                }
+                else if (string.IsNullOrWhiteSpace(Model.SearchQuery))
+                {
+                    <span>Be the first to put a table on the calendar.</span>
+                }
+                else
+                {
+                    <span>Clear the search or try a broader phrase.</span>
+                }
             </p>
+            <div class="button-row">
+                @if (Model.IsQuickSearch)
+                {
+                    <a asp-action="Index" class="button button--secondary">Browse Events</a>
+                }
+                else if (string.IsNullOrWhiteSpace(Model.SearchQuery))
+                {
+                    <a asp-action="CreateEvent" class="button button--primary">Create Event</a>
+                }
+                else
+                {
+                    <a asp-action="Index" class="button button--secondary">Clear Search</a>
+                }
+            </div>
         </div>
     }
     else
@@ -246,13 +275,13 @@
                     </div>
 
                     <div class="event-card__meta">
-                        <span>📅 @ev.EventStartAtUtc.ToLocalTime().ToString("MMM d, yyyy")</span>
-                        <span>⏰ @ev.EventStartAtUtc.ToLocalTime().ToString("h:mm tt")</span>
+                        <span>Date: @ev.EventStartAtUtc.ToLocalTime().ToString("MMM d, yyyy")</span>
+                        <span>Time: @ev.EventStartAtUtc.ToLocalTime().ToString("h:mm tt")</span>
                     </div>
 
                     @if (!string.IsNullOrWhiteSpace(ev.CuisineTarget))
                     {
-                        <p class="event-card__cuisine">🍴 @ev.CuisineTarget</p>
+                        <p class="event-card__cuisine">Cuisine: @ev.CuisineTarget</p>
                     }
 
                     @if (Model.IsQuickSearch && ev.RecommendationReasons.Any())
