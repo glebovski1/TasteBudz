@@ -57,7 +57,10 @@ public sealed class DashboardService(
     {
         var groups = await userGroupQueryService.ListActiveForUserAsync(userId, cancellationToken);
         return groups
-            .Select(group => new DashboardGroupSummaryDto(group.GroupId, group.Name, group.Description, group.Visibility, group.ActiveMemberCount))
+            .Select(group => new DashboardGroupSummaryDto(group.GroupId, group.Name, group.Description, group.Visibility, group.ActiveMemberCount)
+            {
+                WallpaperTheme = group.WallpaperTheme,
+            })
             .ToArray();
     }
 

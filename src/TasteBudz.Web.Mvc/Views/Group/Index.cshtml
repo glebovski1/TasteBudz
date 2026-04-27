@@ -115,7 +115,7 @@
             {
                 var group = item.Group;
 
-                <article class="summary-card interest-card group-public-card group-showcase-card--tone-@(item.Index % 4)">
+                <article class="summary-card interest-card group-public-card @group.WallpaperCssClass group-showcase-card--tone-@(item.Index % 4)">
                     <div class="interest-card__header">
                         <span class="interest-card__avatar-shell group-public-card__avatar" aria-hidden="true">
                             <span class="interest-card__avatar">@group.Monogram</span>

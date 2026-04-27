@@ -61,7 +61,10 @@ public sealed class GroupService(
                 group.Name,
                 group.Description,
                 group.Visibility,
-                members.Count(member => member.State == GroupMemberState.Active)));
+                members.Count(member => member.State == GroupMemberState.Active))
+            {
+                WallpaperTheme = group.WallpaperTheme,
+            });
         }
 
         var ordered = filtered

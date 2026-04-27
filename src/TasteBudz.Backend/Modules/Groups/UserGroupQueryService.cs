@@ -36,7 +36,10 @@ public sealed class UserGroupQueryService(IGroupRepository groupRepository)
                 group.Name,
                 group.Description,
                 group.Visibility,
-                activeMembers.Count(member => member.State == GroupMemberState.Active)));
+                activeMembers.Count(member => member.State == GroupMemberState.Active))
+            {
+                WallpaperTheme = group.WallpaperTheme,
+            });
         }
 
         return summaries;
@@ -48,4 +51,7 @@ public sealed record UserGroupSummary(
     string Name,
     string? Description,
     GroupVisibility Visibility,
-    int ActiveMemberCount);
+    int ActiveMemberCount)
+{
+    public GroupWallpaperTheme WallpaperTheme { get; init; } = GroupWallpaperTheme.Default;
+}

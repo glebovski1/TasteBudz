@@ -7,4 +7,7 @@ public sealed record DashboardGroupSummaryDto(
     string Name,
     string? Description,
     GroupVisibility Visibility,
-    int ActiveMemberCount);
+    int ActiveMemberCount)
+{
+    public GroupWallpaperTheme WallpaperTheme { get; init; } = GroupWallpaperTheme.Default;
+}

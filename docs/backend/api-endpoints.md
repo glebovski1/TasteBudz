@@ -37,7 +37,7 @@ Key DTO families:
 - `RestaurantImportPreviewDto`, `RestaurantImportCandidateDto`
 - `AdminRestaurantCatalogItemDto`
 - `EventSummaryDto`, `EventDetailDto`, `EventParticipantDto`, `EventFeedbackDto`, `EventFeedbackPhotoDto`
-- `GroupSummaryDto`, `GroupDetailDto`, `GroupInviteDto`
+- `GroupSummaryDto`, `GroupDetailDto`, `GroupInviteDto`; group summaries include `wallpaperTheme` so list UIs can show the selected preset background consistently
 - `RestaurantAdminAssignmentDto`, `RestaurantSlotDto`, `EventSlotReservationDto`, `DiscountActivationDto`
 - `DiscoveryProfilePreviewDto`, `BudConnectionDto`, `SwipeDecisionResultDto`
 - `MediaAssetDto`

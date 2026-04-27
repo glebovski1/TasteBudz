@@ -36,7 +36,7 @@ public sealed class GroupMvcTests
                 }));
         factory.BackendHandler.Enqueue(
             HttpMethod.Get,
-            "/api/v1/groups?page=1&pageSize=20",
+            "/api/v1/groups?page=1&pageSize=100",
             (_, _) => StubBackendApiHandler.Json(
                 HttpStatusCode.OK,
                 new ListResponse<GroupSummaryDto>(
@@ -250,6 +250,12 @@ public sealed class GroupMvcTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Create Group Event", html);
         Assert.Contains($"/Event/CreateEvent?groupId={groupId}", html);
+        Assert.Contains("group-manage-preview-card", html);
+        Assert.Contains("group-manage-board-card", html);
+        Assert.True(html.IndexOf("group-manage-preview-card", StringComparison.Ordinal) < html.IndexOf("group-manage-board-card", StringComparison.Ordinal));
+        Assert.Contains("group-settings-disclosure", html);
+        Assert.Contains("group-theme-picker", html);
+        Assert.Contains("group-theme-option", html);
         Assert.Contains("Community Board", html);
         Assert.Contains("group-announcement-form--vertical", html);
         Assert.Contains("Ramen plan", html);

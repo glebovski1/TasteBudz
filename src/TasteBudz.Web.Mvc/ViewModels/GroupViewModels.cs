@@ -81,6 +81,7 @@ public sealed class GroupSummaryItem
     public string VisibilitySummary => IsPublic ? "Open group" : "Invite only";
     public string VisibilityLabel => IsPublic ? "Public" : "Private";
     public string? MembershipHint => IsCurrentUserMember ? "You're in" : null;
+    public string WallpaperCssClass => $"group-wallpaper--{WallpaperTheme.ToString().ToLowerInvariant()}";
 
     public static GroupSummaryItem FromDto(GroupSummaryDto dto, bool isCurrentUserMember) => new()
     {
@@ -88,6 +89,7 @@ public sealed class GroupSummaryItem
         Name = dto.Name,
         Description = dto.Description,
         Visibility = dto.Visibility.ToString(),
+        WallpaperTheme = dto.WallpaperTheme,
         ActiveMembers = dto.ActiveMembers,
         IsPublic = dto.Visibility == GroupVisibility.Public,
         IsCurrentUserMember = isCurrentUserMember,
@@ -99,6 +101,7 @@ public sealed class GroupSummaryItem
         Name = dto.Name,
         Description = dto.Description,
         Visibility = dto.Visibility.ToString(),
+        WallpaperTheme = dto.WallpaperTheme,
         ActiveMembers = dto.ActiveMemberCount,
         IsPublic = dto.Visibility == GroupVisibility.Public,
         IsCurrentUserMember = true,
