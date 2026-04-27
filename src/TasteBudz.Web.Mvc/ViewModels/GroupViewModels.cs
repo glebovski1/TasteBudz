@@ -16,28 +16,48 @@ namespace TasteBudz.Web.Mvc.ViewModels;
 public sealed class GroupIndexViewModel
 {
     public IReadOnlyList<GroupSummaryItem> Groups { get; init; } = [];
-    public IReadOnlyList<MyGroupSummaryItem> MyGroups { get; init; } = [];
     public string? SearchQuery { get; init; }
     public int TotalCount { get; init; }
     public int TotalMembers => Groups.Sum(group => group.ActiveMembers);
     public int LargestGroupSize => Groups.Count == 0 ? 0 : Groups.Max(group => group.ActiveMembers);
-    public int PrivateMyGroupCount => MyGroups.Count(group => !group.IsPublic);
 
     public static GroupIndexViewModel Empty => new();
 
     public static GroupIndexViewModel FromDto(
         IEnumerable<GroupSummaryDto> groups,
-        int totalCount,
+        int _,
         string? searchQuery = null,
-        IEnumerable<DashboardGroupSummaryDto>? myGroups = null) => new()
+        IEnumerable<DashboardGroupSummaryDto>? myGroups = null)
+    {
+        var visibleGroups = new Dictionary<Guid, GroupSummaryItem>();
+
+        foreach (var group in groups.Select(group => GroupSummaryItem.FromDto(group, isCurrentUserMember: false)))
         {
-            Groups = groups.Select(GroupSummaryItem.FromDto).ToList(),
-            MyGroups = (myGroups ?? Array.Empty<DashboardGroupSummaryDto>())
-                .Select(MyGroupSummaryItem.FromDto)
-                .ToList(),
-            TotalCount = totalCount,
+            visibleGroups[group.GroupId] = group;
+        }
+
+        foreach (var group in (myGroups ?? Array.Empty<DashboardGroupSummaryDto>())
+                     .Where(group => MatchesSearch(group.Name, searchQuery))
+                     .Select(GroupSummaryItem.FromDashboardDto))
+        {
+            visibleGroups[group.GroupId] = group;
+        }
+
+        var orderedGroups = visibleGroups.Values
+            .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new()
+        {
+            Groups = orderedGroups,
+            TotalCount = orderedGroups.Count,
             SearchQuery = searchQuery,
         };
+
+        static bool MatchesSearch(string groupName, string? searchQuery) =>
+            string.IsNullOrWhiteSpace(searchQuery) ||
+            groupName.Contains(searchQuery.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed class GroupSummaryItem
@@ -49,6 +69,7 @@ public sealed class GroupSummaryItem
     public GroupWallpaperTheme WallpaperTheme { get; init; }
     public int ActiveMembers { get; init; }
     public bool IsPublic { get; init; }
+    public bool IsCurrentUserMember { get; init; }
     public string Monogram => GroupCardFormatting.GetInitial(Name);
     public string MemberLabel => $"{ActiveMembers} {(ActiveMembers == 1 ? "member" : "members")}";
     public string DescriptionPreview => string.IsNullOrWhiteSpace(Description)
@@ -57,9 +78,11 @@ public sealed class GroupSummaryItem
     public string BrowseSupportText => IsPublic
         ? "Jump in now and start planning with the current members."
         : "Private access is curated by the owner through invites.";
-    public string VisibilitySummary => IsPublic ? "Open to join" : "Invite only";
+    public string VisibilitySummary => IsPublic ? "Open group" : "Invite only";
+    public string VisibilityLabel => IsPublic ? "Public" : "Private";
+    public string? MembershipHint => IsCurrentUserMember ? "You're in" : null;
 
-    public static GroupSummaryItem FromDto(GroupSummaryDto dto) => new()
+    public static GroupSummaryItem FromDto(GroupSummaryDto dto, bool isCurrentUserMember) => new()
     {
         GroupId = dto.GroupId,
         Name = dto.Name,
@@ -67,39 +90,22 @@ public sealed class GroupSummaryItem
         Visibility = dto.Visibility.ToString(),
         ActiveMembers = dto.ActiveMembers,
         IsPublic = dto.Visibility == GroupVisibility.Public,
+        IsCurrentUserMember = isCurrentUserMember,
     };
-}
 
-// ── Create ───────────────────────────────────────────────────────────────────
-
-/// <summary>
-/// Card model for the signed-in user's active groups.
-/// </summary>
-public sealed class MyGroupSummaryItem
-{
-    public Guid GroupId { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string? Description { get; init; }
-    public GroupVisibility Visibility { get; init; }
-    public int ActiveMembers { get; init; }
-    public bool IsPublic => Visibility == GroupVisibility.Public;
-    public string Initial => GroupCardFormatting.GetInitial(Name);
-    public string VisibilityLabel => IsPublic ? "Public" : "Private";
-    public string AccessLabel => IsPublic ? "Open group" : "Invite-only group";
-    public string MemberLabel => $"{ActiveMembers} {(ActiveMembers == 1 ? "member" : "members")}";
-    public string DescriptionPreview => string.IsNullOrWhiteSpace(Description)
-        ? "No description yet."
-        : GroupCardFormatting.Truncate(Description, 120);
-
-    public static MyGroupSummaryItem FromDto(DashboardGroupSummaryDto dto) => new()
+    public static GroupSummaryItem FromDashboardDto(DashboardGroupSummaryDto dto) => new()
     {
         GroupId = dto.GroupId,
         Name = dto.Name,
         Description = dto.Description,
-        Visibility = dto.Visibility,
+        Visibility = dto.Visibility.ToString(),
         ActiveMembers = dto.ActiveMemberCount,
+        IsPublic = dto.Visibility == GroupVisibility.Public,
+        IsCurrentUserMember = true,
     };
 }
+
+// ── Create ───────────────────────────────────────────────────────────────────
 
 public sealed class GroupCreateViewModel
 {

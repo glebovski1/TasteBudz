@@ -3,7 +3,6 @@
 @{
     ViewData["Title"] = Model.Name;
 
-    var owner = Model.Owner;
     var plannedEvents = Model.PlannedEvents;
     var historyEvents = Model.HistoryEvents;
 }
@@ -31,43 +30,12 @@
                 <span class="pill">@Model.AnnouncementCount @(Model.AnnouncementCount == 1 ? "announcement" : "announcements")</span>
             </div>
 
-            <div class="group-manage-hero__stats" aria-label="Group overview">
-                <div class="group-manage-hero__stat">
-                    <span class="group-manage-hero__stat-label">Owner</span>
-                    <strong>@(owner?.DisplayName ?? "Group owner")</strong>
-                </div>
-                <div class="group-manage-hero__stat">
-                    <span class="group-manage-hero__stat-label">Membership</span>
-                    <strong>@(Model.Visibility == "Private" ? "Invite only" : "Open join")</strong>
-                </div>
-                <div class="group-manage-hero__stat">
-                    <span class="group-manage-hero__stat-label">Group chat</span>
-                    <strong>@((Model.IsCurrentUserMember || Model.IsCurrentUserOwner) ? "Open" : "Locked")</strong>
-                </div>
-                <div class="group-manage-hero__stat">
-                    <span class="group-manage-hero__stat-label">Theme</span>
-                    <strong>@Model.WallpaperTheme</strong>
-                </div>
-            </div>
-
-            <div class="group-note-list group-note-list--hero">
-                <div class="group-note-list__item">
-                    <span class="group-note-list__label">Visibility</span>
-                    <strong>@Model.JoiningSummary</strong>
-                </div>
-                <div class="group-note-list__item">
-                    <span class="group-note-list__label">Chat access</span>
-                    <strong>Current active members only.</strong>
-                </div>
-            </div>
-
             <div class="group-manage-hero__board">
                 <div class="group-section__header">
                     <div>
                         <p class="group-section__eyebrow">Announcements</p>
                         <h2>Community Board</h2>
                     </div>
-                    <p class="card__subtitle">Owner posts and linked events for this group.</p>
                 </div>
 
                 @if (Model.IsCurrentUserOwner)

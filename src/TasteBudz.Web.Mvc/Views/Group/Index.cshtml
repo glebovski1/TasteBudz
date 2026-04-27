@@ -22,7 +22,7 @@
             <div class="group-discovery-hero__stats" aria-label="Group browse highlights">
                 <div class="group-discovery-hero__stat">
                     <strong>@Model.TotalCount</strong>
-                    <span>public groups in this view</span>
+                    <span>groups in this view</span>
                 </div>
                 <div class="group-discovery-hero__stat">
                     <strong>@Model.TotalMembers</strong>
@@ -57,7 +57,7 @@
                     <p class="group-search-panel__summary">
                         @if (string.IsNullOrWhiteSpace(Model.SearchQuery))
                         {
-                            <span>Browse the public side of TasteBudz. Private groups stay invite-only in MVP.</span>
+                            <span>Browse public groups. Private groups appear here only when you are a member.</span>
                         }
                         else
                         {
@@ -73,70 +73,6 @@
             </form>
         </div>
     </div>
-
-    @if (Model.MyGroups.Count > 0)
-    {
-        <section class="panel stack group-my-groups">
-            <div class="group-section__header">
-                <div>
-                    <p class="group-section__eyebrow">My Groups</p>
-                    <h2>Your dinner circles</h2>
-                </div>
-                <p class="card__subtitle">
-                    Private groups only appear here for current members.
-                    @if (Model.PrivateMyGroupCount > 0)
-                    {
-                        <span>@Model.PrivateMyGroupCount private @(Model.PrivateMyGroupCount == 1 ? "group is" : "groups are") visible to you.</span>
-                    }
-                </p>
-            </div>
-
-            <div class="panel__items interest-card-list group-my-groups__list">
-                @foreach (var group in Model.MyGroups)
-                {
-                    <article class="summary-card interest-card group-my-card">
-                        <div class="interest-card__header">
-                            <span class="interest-card__avatar-shell" aria-hidden="true">
-                                <span class="interest-card__avatar">@group.Initial</span>
-                            </span>
-
-                            <div class="interest-card__body">
-                                <a asp-action="Manage"
-                                   asp-route-groupId="@group.GroupId"
-                                   class="interest-card__identity interest-card__identity--button"
-                                   aria-label="Open @group.Name">
-                                    <span class="interest-card__title">@group.Name</span>
-                                    <span class="interest-card__subtitle">@group.DescriptionPreview</span>
-                                </a>
-
-                                <div class="interest-card__chips">
-                                    <span class="interest-card__chip">@group.VisibilityLabel</span>
-                                    <span class="interest-card__chip">@group.MemberLabel</span>
-                                    <span class="interest-card__chip interest-card__chip--muted">@group.AccessLabel</span>
-                                </div>
-                            </div>
-
-                            <div class="interest-card__actions interest-card__actions--top">
-                                <a asp-action="Manage"
-                                   asp-route-groupId="@group.GroupId"
-                                   class="interest-card__icon-action"
-                                   aria-label="Open @group.Name">
-                                    Open
-                                </a>
-                                <a asp-controller="Messaging"
-                                   asp-action="GroupChat"
-                                   asp-route-groupId="@group.GroupId"
-                                   class="interest-card__icon-action"
-                                   aria-label="Open @group.Name chat">
-                                    Chat
-                                </a>
-                            </div>
-                        </div>
-                    </article>
-                }
-            </div>
-        </section>
-    }
 
     @if (Model.Groups.Count == 0)
     {
@@ -197,9 +133,13 @@
                             <p class="group-public-card__support">@group.BrowseSupportText</p>
 
                             <div class="interest-card__chips">
-                                <span class="interest-card__chip">@group.Visibility</span>
+                                <span class="interest-card__chip">@group.VisibilityLabel</span>
                                 <span class="interest-card__chip">@group.MemberLabel</span>
                                 <span class="interest-card__chip interest-card__chip--muted">@group.VisibilitySummary</span>
+                                @if (group.MembershipHint is not null)
+                                {
+                                    <span class="interest-card__chip interest-card__chip--accent group-membership-hint">@group.MembershipHint</span>
+                                }
                             </div>
                         </div>
 
@@ -207,9 +147,19 @@
                             <a asp-action="Manage"
                                asp-route-groupId="@group.GroupId"
                                class="interest-card__text-action"
-                               aria-label="View details for @group.Name">
-                                View Details
+                               aria-label="Open @group.Name">
+                                Open
                             </a>
+                            @if (group.IsCurrentUserMember)
+                            {
+                                <a asp-controller="Messaging"
+                                   asp-action="GroupChat"
+                                   asp-route-groupId="@group.GroupId"
+                                   class="interest-card__text-action"
+                                   aria-label="Open @group.Name chat">
+                                    Chat
+                                </a>
+                            }
                         </div>
                     </div>
                 </article>

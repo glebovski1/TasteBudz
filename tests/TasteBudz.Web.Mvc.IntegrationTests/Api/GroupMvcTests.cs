@@ -5,6 +5,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Notifications;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
 using TasteBudz.Web.Mvc.IntegrationTests.Shared;
 
@@ -12,6 +13,56 @@ namespace TasteBudz.Web.Mvc.IntegrationTests.Api;
 
 public sealed class GroupMvcTests
 {
+    [Fact]
+    public async Task Index_RendersAllVisibleGroupsWithoutSeparateMyGroupsSection()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var publicGroupId = Guid.NewGuid();
+        var memberGroupId = Guid.NewGuid();
+        var privateGroupId = Guid.NewGuid();
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/groups",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new[]
+                {
+                    new DashboardGroupSummaryDto(memberGroupId, "Clifton Supper Club", "Weekday dinner meetups.", GroupVisibility.Public, 4),
+                    new DashboardGroupSummaryDto(privateGroupId, "Quiet Table", "Invite-only planning.", GroupVisibility.Private, 2),
+                }));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/groups?page=1&pageSize=20",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new ListResponse<GroupSummaryDto>(
+                    new[]
+                    {
+                        new GroupSummaryDto(publicGroupId, "Neighborhood Noodles", "Public ramen crew.", GroupVisibility.Public, 5),
+                    },
+                    1)));
+
+        using var response = await client.GetAsync("/Group/Index");
+        var html = await response.Content.ReadAsStringAsync();
+        var decodedHtml = WebUtility.HtmlDecode(html);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Clifton Supper Club", decodedHtml);
+        Assert.Contains("Quiet Table", decodedHtml);
+        Assert.Contains("Neighborhood Noodles", decodedHtml);
+        Assert.Contains("You're in", decodedHtml);
+        Assert.Contains($"/Messaging/GroupChat?groupId={memberGroupId}", html);
+        Assert.Contains($"/Messaging/GroupChat?groupId={privateGroupId}", html);
+        Assert.DoesNotContain("My Groups", decodedHtml);
+        Assert.DoesNotContain("Your dinner circles", decodedHtml);
+        Assert.DoesNotContain("Private groups only appear here for current members.", decodedHtml);
+        factory.BackendHandler.AssertDrained();
+    }
+
     [Fact]
     public async Task Notifications_GroupInvite_RendersAcceptAndDeclineActions()
     {
