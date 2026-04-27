@@ -4746,20 +4746,6 @@ img, video, iframe, table {
         linear-gradient(120deg, rgba(34, 25, 20, 0.14), transparent 54%);
 }
 
-.group-public-card__preview-label {
-    max-width: 9rem;
-    padding: 0.45rem 0.7rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.22);
-    color: white;
-    font-size: 0.74rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-align: center;
-    text-transform: uppercase;
-    backdrop-filter: blur(10px);
-}
-
 .group-public-card__content {
     display: grid;
     gap: 0.8rem;
