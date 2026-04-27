@@ -115,38 +115,44 @@
             {
                 var group = item.Group;
 
-                <article class="summary-card interest-card group-public-card @group.WallpaperCssClass group-showcase-card--tone-@(item.Index % 4)">
-                    <div class="interest-card__header">
-                        <span class="interest-card__avatar-shell group-public-card__avatar" aria-hidden="true">
-                            <span class="interest-card__avatar">@group.Monogram</span>
-                        </span>
+                <article class="group-public-card @group.WallpaperCssClass group-showcase-card--tone-@(item.Index % 4)">
+                    <a asp-action="Manage"
+                       asp-route-groupId="@group.GroupId"
+                       class="group-public-card__preview"
+                       aria-label="Open @group.Name">
+                        <span class="group-public-card__preview-label">@group.VisibilitySummary</span>
+                    </a>
 
-                        <div class="interest-card__body">
-                            <a asp-action="Manage"
-                               asp-route-groupId="@group.GroupId"
-                               class="interest-card__identity interest-card__identity--button"
-                               aria-label="Open @group.Name">
-                                <span class="interest-card__title">@group.Name</span>
-                                <span class="interest-card__subtitle">@group.DescriptionPreview</span>
-                            </a>
-
-                            <p class="group-public-card__support">@group.BrowseSupportText</p>
-
-                            <div class="interest-card__chips">
-                                <span class="interest-card__chip">@group.VisibilityLabel</span>
-                                <span class="interest-card__chip">@group.MemberLabel</span>
-                                <span class="interest-card__chip interest-card__chip--muted">@group.VisibilitySummary</span>
-                                @if (group.MembershipHint is not null)
-                                {
-                                    <span class="interest-card__chip interest-card__chip--accent group-membership-hint">@group.MembershipHint</span>
-                                }
+                    <div class="group-public-card__content">
+                        <div class="group-public-card__topline">
+                            <div>
+                                <a asp-action="Manage"
+                                   asp-route-groupId="@group.GroupId"
+                                   class="group-public-card__name"
+                                   aria-label="Open @group.Name">
+                                    @group.Name
+                                </a>
+                                <p class="group-public-card__desc">@group.DescriptionPreview</p>
                             </div>
+
+                            @if (group.MembershipHint is not null)
+                            {
+                                <span class="group-membership-hint">@group.MembershipHint</span>
+                            }
                         </div>
 
-                        <div class="interest-card__actions interest-card__actions--top group-public-card__actions">
+                        <p class="group-public-card__support">@group.BrowseSupportText</p>
+
+                        <div class="group-public-card__meta" aria-label="@group.Name details">
+                            <span>@group.VisibilityLabel</span>
+                            <span>@group.MemberLabel</span>
+                            <span>@group.VisibilitySummary</span>
+                        </div>
+
+                        <div class="group-public-card__actions">
                             <a asp-action="Manage"
                                asp-route-groupId="@group.GroupId"
-                               class="interest-card__text-action"
+                               class="button button--primary button--small"
                                aria-label="Open @group.Name">
                                 Open
                             </a>
@@ -155,7 +161,7 @@
                                 <a asp-controller="Messaging"
                                    asp-action="GroupChat"
                                    asp-route-groupId="@group.GroupId"
-                                   class="interest-card__text-action"
+                                   class="button button--secondary button--small"
                                    aria-label="Open @group.Name chat">
                                     Chat
                                 </a>
