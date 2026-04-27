@@ -7,19 +7,34 @@
         $"interest-card__chip interest-card__chip--{status.ToString().ToLowerInvariant()}";
 }
 
-<section class="profile-shell">
+<section class="profile-shell profile-dashboard">
 
-    <!--Tab Navigation-->
-    <div class="profile-menu">
-        <button type="button" onclick="showSection('profile-info')" class="active">Profile Info</button>
-        <button type="button" onclick="showSection('friends')">Budz</button>
-        <button type="button" onclick="showSection('events')">My Events</button>
-        <button type="button" onclick="showSection('groups')">Groups</button>
-    </div>
+    <header class="profile-dashboard__header">
+        <span class="eyebrow">Dashboard</span>
+        <h1>Welcome back, @Model.DisplayName</h1>
+        <p>Your profile, food plans, Budz, and groups in one place.</p>
+    </header>
 
-    <!--Tab Panels-->
-    <div class="profile-content">
+    <div class="profile-dashboard__layout">
+        <!--Tab Navigation-->
+        <nav class="profile-menu" aria-label="Dashboard sections">
+            <button type="button" class="active" data-profile-section="profile-info">Profile Info</button>
+            <button type="button" data-profile-section="friends">
+                <span>Budz</span>
+                <span class="profile-menu__count">@Model.Budz.Count</span>
+            </button>
+            <button type="button" data-profile-section="events">
+                <span>My Events</span>
+                <span class="profile-menu__count">@Model.MyEvents.Count</span>
+            </button>
+            <button type="button" data-profile-section="groups">
+                <span>Groups</span>
+                <span class="profile-menu__count">@Model.ActiveGroups.Count</span>
+            </button>
+        </nav>
 
+        <!--Tab Panels-->
+        <div class="profile-content">
         <div id="friends" class="section">
             <h2>Your Budz</h2>
             <div class="panel__items interest-card-list">
@@ -307,17 +322,22 @@
             </div>
         </div>
 
+        </div>
     </div>
 </section>
 
 <script>
-    function showSection(sectionId) {
+    function showSection(sectionId, trigger) {
         document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
         document.querySelectorAll(".profile-menu button").forEach(b => b.classList.remove("active"));
 
         document.getElementById(sectionId).classList.add("active");
-        event.target.classList.add("active");
+        trigger.classList.add("active");
     }
+
+    document.querySelectorAll("[data-profile-section]").forEach(button => {
+        button.addEventListener("click", () => showSection(button.dataset.profileSection, button));
+    });
 
     document.querySelectorAll("[data-my-events-filter]").forEach(button => {
         button.addEventListener("click", () => {
