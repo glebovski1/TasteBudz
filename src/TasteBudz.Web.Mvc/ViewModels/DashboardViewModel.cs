@@ -154,6 +154,8 @@ public sealed record DashboardGroupCardViewModel(
 
     public string AccessLabel => Visibility == GroupVisibility.Public ? "Open to direct joins" : "Invite-only membership";
 
+    public string MembershipHint => "You're in";
+
     public string SummaryText =>
         string.IsNullOrWhiteSpace(Description)
             ? AccessLabel

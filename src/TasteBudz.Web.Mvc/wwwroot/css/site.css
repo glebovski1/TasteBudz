@@ -4874,7 +4874,7 @@ img, video, iframe, table {
     gap: 0.65rem;
 }
 
-.group-page .group-membership-hint {
+.group-membership-hint {
     border-color: rgba(79, 112, 67, 0.18);
     background: rgba(230, 240, 224, 0.95);
     color: #4f7043;

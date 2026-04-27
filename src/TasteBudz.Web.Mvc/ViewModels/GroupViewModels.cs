@@ -25,7 +25,7 @@ public sealed class GroupIndexViewModel
 
     public static GroupIndexViewModel FromDto(
         IEnumerable<GroupSummaryDto> groups,
-        int _,
+        int totalCount,
         string? searchQuery = null,
         IEnumerable<DashboardGroupSummaryDto>? myGroups = null)
     {
@@ -50,7 +50,7 @@ public sealed class GroupIndexViewModel
         return new()
         {
             Groups = orderedGroups,
-            TotalCount = orderedGroups.Count,
+            TotalCount = totalCount > 0 ? totalCount : orderedGroups.Count,
             SearchQuery = searchQuery,
         };
 

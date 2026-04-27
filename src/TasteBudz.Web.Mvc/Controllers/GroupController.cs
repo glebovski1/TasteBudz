@@ -52,11 +52,10 @@ public sealed class GroupController : Controller
 
         try
         {
-            var result = await groupApiService.BrowseAsync(
-                new BrowseGroupsQuery { Q = q, PageSize = 20 },
-                cancellationToken);
+            var allGroups = await FetchAllGroupsAsync(q, cancellationToken);
+            var allGroupsCount = allGroups.Count;
 
-            return View(GroupIndexViewModel.FromDto(result.Items, result.TotalCount, q, myGroups));
+            return View(GroupIndexViewModel.FromDto(allGroups, allGroupsCount, q, myGroups));
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -294,6 +293,28 @@ public sealed class GroupController : Controller
     {
         var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+    }
+
+    private async Task<IReadOnlyList<GroupSummaryDto>> FetchAllGroupsAsync(string? searchQuery, CancellationToken cancellationToken)
+    {
+        const int pageSize = 100;
+        var page = 1;
+        var totalCount = 0;
+        var allGroups = new List<GroupSummaryDto>();
+
+        do
+        {
+            var result = await groupApiService.BrowseAsync(
+                new BrowseGroupsQuery { Q = searchQuery, Page = page, PageSize = pageSize },
+                cancellationToken);
+
+            allGroups.AddRange(result.Items);
+            totalCount = result.TotalCount;
+            page++;
+        }
+        while (allGroups.Count < totalCount && allGroups.Count > 0);
+
+        return allGroups;
     }
 
     private async Task<IReadOnlyCollection<DashboardGroupSummaryDto>> TryListMyGroupsAsync(CancellationToken cancellationToken)

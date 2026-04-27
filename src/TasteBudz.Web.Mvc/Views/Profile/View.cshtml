@@ -202,7 +202,7 @@
         </div>
 
         <div id="groups" class="section">
-            <h2>Your Groups</h2>
+            <h2>Groups You're In</h2>
             <div class="panel__items interest-card-list">
                 @if (Model.ActiveGroups.Count == 0)
                 {
@@ -227,6 +227,9 @@
                                     <div class="interest-card__chips">
                                         <span class="interest-card__chip">@item.VisibilityLabel</span>
                                         <span class="interest-card__chip interest-card__chip--muted">@item.MembershipLabel</span>
+                                        <span class="interest-card__chip interest-card__chip--accent group-membership-hint">
+                                            @item.MembershipHint
+                                        </span>
                                     </div>
 
                                     <p class="interest-card__summary">@item.SummaryText</p>
