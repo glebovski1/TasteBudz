@@ -45,9 +45,9 @@ body {
     color: var(--ink);
     background-color: var(--bg);
     background-image:
-        linear-gradient(135deg, rgba(255, 250, 244, 0.93), rgba(255, 238, 226, 0.88)),
+        linear-gradient(135deg, rgba(255, 250, 244, 0.64), rgba(255, 238, 226, 0.56)),
         url("/images/group-themes/tastebudz-warm.jpg");
-    background-position: center;
+    background-position: center top;
     background-repeat: no-repeat;
     background-size: cover;
     background-attachment: fixed;
@@ -86,9 +86,9 @@ textarea {
     position: fixed;
     inset: 0;
     background:
-        radial-gradient(circle at 16% 6%, rgba(255, 255, 255, 0.7), transparent 30%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 248, 242, 0.5) 42%, rgba(255, 239, 226, 0.74)),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 46px);
+        radial-gradient(circle at 16% 6%, rgba(255, 255, 255, 0.28), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 248, 242, 0.1) 42%, rgba(255, 239, 226, 0.35)),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 46px);
     z-index: 0;
     pointer-events: none;
 }
