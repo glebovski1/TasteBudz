@@ -83,6 +83,12 @@ function Invoke-RequiredPowerShell {
     Invoke-RequiredCommand "powershell" $combinedArguments
 }
 
+function ConvertTo-PowerShellSingleQuotedLiteral {
+    param([string]$Value)
+
+    return "'" + ($Value -replace "'", "''") + "'"
+}
+
 function Invoke-JsonCommand {
     param(
         [string]$FilePath,
@@ -623,20 +629,22 @@ function Invoke-DatabaseScripts {
 
     Write-Step $Label
     $applyScript = Join-Path $repoRoot ".agents\skills\azure-sql-production-schema\scripts\apply-azure-sql-schema.ps1"
-    $arguments = @("-File", $applyScript)
+    $commandParts = @("& " + (ConvertTo-PowerShellSingleQuotedLiteral $applyScript))
 
     if (-not [string]::IsNullOrWhiteSpace($Subscription)) {
-        $arguments += @("-Subscription", $Subscription)
+        $commandParts += "-Subscription " + (ConvertTo-PowerShellSingleQuotedLiteral $Subscription)
     }
 
-    $arguments += @("-ResourceGroup", $ResourceGroup, "-WebAppName", $WebAppName, "-ScriptPath")
-    $arguments += $Paths
+    $scriptPathArray = ($Paths | ForEach-Object { ConvertTo-PowerShellSingleQuotedLiteral $_ }) -join ", "
+    $commandParts += "-ResourceGroup " + (ConvertTo-PowerShellSingleQuotedLiteral $ResourceGroup)
+    $commandParts += "-WebAppName " + (ConvertTo-PowerShellSingleQuotedLiteral $WebAppName)
+    $commandParts += "-ScriptPath @($scriptPathArray)"
 
     if ($AllowClientIp) {
-        $arguments += "-AllowClientIp"
+        $commandParts += "-AllowClientIp"
     }
 
-    Invoke-RequiredPowerShell $arguments
+    Invoke-RequiredPowerShell @("-Command", ($commandParts -join " "))
 }
 
 function Invoke-PostDeployVerification {
