@@ -3,11 +3,11 @@
 ======================================== */
 :root {
     --bg: #fff8f1;
-    --bg-soft: rgba(255, 255, 255, 0.7);
-    --card: rgba(255, 255, 255, 0.9);
-    --surface: #ffffff;
-    --surface-raised: #fffaf6;
-    --border: rgba(166, 80, 34, 0.18);
+    --bg-soft: rgba(255, 255, 255, 0.78);
+    --card: rgba(255, 255, 255, 0.94);
+    --surface: rgba(255, 255, 255, 0.96);
+    --surface-raised: rgba(255, 250, 246, 0.94);
+    --border: rgba(139, 74, 39, 0.2);
     --ink: #31211b;
     --text-primary: #31211b;
     --text-secondary: #594136;
@@ -16,8 +16,8 @@
     --accent: #ef6b3f;
     --accent-dark: #c24d28;
     --accent-soft: #ffd7c2;
-    --shadow: 0 24px 80px rgba(115, 62, 33, 0.12);
-    --shadow-soft: 0 16px 42px rgba(115, 62, 33, 0.09);
+    --shadow: 0 26px 70px rgba(74, 45, 25, 0.16);
+    --shadow-soft: 0 16px 38px rgba(74, 45, 25, 0.12);
     --shadow-focus: 0 0 0 4px rgba(239, 107, 63, 0.2);
     --radius-xl: 28px;
     --radius-lg: 18px;
@@ -35,15 +35,22 @@
 
 html {
     font-size: 16px;
+    overflow-x: hidden;
 }
 
 body {
     margin: 0;
     min-height: 100vh;
+    overflow-x: hidden;
     color: var(--ink);
-    background:
-        linear-gradient(135deg, rgba(255, 250, 244, 0.96), rgba(255, 238, 226, 0.9)),
-        repeating-linear-gradient(45deg, rgba(166, 80, 34, 0.025) 0 1px, transparent 1px 14px);
+    background-color: var(--bg);
+    background-image:
+        linear-gradient(135deg, rgba(255, 250, 244, 0.93), rgba(255, 238, 226, 0.88)),
+        url("/images/group-themes/tastebudz-warm.jpg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
     font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
 }
 
@@ -79,13 +86,16 @@ textarea {
     position: fixed;
     inset: 0;
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent 42%),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 46px);
+        radial-gradient(circle at 16% 6%, rgba(255, 255, 255, 0.7), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 248, 242, 0.5) 42%, rgba(255, 239, 226, 0.74)),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 46px);
+    z-index: 0;
     pointer-events: none;
 }
 
 .page-shell {
     position: relative;
+    z-index: 1;
     max-width: 1180px;
     margin: 0 auto;
     padding: 2rem 1.5rem 4rem;
@@ -102,8 +112,10 @@ main {
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: linear-gradient(135deg, #ff7043, #ffab40);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, rgba(239, 107, 63, 0.94), rgba(255, 171, 64, 0.9));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.34);
+    box-shadow: 0 12px 32px rgba(72, 45, 28, 0.14);
+    backdrop-filter: blur(16px);
 }
 
 /* The layout uses .header__inner inside .tb-header */
@@ -120,6 +132,7 @@ main {
     display: inline-flex;
     align-items: center;
     gap: 0.85rem;
+    color: white;
 }
 
     .site-brand strong {
@@ -144,8 +157,10 @@ main {
     border-radius: 1rem;
     color: white;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), #ff9a5f);
-    box-shadow: 0 12px 28px rgba(239, 107, 63, 0.3);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    box-shadow: 0 12px 28px rgba(120, 55, 26, 0.22);
+    backdrop-filter: blur(10px);
 }
 
 .tb-nav {
@@ -158,12 +173,14 @@ main {
         text-decoration: none;
         padding: 8px 14px;
         border-radius: 16px;
-        transition: background-color 0.2s;
+        transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
         font-size: 14px;
     }
 
         .tb-nav a:hover {
             background-color: rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+            transform: translateY(-1px);
         }
 
         .tb-nav a.active {
@@ -178,11 +195,13 @@ main {
     color: white;
     font-size: 14px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
     .tb-nav-logout:hover {
         background-color: rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+        transform: translateY(-1px);
     }
 
 /* ========================================
@@ -299,6 +318,8 @@ main {
     background: var(--card);
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+    background-clip: padding-box;
 }
 
 .auth-card {
@@ -330,6 +351,7 @@ main {
     background: var(--bg-soft);
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
 }
 
 .panel__items {
@@ -341,8 +363,9 @@ main {
 .summary-card {
     padding: 1rem;
     border-radius: var(--radius-lg);
-    background: rgba(255, 255, 255, 0.88);
-    border: 1px solid rgba(166, 80, 34, 0.12);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(139, 74, 39, 0.14);
+    box-shadow: 0 10px 24px rgba(74, 45, 25, 0.06);
 }
 
 .profile-banner--split {
@@ -421,10 +444,11 @@ main {
     width: 100%;
     padding: 0.9rem 1rem;
     border-radius: var(--radius-md);
-    border: 1px solid rgba(166, 80, 34, 0.18);
-    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(139, 74, 39, 0.2);
+    background: rgba(255, 255, 255, 0.94);
     color: var(--ink);
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
 .field textarea {
@@ -437,7 +461,8 @@ main {
 .field textarea:focus {
     outline: none;
     border-color: rgba(239, 107, 63, 0.55);
-    box-shadow: 0 0 0 4px rgba(239, 107, 63, 0.14);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(239, 107, 63, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .field-validation-error,
@@ -521,12 +546,20 @@ main {
 
     .button--primary:hover {
         transform: translateY(-1px);
+        box-shadow: 0 18px 38px rgba(239, 107, 63, 0.34);
     }
 
 .button--secondary {
     color: var(--ink);
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid rgba(166, 80, 34, 0.12);
+    background: rgba(255, 255, 255, 0.84);
+    border: 1px solid rgba(139, 74, 39, 0.14);
+    box-shadow: 0 10px 24px rgba(74, 45, 25, 0.06);
+}
+
+.button--secondary:hover {
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: var(--shadow-soft);
+    transform: translateY(-1px);
 }
 
 .button--ghost {
@@ -1670,6 +1703,10 @@ body:has(.restaurant-page) .floating-btn--support {
 }
 
 @media (max-width: 720px) {
+    body {
+        background-attachment: scroll;
+    }
+
     .page-shell {
         padding-inline: 1rem;
     }
@@ -3275,6 +3312,9 @@ body:has(.restaurant-page) .floating-btn--support {
     margin: 0 auto;
     text-align: center;
     padding: 2.5rem 3rem;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 246, 240, 0.9)),
+        var(--card);
 }
 
 .home-mission__label {
@@ -3318,12 +3358,14 @@ body:has(.restaurant-page) .floating-btn--support {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    transition: transform 200ms ease, box-shadow 200ms ease;
+    border-color: rgba(139, 74, 39, 0.16);
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 
     .feature-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 32px 80px rgba(115, 62, 33, 0.16);
+        border-color: rgba(239, 107, 63, 0.26);
     }
 
 .feature-card__icon {
@@ -3353,8 +3395,12 @@ body:has(.restaurant-page) .floating-btn--support {
     gap: 1.5rem;
     padding: 3.5rem 2rem;
     border-radius: var(--radius-xl);
-    background: linear-gradient(135deg, rgba(255, 201, 164, 0.4), rgba(255, 145, 92, 0.2));
-    border: 1px solid rgba(166, 80, 34, 0.14);
+    background:
+        linear-gradient(135deg, rgba(255, 201, 164, 0.52), rgba(255, 145, 92, 0.24)),
+        rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(139, 74, 39, 0.16);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(12px);
 }
 
 .home-cta-strip__heading {
@@ -3709,8 +3755,9 @@ body:has(.restaurant-page) .floating-btn--support {
         right: 0;
         flex-direction: column;
         gap: 0;
-        background: linear-gradient(135deg, #ff7043, #ffab40);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        background: linear-gradient(135deg, rgba(239, 107, 63, 0.98), rgba(255, 171, 64, 0.96));
+        box-shadow: 0 14px 30px rgba(72, 45, 28, 0.18);
+        backdrop-filter: blur(16px);
         padding: 0.5rem 0;
         z-index: 999;
     }
@@ -3841,7 +3888,16 @@ img, video, iframe, table {
     aspect-ratio: 4 / 3;
     border-radius: var(--radius-xl);
     overflow: hidden;
-    box-shadow: 0 32px 80px rgba(115, 62, 33, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 32px 80px rgba(74, 45, 25, 0.22);
+}
+
+.hero-photo-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 45%, rgba(49, 33, 27, 0.2));
+    pointer-events: none;
 }
 
 .hero-photo {
@@ -3885,6 +3941,7 @@ img, video, iframe, table {
     margin-right: -50vw;
     height: 340px;
     overflow: hidden;
+    box-shadow: 0 30px 70px rgba(74, 45, 25, 0.14);
 }
 
 .home-photo-break__img {
@@ -3899,7 +3956,7 @@ img, video, iframe, table {
 .home-photo-break__overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient( to right, rgba(30, 15, 5, 0.62) 0%, rgba(30, 15, 5, 0.38) 55%, rgba(30, 15, 5, 0.08) 100% );
+    background: linear-gradient( to right, rgba(30, 15, 5, 0.68) 0%, rgba(30, 15, 5, 0.4) 55%, rgba(30, 15, 5, 0.1) 100% );
     display: flex;
     align-items: center;
     padding: 0 calc(50vw - 590px + 1.5rem);
