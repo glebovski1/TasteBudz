@@ -481,7 +481,10 @@ public sealed class AccountAndProfileMvcTests
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Upcoming Events", html);
+        Assert.Contains("Every future event tied to you, sorted by date.", html);
         Assert.Contains("My Events", html);
+        Assert.Contains("/Profile/View#upcoming-events", html);
         Assert.Contains("Group events", html);
         Assert.Contains("Standalone events", html);
         Assert.DoesNotContain("Ordinary event", html);

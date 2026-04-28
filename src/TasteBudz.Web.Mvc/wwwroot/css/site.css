@@ -828,6 +828,20 @@ main {
     min-width: 0;
 }
 
+.dashboard-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dashboard-section-heading h2 {
+    margin: 0;
+    color: var(--ink);
+    letter-spacing: -0.03em;
+}
+
 .my-events-filter-bar {
     display: flex;
     flex-wrap: wrap;
@@ -884,6 +898,10 @@ main {
     box-shadow: var(--shadow-soft);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+}
+
+.interest-card--upcoming {
+    border-color: rgba(239, 107, 63, 0.24);
 }
 
 [data-my-event-card][hidden] {
@@ -1770,8 +1788,14 @@ body:has(.profile-shell) .floating-btn--support {
     }
 
     .profile-dashboard .profile-banner .button-row,
-    .profile-dashboard .profile-banner .button {
+    .profile-dashboard .profile-banner .button,
+    .dashboard-section-heading,
+    .dashboard-section-heading .button {
         width: 100%;
+    }
+
+    .dashboard-section-heading {
+        flex-direction: column;
     }
 
     .profile-dashboard .interest-card__actions--top {

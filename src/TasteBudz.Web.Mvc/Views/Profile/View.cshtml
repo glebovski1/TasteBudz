@@ -18,13 +18,17 @@
     <div class="profile-dashboard__layout">
         <!--Tab Navigation-->
         <nav class="profile-menu" aria-label="Dashboard sections">
-            <button type="button" class="active" data-profile-section="profile-info">Profile Info</button>
+            <button type="button" class="active" data-profile-section="upcoming-events">
+                <span>Upcoming</span>
+                <span class="profile-menu__count">@Model.UpcomingEvents.Count</span>
+            </button>
+            <button type="button" data-profile-section="profile-info">Profile Info</button>
             <button type="button" data-profile-section="friends">
                 <span>Budz</span>
                 <span class="profile-menu__count">@Model.Budz.Count</span>
             </button>
             <button type="button" data-profile-section="events">
-                <span>My Events</span>
+                <span>All Events</span>
                 <span class="profile-menu__count">@Model.MyEvents.Count</span>
             </button>
             <button type="button" data-profile-section="groups">
@@ -35,6 +39,102 @@
 
         <!--Tab Panels-->
         <div class="profile-content">
+        <div id="upcoming-events" class="section active">
+            <div class="dashboard-section-heading">
+                <div>
+                    <h2>Upcoming Events</h2>
+                    <p class="muted-note">Every future event tied to you, sorted by date.</p>
+                </div>
+                <a asp-controller="Event" asp-action="CreateEvent" class="button button--primary">+ Create Event</a>
+            </div>
+
+            <div class="panel__items interest-card-list">
+                @if (Model.UpcomingEvents.Count == 0)
+                {
+                    <div class="panel empty-state-shell">
+                        <span class="empty-state-shell__icon" aria-hidden="true">TB</span>
+                        <h2 class="empty-state-shell__title">No upcoming events yet.</h2>
+                        <p class="empty-state-shell__copy">Create a dinner plan or browse open events to put one on your calendar.</p>
+                        <div class="button-row">
+                            <a asp-controller="Event" asp-action="Index" class="button button--secondary">Browse Events</a>
+                            <a asp-controller="Event" asp-action="CreateEvent" class="button button--primary">Create Event</a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var item in Model.UpcomingEvents)
+                    {
+                        <article class="summary-card interest-card interest-card--event interest-card--upcoming">
+                            <div class="interest-card__header">
+                                <div class="interest-card__stamp" aria-hidden="true">
+                                    <span class="interest-card__stamp-month">@item.MonthLabel</span>
+                                    <span class="interest-card__stamp-day">@item.DayLabel</span>
+                                </div>
+
+                                <div class="interest-card__body">
+                                    <div class="interest-card__heading">
+                                        <strong class="interest-card__title">@item.Title</strong>
+                                        <time class="interest-card__subtitle" datetime="@item.EventStartAtUtc.ToString("O")">
+                                            @item.ScheduleLabel at @item.TimeLabel
+                                        </time>
+                                    </div>
+
+                                    <div class="interest-card__chips">
+                                        <span class="@StatusChipClass(item.Status)">@item.Status</span>
+                                        @if (item.HasGroupScope)
+                                        {
+                                            <span class="interest-card__chip">@item.ScopeLabel</span>
+                                        }
+                                        <span class="interest-card__chip">@item.EventTypeLabel</span>
+                                        @foreach (var relationship in item.RelationshipLabels)
+                                        {
+                                            <span class="interest-card__chip interest-card__chip--muted">@relationship</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
+                                        {
+                                            <span class="interest-card__chip">@item.CuisineTarget</span>
+                                        }
+                                        <span class="interest-card__chip interest-card__chip--muted">@item.TimingChipLabel</span>
+                                    </div>
+
+                                    <p class="interest-card__summary">@item.SummaryText</p>
+                                </div>
+
+                                <div class="interest-card__actions interest-card__actions--top">
+                                    <a asp-controller="Event"
+                                       asp-action="EventDetails"
+                                       asp-route-eventId="@item.EventId"
+                                       class="interest-card__text-action">Open</a>
+                                    @if (item.IsHosted || item.IsJoined)
+                                    {
+                                        <a asp-controller="Messaging"
+                                           asp-action="EventChat"
+                                           asp-route-eventId="@item.EventId"
+                                           class="interest-card__text-action">Chat</a>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="interest-card__facts">
+                                <span class="interest-card__fact">@item.ScheduleLabel</span>
+                                <span class="interest-card__fact">@item.TimeLabel</span>
+                                @if (item.HasGroupScope)
+                                {
+                                    <span class="interest-card__fact">@item.ScopeLabel</span>
+                                }
+                                <span class="interest-card__fact">@item.EventTypeLabel</span>
+                                @if (!string.IsNullOrWhiteSpace(item.CuisineTarget))
+                                {
+                                    <span class="interest-card__fact">@item.CuisineTarget</span>
+                                }
+                            </div>
+                        </article>
+                    }
+                }
+            </div>
+        </div>
+
         <div id="friends" class="section">
             <h2>Your Budz</h2>
             <div class="panel__items interest-card-list">
@@ -123,7 +223,7 @@
         </div>
 
         <div id="events" class="section">
-            <h2>My Events</h2>
+            <h2>All My Events</h2>
             <div class="my-events-filter-bar" aria-label="My events filters">
                 <button type="button" class="my-events-filter is-active" data-my-events-filter="all">All</button>
                 <button type="button" class="my-events-filter" data-my-events-filter="group">Group events</button>
@@ -274,7 +374,7 @@
             </div>
         </div>
 
-        <div id="profile-info" class="section active">
+        <div id="profile-info" class="section">
             <div class="card profile-banner">
                 <div>
                     <h1>@Model.DisplayName</h1>
@@ -327,17 +427,33 @@
 </section>
 
 <script>
-    function showSection(sectionId, trigger) {
+    function showSection(sectionId, trigger, updateHash) {
+        const section = document.getElementById(sectionId);
+        if (!section || !trigger) return;
+
         document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
         document.querySelectorAll(".profile-menu button").forEach(b => b.classList.remove("active"));
 
-        document.getElementById(sectionId).classList.add("active");
+        section.classList.add("active");
         trigger.classList.add("active");
+
+        if (updateHash) {
+            history.replaceState(null, "", `#${sectionId}`);
+        }
     }
 
     document.querySelectorAll("[data-profile-section]").forEach(button => {
-        button.addEventListener("click", () => showSection(button.dataset.profileSection, button));
+        button.addEventListener("click", () => showSection(button.dataset.profileSection, button, true));
     });
+
+    const initialSectionId = window.location.hash.replace("#", "");
+    const initialTrigger = initialSectionId
+        ? document.querySelector(`[data-profile-section="${initialSectionId}"]`)
+        : null;
+
+    if (initialTrigger) {
+        showSection(initialSectionId, initialTrigger, false);
+    }
 
     document.querySelectorAll("[data-my-events-filter]").forEach(button => {
         button.addEventListener("click", () => {

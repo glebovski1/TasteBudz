@@ -82,7 +82,7 @@ public static partial class MvcTestHelpers
             CreateProfile(),
             new[]
             {
-                new DashboardEventSummaryDto(Guid.NewGuid(), "Friday Sushi Night", EventType.Open, EventStatus.Confirmed, new DateTimeOffset(2026, 3, 20, 19, 0, 0, TimeSpan.Zero), "Sushi"),
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Friday Sushi Night", EventType.Open, EventStatus.Confirmed, DateTimeOffset.UtcNow.AddDays(3), "Sushi"),
             },
             new[]
             {

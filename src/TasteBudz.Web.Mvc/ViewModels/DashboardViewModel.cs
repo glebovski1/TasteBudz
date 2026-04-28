@@ -24,6 +24,12 @@ public sealed class DashboardViewModel
 
     public IReadOnlyCollection<DashboardEventCardViewModel> MyEvents { get; init; } = Array.Empty<DashboardEventCardViewModel>();
 
+    public IReadOnlyCollection<DashboardEventCardViewModel> UpcomingEvents =>
+        MyEvents
+            .Where(item => item.IsUpcoming)
+            .OrderBy(item => item.EventStartAtUtc)
+            .ToArray();
+
     public IReadOnlyCollection<DashboardGroupCardViewModel> ActiveGroups { get; init; } = Array.Empty<DashboardGroupCardViewModel>();
 
     public IReadOnlyCollection<DashboardBudCardViewModel> Budz { get; init; } = Array.Empty<DashboardBudCardViewModel>();
@@ -34,8 +40,25 @@ public sealed class DashboardViewModel
 
     public string GoalsText => DashboardCardFormatting.GetSocialGoalDescription(SocialGoal);
 
-    public static DashboardViewModel FromDto(DashboardDto dto) =>
-        new()
+    public static DashboardViewModel FromDto(DashboardDto dto)
+    {
+        var myEvents = dto.MyEvents
+            .Select(item => new DashboardEventCardViewModel(
+                item.EventId,
+                item.Title ?? "Untitled Event",
+                item.EventType,
+                item.Status,
+                item.EventStartAtUtc,
+                item.CuisineTarget,
+                item.GroupId,
+                item.IsHosted,
+                item.IsJoined,
+                item.IsInvited,
+                item.IsGroupLinked))
+            .OrderBy(item => item.EventStartAtUtc)
+            .ToArray();
+
+        return new()
         {
             Username = dto.Profile.Username,
             DisplayName = dto.Profile.DisplayName,
@@ -45,20 +68,7 @@ public sealed class DashboardViewModel
             SocialGoal = dto.Profile.SocialGoal,
             CuisineTags = dto.Profile.CuisineTags,
             DietaryFlags = dto.Profile.DietaryFlags,
-            MyEvents = dto.MyEvents
-                .Select(item => new DashboardEventCardViewModel(
-                    item.EventId,
-                    item.Title ?? "Untitled Event",
-                    item.EventType,
-                    item.Status,
-                    item.EventStartAtUtc,
-                    item.CuisineTarget,
-                    item.GroupId,
-                    item.IsHosted,
-                    item.IsJoined,
-                    item.IsInvited,
-                    item.IsGroupLinked))
-                .ToArray(),
+            MyEvents = myEvents,
             ActiveGroups = dto.ActiveGroups
                 .Select(item => new DashboardGroupCardViewModel(item.GroupId, item.Name, item.Description, item.Visibility, item.WallpaperTheme, item.ActiveMemberCount))
                 .ToArray(),
@@ -66,6 +76,7 @@ public sealed class DashboardViewModel
                 .Select(item => new DashboardBudCardViewModel(item.UserId, item.Username, item.DisplayName, item.Bio, item.SocialGoal, item.HomeAreaZipCode, item.AvatarMediaAssetId, item.CuisineTags, item.DietaryFlags, item.ConnectedAtUtc))
                 .ToArray(),
         };
+    }
 }
 
 public sealed record DashboardEventCardViewModel(
@@ -100,6 +111,10 @@ public sealed record DashboardEventCardViewModel(
     public string ScopeFilterValue => HasGroupScope ? "group" : "ordinary";
 
     public string StatusFilterValue => Status.ToString().ToLowerInvariant();
+
+    public bool IsUpcoming =>
+        EventStartAtUtc >= DateTimeOffset.UtcNow &&
+        Status is not EventStatus.Cancelled and not EventStatus.Completed;
 
     public IReadOnlyList<string> RelationshipLabels
     {
