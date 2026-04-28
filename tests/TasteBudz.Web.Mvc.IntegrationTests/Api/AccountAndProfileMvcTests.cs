@@ -499,6 +499,76 @@ public sealed class AccountAndProfileMvcTests
     }
 
     [Fact]
+    public async Task DashboardView_RendersAvatarThroughMvcMediaProxy()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var mediaAssetId = Guid.NewGuid();
+        var dashboard = new DashboardDto(
+            MvcTestHelpers.CreateProfile(),
+            Array.Empty<DashboardEventSummaryDto>(),
+            Array.Empty<DashboardGroupSummaryDto>(),
+            new[]
+            {
+                new DashboardBudSummaryDto(Guid.NewGuid(), "sam", "Sam Carter", null, SocialGoal.Friends, "45220", mediaAssetId, Array.Empty<string>(), Array.Empty<string>(), DateTimeOffset.UtcNow),
+            });
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/onboarding/status",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new OnboardingStatusDto(true, Array.Empty<string>())));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/dashboard",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, dashboard));
+
+        using var response = await client.GetAsync("/Profile/View");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains($"/media/{mediaAssetId}", html);
+        Assert.DoesNotContain($"/api/v1/media/{mediaAssetId}", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task MediaProxy_UsesBackendBearerTokenAndStreamsBytes()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var mediaAssetId = Guid.NewGuid();
+        var bytes = new byte[] { 1, 2, 3 };
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+        factory.BackendHandler.Requests.Clear();
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            $"/api/v1/media/{mediaAssetId}",
+            (_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(bytes)
+                {
+                    Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") },
+                },
+            });
+
+        using var response = await client.GetAsync($"/media/{mediaAssetId}");
+        var actualBytes = await response.Content.ReadAsByteArrayAsync();
+        var request = Assert.Single(factory.BackendHandler.Requests);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(bytes, actualBytes);
+        Assert.Equal("Bearer", request.AuthorizationScheme);
+        Assert.Equal("access-token", request.AuthorizationParameter);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
     public async Task DashboardStyles_HideFilteredMyEventCards()
     {
         using var factory = new TasteBudzMvcFactory();

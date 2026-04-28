@@ -249,7 +249,7 @@ file static class DashboardCardFormatting
 
     public static string? ToMediaUrl(Guid? mediaAssetId) =>
         mediaAssetId.HasValue
-            ? $"/api/v1/media/{mediaAssetId.Value}"
+            ? $"/media/{mediaAssetId.Value}"
             : null;
 
     public static string? GetSocialGoalLabel(SocialGoal? socialGoal) => socialGoal switch
