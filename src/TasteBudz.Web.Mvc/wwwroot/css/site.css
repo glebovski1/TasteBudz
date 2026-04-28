@@ -3,13 +3,13 @@
 ======================================== */
 :root {
     --bg: #fff8f1;
-    --bg-soft: rgba(255, 255, 255, 0.74);
-    --card: rgba(255, 255, 255, 0.9);
-    --surface: rgba(255, 255, 255, 0.86);
-    --surface-raised: rgba(255, 250, 246, 0.92);
-    --surface-muted: rgba(255, 247, 241, 0.72);
-    --surface-tab: rgba(255, 255, 255, 0.7);
-    --surface-tab-hover: rgba(255, 255, 255, 0.84);
+    --bg-soft: rgba(255, 255, 255, 0.92);
+    --card: rgba(255, 255, 255, 0.96);
+    --surface: rgba(255, 255, 255, 0.94);
+    --surface-raised: rgba(255, 250, 246, 0.95);
+    --surface-muted: rgba(255, 247, 241, 0.93);
+    --surface-tab: rgba(255, 255, 255, 0.92);
+    --surface-tab-hover: rgba(255, 255, 255, 0.96);
     --border: rgba(139, 74, 39, 0.18);
     --ink: #31211b;
     --text-primary: #31211b;
@@ -6169,6 +6169,44 @@ img, video, iframe, table {
     body:has(.swipe-area) .floating-btn--support {
         display: none;
     }
+}
+
+/* Keep shared content surfaces lightly translucent without making text or cards feel washed out. */
+.card,
+.auth-card,
+.swipecard,
+.hero-card,
+.feature-card,
+.usercard-modal,
+.notif-dropdown,
+.group-public-card,
+.group-showcase-card,
+.group-manage-board-card {
+    background-color: var(--card);
+}
+
+.panel,
+.interest-card,
+.empty-state-shell,
+.chat-shell,
+.chat-message,
+.chat-compose,
+.inbox-item__link,
+.quick-event-stage__toolbar,
+.usercard-bio,
+.group-search-panel,
+.group-announcement-form,
+.group-theme-option,
+.group-visibility-option__body,
+.restaurant-slot-row,
+.slot-edit-panel,
+.slot-cancel-panel form {
+    background-color: var(--surface);
+}
+
+.summary-card,
+.chat-history {
+    background-color: var(--surface-raised);
 }
 
 .notif-action-status {
