@@ -1,4 +1,4 @@
-// Unit tests for event browse filtering and visibility behavior.
+﻿// Unit tests for event browse filtering and visibility behavior.
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
@@ -588,22 +588,4 @@ public sealed class EventBrowseServiceTests
         IRestaurantOperationsRepository RestaurantOperationsRepository,
         EventBrowseService BrowseService);
 
-    private sealed class TestFeatureFlagService(bool restaurantOperationsEnabled, bool discountsEnabled) : IFeatureFlagService
-    {
-        public bool IsMessagingDirectChatEnabled() => false;
-
-        public bool IsMessagingGroupChatEnabled() => true;
-
-        public bool IsNotificationsPushEnabled() => false;
-
-        public bool IsRestaurantsOperationsEnabled() => restaurantOperationsEnabled;
-
-        public bool IsRestaurantsSlotsEnabled() => restaurantOperationsEnabled;
-
-        public bool IsRestaurantsDiscountsEnabled() => discountsEnabled;
-
-        public bool IsPaymentsCheckoutEnabled() => false;
-
-        public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
-    }
 }

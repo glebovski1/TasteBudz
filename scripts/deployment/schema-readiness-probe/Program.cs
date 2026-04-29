@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using TasteBudz.Backend.Infrastructure.Persistence;
 
+// This probe is intentionally small: deployment scripts call it after SQL
+// scripts run, and the only contract is a single JSON object on stdout.
 var connectionString = Environment.GetEnvironmentVariable("TASTEBUDZ_CONN");
 
 if (string.IsNullOrWhiteSpace(connectionString))
@@ -21,6 +23,8 @@ var schemaVersions = new List<string>();
 await using var connection = new SqlConnection(connectionString);
 await connection.OpenAsync();
 
+// Compare every required table and column against INFORMATION_SCHEMA so the
+// app can fail deployment before runtime requests hit missing schema objects.
 foreach (var entry in requirements)
 {
     var tableName = entry.Key;
@@ -56,6 +60,8 @@ foreach (var entry in requirements)
     }
 }
 
+// SchemaVersions is optional for older databases, but reporting recent entries
+// makes release logs easier to diagnose when a patch was applied out of order.
 await using (var versionCommand = connection.CreateCommand())
 {
     versionCommand.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'SchemaVersions';";

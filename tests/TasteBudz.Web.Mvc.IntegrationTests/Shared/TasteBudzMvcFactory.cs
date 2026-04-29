@@ -80,6 +80,10 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountControlle
             {
                 // Parallel test cleanup can remove the shared temp folder first.
             }
+            catch (IOException)
+            {
+                // Other test factories may still be creating or deleting database files.
+            }
         }
     }
 

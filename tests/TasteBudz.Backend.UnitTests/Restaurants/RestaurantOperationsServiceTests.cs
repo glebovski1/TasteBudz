@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
@@ -347,22 +347,4 @@ public sealed class RestaurantOperationsServiceTests
         EventSlotReservationService ReservationService,
         DiscountEligibilityService DiscountEligibilityService);
 
-    private sealed class TestFeatureFlagService(bool discountsEnabled) : IFeatureFlagService
-    {
-        public bool IsMessagingDirectChatEnabled() => false;
-
-        public bool IsMessagingGroupChatEnabled() => true;
-
-        public bool IsNotificationsPushEnabled() => false;
-
-        public bool IsRestaurantsOperationsEnabled() => true;
-
-        public bool IsRestaurantsSlotsEnabled() => true;
-
-        public bool IsRestaurantsDiscountsEnabled() => discountsEnabled;
-
-        public bool IsPaymentsCheckoutEnabled() => false;
-
-        public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
-    }
 }

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
@@ -111,12 +111,4 @@ public sealed class MediaServiceTests
         return new UploadImageRequest { File = file };
     }
 
-    private sealed class DenyingEventFeedbackAccessService : IEventFeedbackAccessService
-    {
-        public Task<bool> CanViewFeedbackAsync(CurrentUser currentUser, Guid eventId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(false);
-
-        public Task<EventFeedbackPhoto?> GetFeedbackPhotoByMediaAssetAsync(Guid mediaAssetId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<EventFeedbackPhoto?>(null);
-    }
 }

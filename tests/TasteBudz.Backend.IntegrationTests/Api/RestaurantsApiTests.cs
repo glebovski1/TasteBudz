@@ -1,4 +1,4 @@
-// Integration tests for restaurant browse and suggestion endpoints.
+﻿// Integration tests for restaurant browse and suggestion endpoints.
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
@@ -390,24 +390,6 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
         Assert.Single(browseAfterRestore!.Items);
     }
 
-    private sealed class StubRestaurantGeocodingService(Queue<RestaurantGeocodeResult?> results) : IRestaurantGeocodingService
-    {
-        public Task<RestaurantGeocodeResult?> GeocodeAsync(
-            string restaurantName,
-            string? streetAddress,
-            string city,
-            string state,
-            string zipCode,
-            CancellationToken cancellationToken = default)
-        {
-            if (results.Count == 0)
-            {
-                return Task.FromResult<RestaurantGeocodeResult?>(null);
-            }
-
-            return Task.FromResult(results.Dequeue());
-        }
-    }
 
     private const string OverpassPreviewPayload = """
         {
@@ -478,12 +460,4 @@ public sealed class RestaurantsApiTests(TasteBudzApiFactory factory) : IClassFix
         }
         """;
 
-    private sealed class StubOverpassHandler(string payload) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(payload),
-            });
-    }
 }

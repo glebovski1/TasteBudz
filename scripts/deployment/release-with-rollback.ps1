@@ -1,3 +1,26 @@
+<#
+.SYNOPSIS
+Runs a guarded Azure App Service release with optional database scripts.
+
+.DESCRIPTION
+Validates the repository, captures a rollback package, optionally applies SQL
+scripts through `apply-azure-sql-schema.ps1`, deploys the MVC/API/SignalR host,
+and attempts rollback if deployment or verification fails.
+
+.PARAMETER ScriptPath
+SQL scripts to apply before deploying the new app package.
+
+.PARAMETER DatabaseRollbackScriptPath
+SQL scripts to run if a release fails after database scripts were applied.
+
+.PARAMETER AllowForwardOnlyDatabaseChange
+Allows database scripts without rollback scripts for explicitly forward-only
+changes.
+
+.PARAMETER DryRun
+Prints the release plan without build, SQL, deployment, rollback, or cleanup
+side effects.
+#>
 [CmdletBinding()]
 param(
     [string]$Subscription,
@@ -65,6 +88,7 @@ function Invoke-RequiredCommand {
 
     Write-Host (Format-Command $FilePath $Arguments)
 
+    # Dry runs exercise path resolution and command construction only.
     if ($DryRun) {
         return
     }
@@ -628,6 +652,8 @@ function Invoke-DatabaseScripts {
     }
 
     Write-Step $Label
+    # Keep SQL application in one script so firewall and readiness logic stay in
+    # a single audited deployment path.
     $applyScript = Join-Path $repoRoot "scripts\deployment\apply-azure-sql-schema.ps1"
     $commandParts = @("& " + (ConvertTo-PowerShellSingleQuotedLiteral $applyScript))
 

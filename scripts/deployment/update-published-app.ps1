@@ -1,3 +1,17 @@
+<#
+.SYNOPSIS
+Publishes and deploys the TasteBudz MVC/API/SignalR host to Azure App Service.
+
+.DESCRIPTION
+Runs Release restore, build, and tests, publishes `TasteBudz.Web.Mvc`, creates
+a zip package, deploys it to the configured App Service, and verifies the
+homepage plus unauthenticated API and SignalR responses. Database schema changes
+are intentionally out of scope for this code-only update script.
+
+.PARAMETER DryRun
+Prints the planned release steps without building, publishing, deploying, or
+cleaning generated artifacts.
+#>
 [CmdletBinding()]
 param(
     [string]$Subscription,
@@ -56,6 +70,7 @@ function Invoke-RequiredCommand {
 
     Write-Host (Format-Command $FilePath $Arguments)
 
+    # Dry runs preserve the exact command log while avoiding side effects.
     if ($DryRun) {
         return
     }
@@ -74,6 +89,8 @@ function Invoke-CapturedCommand {
         [switch]$Sensitive
     )
 
+    # Sensitive commands suppress full output so deployment credentials are not
+    # written to the console or copied into submission artifacts.
     if (-not $Sensitive) {
         Write-Host (Format-Command $FilePath $Arguments)
     }

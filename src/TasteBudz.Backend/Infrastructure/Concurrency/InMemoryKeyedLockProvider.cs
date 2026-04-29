@@ -1,4 +1,4 @@
-// In-memory keyed lock implementation used to protect race-prone workflows in the MVP.
+﻿// In-memory keyed lock implementation used to protect race-prone workflows in the MVP.
 using System.Collections.Concurrent;
 
 namespace TasteBudz.Backend.Infrastructure.Concurrency;
@@ -14,18 +14,7 @@ public sealed class InMemoryKeyedLockProvider : IKeyedLockProvider
     {
         var semaphore = locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
-        return new Releaser(semaphore);
+        return new KeyedLockReleaser(semaphore);
     }
 
-    /// <summary>
-    /// Releases the semaphore when the caller exits an <c>await using</c> scope.
-    /// </summary>
-    private sealed class Releaser(SemaphoreSlim semaphore) : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync()
-        {
-            semaphore.Release();
-            return ValueTask.CompletedTask;
-        }
-    }
 }

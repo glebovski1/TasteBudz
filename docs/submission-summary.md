@@ -14,6 +14,8 @@ TasteBudz is submitted as a source-first ASP.NET Core modular monolith. The repo
 - human-usable deployment helpers under `scripts/deployment/`
 - intentional MVC static assets under `src/TasteBudz.Web.Mvc/wwwroot/`
 
+The remaining `docs/` files are directly tied to requirements, backend authority, database behavior, deployment, or this submission handoff.
+
 ## Source-Only Policy
 
 Generated build outputs, Playwright captures, local runtime files, coverage/TRX output, screenshots, `.sqlite` database files, and agent-only wrappers are excluded from the submission. Database schema authority is source SQL, not a checked-in database file.
@@ -56,6 +58,7 @@ Cleanup verification performed:
 - `update-published-app.ps1 -DryRun` and `release-with-rollback.ps1 -DryRun -AllowForwardOnlyDatabaseChange` resolved the repository root and stopped before side effects
 - artifact scans found no tracked generated files after cleanup patterns were applied
 - root `tastebudz-*.png` screenshot scan returned 0 files
+- C# source audit found no file with more than one `class` declaration
 
 Known gaps:
 

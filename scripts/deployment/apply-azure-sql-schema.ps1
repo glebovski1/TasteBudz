@@ -1,3 +1,26 @@
+<#
+.SYNOPSIS
+Applies TasteBudz SQL Server / Azure SQL schema scripts.
+
+.DESCRIPTION
+Reads the App Service `TasteBudz` connection string, optionally opens a
+temporary client firewall rule, applies bootstrap or patch scripts with
+`sqlcmd`, and runs the schema-readiness probe unless verification is skipped.
+
+.PARAMETER ScriptPath
+Specific SQL scripts to apply. When omitted, the bootstrap schema scripts are
+applied in source-controlled order.
+
+.PARAMETER AllowClientIp
+Temporarily allows this workstation's public IP through the Azure SQL firewall.
+
+.PARAMETER SkipVerification
+Skips the schema-readiness probe after scripts are applied.
+
+.PARAMETER DryRun
+Resolves targets and prints planned actions without applying SQL or changing
+firewall rules.
+#>
 [CmdletBinding()]
 param(
     [string]$Subscription,
@@ -52,6 +75,7 @@ function Invoke-RequiredCommand {
 
     Write-Host (Format-Command $FilePath $Arguments)
 
+    # Dry runs still log commands so release reviewers can inspect intent.
     if ($DryRun) {
         return
     }
@@ -135,6 +159,8 @@ function Invoke-ArmJsonRequest {
 function Resolve-ScriptPaths {
     param([string[]]$RequestedPaths)
 
+    # Explicit script paths support patch releases; the default path bootstraps a
+    # fresh Azure SQL database from the canonical source scripts.
     if ($RequestedPaths -and $RequestedPaths.Count -gt 0) {
         return ,@($RequestedPaths | ForEach-Object {
             (Resolve-Path -LiteralPath $_).Path

@@ -6,13 +6,6 @@ namespace TasteBudz.Web.Mvc.ViewModels;
 /// <summary>
 /// Represents a single entry in the chat inbox list.
 /// </summary>
-public sealed class ChatInboxItemViewModel
-{
-    public Guid ScopeId { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string ScopeLabel { get; init; } = string.Empty; // "Event" or "Group"
-    public string ChatUrl { get; init; } = string.Empty;
-}
 
 /// <summary>
 /// Page model for the chat inbox — lists all event and group chats the user belongs to.

@@ -1,4 +1,4 @@
-using TasteBudz.Backend.Domain;
+﻿using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
@@ -245,22 +245,4 @@ public sealed class CheckoutSessionServiceTests
         IRestaurantOperationsRepository RestaurantOperationsRepository,
         CheckoutSessionService CheckoutSessionService);
 
-    private sealed class TestFeatureFlagService(bool checkoutEnabled, bool discountsEnabled) : IFeatureFlagService
-    {
-        public bool IsMessagingDirectChatEnabled() => false;
-
-        public bool IsMessagingGroupChatEnabled() => true;
-
-        public bool IsNotificationsPushEnabled() => false;
-
-        public bool IsRestaurantsOperationsEnabled() => true;
-
-        public bool IsRestaurantsSlotsEnabled() => true;
-
-        public bool IsRestaurantsDiscountsEnabled() => discountsEnabled;
-
-        public bool IsPaymentsCheckoutEnabled() => checkoutEnabled;
-
-        public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
-    }
 }

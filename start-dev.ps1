@@ -1,3 +1,19 @@
+<#
+.SYNOPSIS
+Starts the TasteBudz single-host local development app.
+
+.DESCRIPTION
+Builds the solution unless skipped, stops any existing TasteBudz web host
+processes, configures the app for local SQLite persistence, and starts the MVC
+host that also serves API controllers and SignalR.
+
+.PARAMETER SkipBuild
+Starts the already-built app without running `dotnet build`.
+
+.PARAMETER ResetDatabase
+Deletes the ignored local SQLite database and sidecar files before startup so
+the app recreates them from the source-controlled SQL scripts.
+#>
 param(
     [switch]$SkipBuild,
     [switch]$ResetDatabase
@@ -9,6 +25,7 @@ $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
 
 function Stop-TasteBudzProcesses {
+    # A local restart should not leave an old web host bound to the same ports.
     $patterns = @(
         'TasteBudz.Web.Mvc'
     )
@@ -55,11 +72,14 @@ New-Item -ItemType Directory -Force -Path $localDataDirectory | Out-Null
 
 if ($ResetDatabase)
 {
+    # SQLite sidecar files must be removed with the database to avoid stale state.
     Remove-Item -LiteralPath $localDatabase -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath "$localDatabase-shm" -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath "$localDatabase-wal" -Force -ErrorAction SilentlyContinue
 }
 
+# Environment variables deliberately override launch profiles and user secrets
+# so local runs always use the ignored source-first SQLite database.
 $env:ASPNETCORE_ENVIRONMENT = "Development"
 $env:BackendApi__BaseUrl = ""
 $env:Persistence__Provider = "Sqlite"

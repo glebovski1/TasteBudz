@@ -1,4 +1,4 @@
-// Unit tests for scoped messaging access and restriction rules.
+﻿// Unit tests for scoped messaging access and restriction rules.
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
 using TasteBudz.Backend.Infrastructure.Concurrency;
@@ -307,22 +307,4 @@ public sealed class MessagingServiceTests
         IEventRepository EventRepository,
         IMessagingRepository MessagingRepository);
 
-    private sealed class AlwaysOnFeatureFlagService : IFeatureFlagService
-    {
-        public bool IsMessagingDirectChatEnabled() => true;
-
-        public bool IsMessagingGroupChatEnabled() => true;
-
-        public bool IsNotificationsPushEnabled() => false;
-
-        public bool IsRestaurantsOperationsEnabled() => false;
-
-        public bool IsRestaurantsSlotsEnabled() => false;
-
-        public bool IsRestaurantsDiscountsEnabled() => false;
-
-        public bool IsPaymentsCheckoutEnabled() => false;
-
-        public bool IsDiscoveryExperimentalSuggestionsEnabled() => false;
-    }
 }

@@ -1,3 +1,5 @@
+"""Build an ignored local TasteBudz SQLite database from source SQL scripts."""
+
 import argparse
 from pathlib import Path
 import sqlite3
@@ -22,6 +24,7 @@ def main() -> None:
     seed_path = sqlite_root / "dbTasteBudz.sqlite.seed.sql"
     test_data_path = sqlite_root / "dbTasteBudz.sqlite.testdata.sql"
 
+    # Recreate from scripts so local files never become schema authority.
     if db_path.exists():
         db_path.unlink()
 
@@ -31,6 +34,8 @@ def main() -> None:
 
     connection = sqlite3.connect(db_path)
     try:
+        # Foreign keys must be enabled per SQLite connection before applying
+        # scripts or checking seed consistency.
         connection.execute("PRAGMA foreign_keys = ON;")
         connection.executescript(schema)
         connection.executescript(seed)

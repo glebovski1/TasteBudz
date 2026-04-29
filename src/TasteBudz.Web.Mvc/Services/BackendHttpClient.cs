@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -346,54 +346,13 @@ public sealed class BackendHttpClient
 /// <summary>
 /// Base exception used when the backend returns an unsuccessful HTTP response.
 /// </summary>
-internal class BackendApiException : Exception
-{
-    public BackendApiException(HttpStatusCode statusCode, string message)
-        : base(message)
-    {
-        StatusCode = statusCode;
-    }
-
-    public HttpStatusCode StatusCode { get; }
-}
 
 /// <summary>
 /// Specialized backend exception used when the MVC app can no longer authenticate on behalf of the user.
 /// </summary>
-internal sealed class BackendAuthenticationExpiredException : BackendApiException
-{
-    public BackendAuthenticationExpiredException(string message)
-        : base(HttpStatusCode.Unauthorized, message)
-    {
-    }
-}
 
 public sealed record BackendFileResponse(byte[] Content, string ContentType);
 
 /// <summary>
 /// Small ProblemDetails shape used when the backend returns API errors.
 /// </summary>
-internal sealed class BackendProblemDetails
-{
-    public int? Status { get; init; }
-
-    public string? Title { get; init; }
-
-    public string? Detail { get; init; }
-
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Extensions { get; init; }
-}
-
-internal static class BackendJson
-{
-    public static JsonSerializerOptions Options { get; } = CreateOptions();
-
-    private static JsonSerializerOptions CreateOptions()
-    {
-        // Use ASP.NET-style web defaults and string enum values so MVC matches the backend JSON shape.
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        options.Converters.Add(new JsonStringEnumConverter());
-        return options;
-    }
-}
