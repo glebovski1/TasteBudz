@@ -172,6 +172,49 @@ public sealed class MessagingServiceTests
     }
 
     [Fact]
+    public async Task ListEventMessagesAsync_WhenCompletedEventUsersAreBlocked_HidesBlockedPairMessages()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var alex = await RegisterAsync(services.AuthService, "alex", "alex@example.com");
+        var sam = await RegisterAsync(services.AuthService, "sam", "sam@example.com");
+        var host = await RegisterAsync(services.AuthService, "host", "host@example.com");
+        var eventId = Guid.NewGuid();
+        var threadId = Guid.NewGuid();
+
+        await services.EventRepository.SaveAsync(new Event(
+            eventId,
+            host.CurrentUser.UserId,
+            "Past dinner",
+            EventType.Open,
+            EventStatus.Completed,
+            clock.UtcNow.AddDays(-1),
+            clock.UtcNow.AddDays(-2),
+            4,
+            2,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            null,
+            null,
+            null,
+            clock.UtcNow.AddDays(-5),
+            clock.UtcNow,
+            null,
+            clock.UtcNow.AddHours(-1)));
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(eventId, alex.CurrentUser.UserId, EventParticipantState.Joined, null, clock.UtcNow.AddDays(-3), clock.UtcNow.AddDays(-3), null, null));
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(eventId, sam.CurrentUser.UserId, EventParticipantState.Joined, null, clock.UtcNow.AddDays(-3), clock.UtcNow.AddDays(-3), null, null));
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(eventId, host.CurrentUser.UserId, EventParticipantState.Joined, null, clock.UtcNow.AddDays(-3), clock.UtcNow.AddDays(-3), null, null));
+        await services.MessagingRepository.SaveThreadAsync(new ChatThread(threadId, ChatScopeType.Event, eventId, clock.UtcNow.AddDays(-3)));
+        await services.MessagingRepository.SaveMessageAsync(new ChatMessage(Guid.NewGuid(), threadId, sam.CurrentUser.UserId, "hidden from alex", clock.UtcNow.AddHours(-3)));
+        await services.MessagingRepository.SaveMessageAsync(new ChatMessage(Guid.NewGuid(), threadId, host.CurrentUser.UserId, "still visible", clock.UtcNow.AddHours(-2)));
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(alex.CurrentUser.UserId, sam.CurrentUser.UserId, clock.UtcNow));
+
+        var history = await services.MessagingService.ListEventMessagesAsync(alex.CurrentUser.UserId, eventId, new ChatHistoryQuery());
+
+        var item = Assert.Single(history.Items);
+        Assert.Equal("still visible", item.Body);
+    }
+
+    [Fact]
     public async Task SupportChat_UserCanMessageAndAdminCanReply()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
@@ -249,7 +292,7 @@ public sealed class MessagingServiceTests
         var discoveryService = new DiscoveryService(authRepository, profileRepository, discoveryRepository, restrictionService, notificationService, clock, keyedLockProvider: new InMemoryKeyedLockProvider());
         var messagingService = new MessagingService(messagingRepository, eventRepository, groupRepository, discoveryRepository, authRepository, profileRepository, new AlwaysOnFeatureFlagService(), restrictionService, clock);
 
-        return new TestServices(authService, profileRepository, restrictionService, eventService, participationService, groupService, discoveryService, messagingService);
+        return new TestServices(authService, profileRepository, restrictionService, eventService, participationService, groupService, discoveryService, messagingService, eventRepository, messagingRepository);
     }
 
     private sealed record TestServices(
@@ -260,7 +303,9 @@ public sealed class MessagingServiceTests
         EventParticipationService ParticipationService,
         GroupService GroupService,
         DiscoveryService DiscoveryService,
-        MessagingService MessagingService);
+        MessagingService MessagingService,
+        IEventRepository EventRepository,
+        IMessagingRepository MessagingRepository);
 
     private sealed class AlwaysOnFeatureFlagService : IFeatureFlagService
     {

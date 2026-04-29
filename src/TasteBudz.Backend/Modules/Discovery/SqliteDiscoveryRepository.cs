@@ -102,7 +102,8 @@ public sealed class SqliteDiscoveryRepository(TasteBudzDbContext dbContext) : ID
 
         if (entity is not null)
         {
-            dbContext.BudConnections.Remove(entity);
+            entity.State = BudConnectionState.Removed;
+            entity.EndedAtUtc = DateTimeOffset.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
         }
     }

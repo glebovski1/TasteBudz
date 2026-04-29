@@ -183,14 +183,16 @@ For MVP:
 - current launched contexts are profile-avatar, moderation-report evidence, and event-feedback photo
 - image bytes and metadata are stored in the application database
 
-### 5.14 Blocking prevents new direct interaction, not shared-context history
+### 5.14 Blocking separates live shared contexts
 
 Blocking prevents new Bud interactions, private/direct messaging, and event/group invitations between the pair.
 
-Blocking does not automatically:
+Creating a block also:
 
-- hide public profiles/events
-- remove users from already joined shared events/groups
+- removes any active Budz connection between the pair
+- makes the blocker leave shared active groups and non-completed joined events
+- removes the blocked user instead when the blocker is the group owner or event host
+- preserves completed shared events while filtering completed-event chat history between the pair
 - split an already shared event/group chat while both users remain authorized in that shared context
 
 ### 5.15 Event defaults are explicit
@@ -437,6 +439,8 @@ Rules:
 - blocking is directional
 - blocking filters discovery/search for the pair
 - blocking disables new direct/private interaction paths
+- blocking removes active Budz and separates live shared group/event contexts
+- unblock does not recreate Budz, group membership, or event participation
 - blocking is reversible
 
 ### Restaurant
@@ -756,6 +760,7 @@ Rules:
 - group chat access derives from current group membership
 - support chat access derives from the support subject user id and admin role
 - direct chat access derives from Budz connection state plus current block state
+- completed event chat history filters messages between blocked users
 
 ### ChatMessage
 
@@ -1050,7 +1055,7 @@ Focus: append-only record of sensitive actions.
 - Group chat access is limited to current active group members.
 - Support chat access is limited to the supported user and admins.
 - Direct chat access is limited to connected Budz when enabled and unblocked.
-- Blocking prevents new direct interaction but does not automatically remove shared-context participation.
+- Blocking removes active Budz and separates shared live group/event contexts while preserving completed event history.
 - Each `UserRestriction` applies to exactly one scope.
 - `UserAccount.Status` is not used for temporary scoped moderation.
 - Password reset tokens are admin-created, one-time use, stored hashed, and revoke existing user sessions on success.

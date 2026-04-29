@@ -514,7 +514,7 @@ MVP messaging rules:
 - Group chat: only current active group members may read/write.
 - Support chat: only the supported user and admins may read/write.
 - Leaving/removal revokes access immediately.
-- Blocking alone does not split a shared event/group chat if both users remain authorized in the same shared context.
+- Blocking separates users from shared live event/group chat by updating participation or membership state; completed event chat history remains readable where event access allows it, but messages between the blocked pair are filtered.
 - Message model is text-only.
 
 SignalR hub expectations:
@@ -685,6 +685,7 @@ Contract rules:
 - Direct chat is Budz-only; non-Budz, blocked pairs, and unrelated callers receive `404 Not Found`.
 - Direct chat uses `ChatScopeType.Direct`, where the `scopeId` is the returned `directChatId`.
 - Active `ChatSend` restrictions block sending.
+- Creating a block removes the active Budz connection, so existing direct chats for the pair become inaccessible.
 
 ### 4.3 Feed (Later)
 

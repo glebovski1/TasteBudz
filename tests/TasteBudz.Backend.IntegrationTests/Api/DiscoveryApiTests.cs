@@ -5,6 +5,8 @@ using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
 using TasteBudz.Backend.Modules.Discovery;
+using TasteBudz.Backend.Modules.Events;
+using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
@@ -103,6 +105,65 @@ public sealed class DiscoveryApiTests(TasteBudzApiFactory factory) : IClassFixtu
         Assert.DoesNotContain(result.Items, item => item.UserId == hiddenSession.CurrentUser.UserId);
         Assert.DoesNotContain(result.Items, item => item.UserId == blockedSession.CurrentUser.UserId);
         Assert.DoesNotContain(result.Items, item => item.UserId == restrictedSession.CurrentUser.UserId);
+    }
+
+    [Fact]
+    public async Task CreateBlock_RemovesBudzAndSharedLiveContexts()
+    {
+        factory.ResetState();
+        using var alexClient = factory.CreateClient();
+        using var samClient = factory.CreateClient();
+
+        var alexSession = await ApiTestHelpers.RegisterAsync(alexClient, username: "alex", email: "alex@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        ApiTestHelpers.SetBearer(alexClient, alexSession.AccessToken);
+        ApiTestHelpers.SetBearer(samClient, samSession.AccessToken);
+
+        await alexClient.PostAsJsonAsync("/api/v1/discovery/swipes", new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = samSession.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        await samClient.PostAsJsonAsync("/api/v1/discovery/swipes", new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = alexSession.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        var createGroupResponse = await samClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Shared Block Group",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createGroupResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        await alexClient.PostAsync($"/api/v1/groups/{group!.GroupId}/members", null);
+        var createEventResponse = await samClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Shared block event",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        var eventDetail = await createEventResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+        await alexClient.PostAsync($"/api/v1/events/{eventDetail!.EventId}/participants", null);
+
+        var blockResponse = await alexClient.PostAsJsonAsync("/api/v1/blocks", new CreateBlockRequest
+        {
+            BlockedUserId = samSession.CurrentUser.UserId,
+        });
+        var alexBudzResponse = await alexClient.GetAsync("/api/v1/budz");
+        var alexBudz = await alexBudzResponse.Content.ReadFromJsonAsync<BudConnectionDto[]>(ApiTestHelpers.JsonOptions);
+        var groupDetailResponse = await alexClient.GetAsync($"/api/v1/groups/{group.GroupId}");
+        var groupDetail = await groupDetailResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        var eventMessagesResponse = await alexClient.GetAsync($"/api/v1/events/{eventDetail.EventId}/messages");
+
+        Assert.Equal(HttpStatusCode.OK, blockResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, alexBudzResponse.StatusCode);
+        Assert.DoesNotContain(alexBudz!, item => item.UserId == samSession.CurrentUser.UserId);
+        Assert.Equal(HttpStatusCode.OK, groupDetailResponse.StatusCode);
+        Assert.False(groupDetail!.IsCurrentUserMember);
+        Assert.DoesNotContain(groupDetail.Members, member => member.UserId == alexSession.CurrentUser.UserId);
+        Assert.Equal(HttpStatusCode.NotFound, eventMessagesResponse.StatusCode);
     }
 
     [Fact]

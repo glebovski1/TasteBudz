@@ -3,13 +3,14 @@
 ======================================== */
 :root {
     --bg: #fff8f1;
-    --bg-soft: rgba(255, 255, 255, 0.92);
-    --card: rgba(255, 255, 255, 0.96);
-    --surface: rgba(255, 255, 255, 0.94);
-    --surface-raised: rgba(255, 250, 246, 0.95);
-    --surface-muted: rgba(255, 247, 241, 0.93);
-    --surface-tab: rgba(255, 255, 255, 0.92);
-    --surface-tab-hover: rgba(255, 255, 255, 0.96);
+    --bg-soft: rgba(255, 255, 255, 0.9);
+    --card: rgba(255, 255, 255, 0.88);
+    --surface: rgba(255, 255, 255, 0.86);
+    --surface-raised: rgba(255, 250, 246, 0.88);
+    --surface-muted: rgba(255, 247, 241, 0.84);
+    --surface-tab: rgba(255, 255, 255, 0.84);
+    --surface-tab-hover: rgba(255, 255, 255, 0.9);
+    --accent-glass: linear-gradient(135deg, rgba(239, 107, 63, 0.9), rgba(255, 154, 95, 0.9));
     --border: rgba(139, 74, 39, 0.18);
     --ink: #31211b;
     --text-primary: #31211b;
@@ -6176,17 +6177,22 @@ img, video, iframe, table {
 .auth-card,
 .swipecard,
 .hero-card,
+.hero-stat,
 .feature-card,
 .usercard-modal,
 .notif-dropdown,
 .group-public-card,
 .group-showcase-card,
-.group-manage-board-card {
+.group-manage-board-card,
+.home-mission__inner,
+.home-cta-strip {
     background-color: var(--card);
 }
 
 .panel,
 .interest-card,
+.profile-menu,
+.profile-menu button,
 .empty-state-shell,
 .chat-shell,
 .chat-message,
@@ -6200,13 +6206,56 @@ img, video, iframe, table {
 .group-visibility-option__body,
 .restaurant-slot-row,
 .slot-edit-panel,
-.slot-cancel-panel form {
+.slot-cancel-panel form,
+.my-events-filter,
+.admin-tab,
+.events-mode-tab,
+.group-linked-event-tab {
     background-color: var(--surface);
 }
 
 .summary-card,
-.chat-history {
+.chat-history,
+.profile-menu__count {
     background-color: var(--surface-raised);
+}
+
+.empty-state-shell {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 247, 241, 0.86));
+}
+
+.home-mission__inner {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 246, 240, 0.86));
+}
+
+.home-cta-strip {
+    background: linear-gradient(135deg, rgba(255, 225, 207, 0.86), rgba(255, 244, 235, 0.84));
+}
+
+.profile-menu button.active,
+.my-events-filter.is-active,
+.admin-tab--active,
+.events-mode-tab--active,
+.group-linked-event-tab.is-active {
+    background: var(--accent-glass);
+}
+
+.card,
+.panel,
+.summary-card,
+.interest-card,
+.profile-menu,
+.chat-shell,
+.chat-history,
+.chat-message,
+.chat-compose,
+.swipecard,
+.feature-card,
+.group-public-card,
+.group-showcase-card,
+.group-manage-board-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .notif-action-status {

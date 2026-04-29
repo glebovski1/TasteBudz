@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
@@ -14,6 +15,7 @@ using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Messaging;
 using TasteBudz.Backend.Modules.Moderation;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.IntegrationTests.Api;
 
@@ -189,6 +191,62 @@ public sealed class MessagingApiTests(TasteBudzApiFactory factory) : IClassFixtu
 
         Assert.Equal(HttpStatusCode.NoContent, removalResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, historyResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompletedEventMessages_AfterBlock_HideBlockedPairMessages()
+    {
+        factory.ResetState();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createEventResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Completed block history",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        var eventDetail = await createEventResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+        await guestClient.PostAsync($"/api/v1/events/{eventDetail!.EventId}/participants", null);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var eventRepository = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+            var messagingRepository = scope.ServiceProvider.GetRequiredService<IMessagingRepository>();
+            var eventRecord = await eventRepository.GetAsync(eventDetail.EventId);
+            var completed = eventRecord! with
+            {
+                Status = EventStatus.Completed,
+                EventStartAtUtc = DateTimeOffset.UtcNow.AddHours(-1),
+                DecisionAtUtc = DateTimeOffset.UtcNow.AddHours(-2),
+                CompletedAtUtc = DateTimeOffset.UtcNow,
+            };
+            var threadId = Guid.NewGuid();
+
+            await eventRepository.SaveAsync(completed);
+            await messagingRepository.SaveThreadAsync(new ChatThread(threadId, ChatScopeType.Event, eventDetail.EventId, DateTimeOffset.UtcNow.AddHours(-2)));
+            await messagingRepository.SaveMessageAsync(new ChatMessage(Guid.NewGuid(), threadId, guestSession.CurrentUser.UserId, "hidden after block", DateTimeOffset.UtcNow.AddMinutes(-20)));
+            await messagingRepository.SaveMessageAsync(new ChatMessage(Guid.NewGuid(), threadId, hostSession.CurrentUser.UserId, "visible host note", DateTimeOffset.UtcNow.AddMinutes(-10)));
+        }
+
+        var blockResponse = await hostClient.PostAsJsonAsync("/api/v1/blocks", new CreateBlockRequest
+        {
+            BlockedUserId = guestSession.CurrentUser.UserId,
+        });
+        var historyResponse = await hostClient.GetAsync($"/api/v1/events/{eventDetail.EventId}/messages");
+        var history = await historyResponse.Content.ReadFromJsonAsync<CursorPageResponse<ChatMessageDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, blockResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+        var item = Assert.Single(history!.Items);
+        Assert.Equal("visible host note", item.Body);
     }
 
     [Fact]

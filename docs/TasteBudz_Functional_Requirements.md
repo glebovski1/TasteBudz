@@ -556,8 +556,11 @@ Priority legend:
 - Blocking is directional.
 - Blocked users do not appear in people discovery for each other.
 - Blocking prevents new direct interaction paths such as new Bud interactions, direct/private messaging, and event/group invitations between the pair.
-- Blocking does not automatically remove users from already shared groups/events or split existing shared-context chat.
+- Blocking removes any active Budz connection between the pair.
+- Blocking separates the pair from shared live contexts: the blocker leaves shared active groups and non-completed joined events, except that a blocking group owner or event host keeps their role and the blocked user is removed instead.
+- Completed shared events are preserved for history/feedback, but blocked users do not see each other's completed-event chat messages.
 - Blocking is reversible by the blocker.
+- Unblocking does not automatically recreate Budz, group membership, or event participation.
 
 ### FR-025 Report Users/Content
 

@@ -66,7 +66,17 @@ public sealed class InMemoryDiscoveryRepository(InMemoryTasteBudzStore store) : 
     {
         lock (store.SyncRoot)
         {
-            store.BudConnections.Remove(ToNormalizedPairKey(firstUserId, secondUserId));
+            var key = ToNormalizedPairKey(firstUserId, secondUserId);
+
+            if (store.BudConnections.TryGetValue(key, out var connection))
+            {
+                store.BudConnections[key] = connection with
+                {
+                    State = BudConnectionState.Removed,
+                    EndedAtUtc = DateTimeOffset.UtcNow,
+                };
+            }
+
             return Task.CompletedTask;
         }
     }

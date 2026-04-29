@@ -144,7 +144,7 @@ The following areas are the highest priority for backend testing.
 - only admins can issue password reset tokens, anonymous reset requests do not disclose account existence, and reset completion revokes existing sessions
 - discovery-disabled users are excluded where required
 - `DiscoveryVisibility` restrictions hide users from discovery/search where required
-- blocking prevents new disallowed interaction paths
+- blocking prevents new disallowed interaction paths, removes active Budz, and separates shared live contexts
 - launched-but-forbidden behavior returns the correct status code (for example `403`)
 - hidden/not-launched feature-flagged endpoints return `404`
 - role-owned later endpoints enforce the correct actor context (`GroupOwner`, `RestaurantAdmin`)
@@ -160,6 +160,7 @@ The following areas are the highest priority for backend testing.
 - only joined event participants can access event chat
 - only the supported user and admins can access support chat
 - leaving or removal revokes access immediately
+- completed event chat history filters messages between blocked users
 - direct chat remains hidden when disabled
 - enabled direct chat is limited to connected Budz, current block state, and active `ChatSend` restrictions
 
@@ -287,6 +288,7 @@ These scenarios should anchor early backend testing work.
 | BT-07 | Removed participant immediately loses event-chat access | High | Chat authorization reflects current participation |
 | BT-08 | Private group invite is accepted and membership is created | High | Private-group membership rules are enforced |
 | BT-09 | Reciprocal Like creates one Bud connection | Medium | Matching logic respects the accepted MVP rule |
+| BT-09A | Blocking an active Bud removes the Budz connection and separates shared live groups/events | High | Block cleanup keeps live social contexts coherent |
 | BT-10 | Moderator applies a scoped restriction that blocks a forbidden action | High | Restriction enforcement is active and auditable |
 | BT-11 | Non-owner cannot link an event to group context, and group-linked event type must match group visibility | High | Group-linked events stay owner-managed and visibility-consistent |
 | BT-12 | Discovery search excludes a user with an active `DiscoveryVisibility` restriction | High | Discovery filtering respects moderation scope |
@@ -304,6 +306,7 @@ These scenarios should anchor early backend testing work.
 | BT-22 | User and admin exchange support messages | High | Support-scope access is limited to the supported user and admins across REST and hub behavior |
 | BT-23 | User swipes another user before reciprocal decision | Medium | The swiped user is hidden from that actor's people search until deciding back |
 | BT-24 | Joined participant adds feedback to a completed event | High | Completed-only eligibility, one-entry upsert, Open/Closed visibility, photo authorization, and validation are correct |
+| BT-25 | Completed event chat history hides blocked-pair messages | High | Completed event history is preserved without exposing blocked-user chat messages |
 
 ## 14. Module-Specific Test Emphasis
 

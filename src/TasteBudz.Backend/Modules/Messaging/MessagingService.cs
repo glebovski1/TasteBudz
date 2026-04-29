@@ -183,7 +183,17 @@ public sealed class MessagingService(
         await EnsureCanAccessScopeAsync(currentUser, scopeType, scopeId, forSend: false, cancellationToken);
         var thread = await GetOrCreateThreadAsync(scopeType, scopeId, cancellationToken);
         var messages = await messagingRepository.ListMessagesAsync(thread.Id, cancellationToken);
-        var ordered = messages
+        var visibleMessages = new List<ChatMessage>(messages.Count);
+
+        foreach (var message in messages)
+        {
+            if (await CanViewMessageAsync(currentUser.UserId, scopeType, message, cancellationToken))
+            {
+                visibleMessages.Add(message);
+            }
+        }
+
+        var ordered = visibleMessages
             .OrderBy(message => message.CreatedAtUtc)
             .ThenBy(message => message.Id)
             .ToArray();
@@ -344,6 +354,17 @@ public sealed class MessagingService(
             profile?.DisplayName ?? account.Username,
             message.Body,
             message.CreatedAtUtc);
+    }
+
+    private async Task<bool> CanViewMessageAsync(Guid currentUserId, ChatScopeType scopeType, ChatMessage message, CancellationToken cancellationToken)
+    {
+        if (scopeType == ChatScopeType.Support || message.SenderUserId == currentUserId)
+        {
+            return true;
+        }
+
+        return await profileRepository.GetBlockAsync(currentUserId, message.SenderUserId, cancellationToken) is null &&
+            await profileRepository.GetBlockAsync(message.SenderUserId, currentUserId, cancellationToken) is null;
     }
 
     private async Task EnsureDirectChatIsVisibleAsync(Guid currentUserId, BudConnection connection, CancellationToken cancellationToken)

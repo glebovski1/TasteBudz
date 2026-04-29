@@ -276,21 +276,22 @@ When a participant leaves an event, the seat becomes available again.
 - History should be preserved while capacity reopens.
 - Status recalculation must happen after leave/remove actions.
 
-## [ADR-014] Blocking Is a Soft Block
+## [ADR-014] Blocking Separates Live Shared Contexts
 
 - Date: 2026-03-07
 - Status: Accepted
 - Owners: Backend team
 
 ### Context
-Hard hiding/removal behavior across shared contexts would add large safety and UX complexity.
+Users expect blocking to end direct social contact and live shared interaction, while completed event history still needs to remain available for MVP history, feedback, and moderation context.
 
 ### Decision
-Blocking prevents new direct interaction paths such as messaging, invitations, and new Bud interactions, but does not automatically remove users from already shared events/groups or split existing shared-context chat.
+Blocking prevents new direct interaction paths such as messaging, invitations, and new Bud interactions. Creating a block also removes the active Budz connection, makes the blocker leave shared active groups and non-completed joined events, and removes the blocked user instead when the blocker is the group owner or event host. Completed shared events are preserved, but completed-event chat history filters messages between the blocked pair.
 
 ### Consequences
-- Shared-context separation requires host/owner/moderator action.
-- Blocking filters must apply consistently in discovery and private-contact paths.
+- Block cleanup must preserve historical records instead of physically deleting memberships, participations, messages, reports, or moderation actions.
+- Unblocking does not restore Budz, group membership, or event participation automatically.
+- Blocking filters must apply consistently in discovery, private-contact paths, and completed-event chat history.
 
 ## [ADR-015] Event Cancellation Is Status-Based
 
