@@ -382,6 +382,7 @@ Contract note:
 
 - The backend event browse contract remains explicit. MVC quick filters may choose to populate `zipCode`, `radiusMiles`, and `availabilityOnly` from the signed-in user's saved profile data, but the backend does not silently personalize blank requests.
 - Normal event browse returns events the caller is allowed to view: Open events plus Closed events where visibility is granted by host, invite/participation, or privileged role.
+- Normal event browse and event detail hide non-completed events from non-host callers when the caller has an active block relationship in either direction with the event host or a joined participant.
 - `groupLinked=true` returns group-linked events, `groupLinked=false` returns ordinary standalone events, and an omitted value returns both.
 - When `recommended=true`, the backend ranks only active Open events with available seats using the caller's home ZIP distance, saved cuisine preferences, and Budz already joined in each event. In that explicit mode, `EventSummaryDto` may populate optional recommendation metadata such as `distanceMiles`, `matchingCuisineCount`, and `matchingBudzCount`.
 - Event summaries include card indicator fields for restaurant operations: `hasActiveSlotReservation`, `isDiscountActive`, and nullable `discountPercent`.
@@ -405,6 +406,8 @@ Contract note:
 | Respond to Group Invite | PATCH | `/api/v1/groups/invites/{inviteId}` | Accept/decline invite | Yes |
 
 Group event history clients should compose `GET /api/v1/groups/{groupId}/events` with `GET /api/v1/events/{eventId}/feedback` when feedback is needed. Feedback visibility remains owned by the Events module.
+
+Public group browse and detail hide groups from non-members when the caller has an active block relationship in either direction with the group owner or an active member. Public group join returns `403 Forbidden` for the same blocked-context condition.
 
 Representative request shapes:
 
@@ -514,7 +517,7 @@ MVP messaging rules:
 - Group chat: only current active group members may read/write.
 - Support chat: only the supported user and admins may read/write.
 - Leaving/removal revokes access immediately.
-- Blocking separates users from shared live event/group chat by updating participation or membership state; completed event chat history remains readable where event access allows it, but messages between the blocked pair are filtered.
+- Blocking separates users from shared live event/group chat by updating participation or membership state; event/group browse, detail, and join paths also block new live shared contexts with blocked users. Completed event chat history remains readable where event access allows it, but messages between the blocked pair are filtered.
 - Message model is text-only.
 
 SignalR hub expectations:

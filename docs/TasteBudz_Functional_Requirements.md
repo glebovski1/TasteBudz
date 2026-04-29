@@ -531,6 +531,7 @@ Priority legend:
 - Users can filter events by status.
 - Users can distinguish group-linked events from ordinary standalone events.
 - Users can browse/search public groups by name and visibility.
+- Event and group browse exclude live contexts that would place the signed-in user into a shared active event/group with a user blocked in either direction.
 - Blank browse/search state does not silently personalize event results from profile data.
 - MVP implementation may be pure database queries without a dedicated cached feed.
 
@@ -558,6 +559,7 @@ Priority legend:
 - Blocking prevents new direct interaction paths such as new Bud interactions, direct/private messaging, and event/group invitations between the pair.
 - Blocking removes any active Budz connection between the pair.
 - Blocking separates the pair from shared live contexts: the blocker leaves shared active groups and non-completed joined events, except that a blocking group owner or event host keeps their role and the blocked user is removed instead.
+- Blocking prevents either user from newly viewing or joining live event/group contexts that already contain the other user as host, owner, joined participant, or active member.
 - Completed shared events are preserved for history/feedback, but blocked users do not see each other's completed-event chat messages.
 - Blocking is reversible by the blocker.
 - Unblocking does not automatically recreate Budz, group membership, or event participation.

@@ -154,15 +154,12 @@ public sealed class DiscoveryApiTests(TasteBudzApiFactory factory) : IClassFixtu
         var alexBudzResponse = await alexClient.GetAsync("/api/v1/budz");
         var alexBudz = await alexBudzResponse.Content.ReadFromJsonAsync<BudConnectionDto[]>(ApiTestHelpers.JsonOptions);
         var groupDetailResponse = await alexClient.GetAsync($"/api/v1/groups/{group.GroupId}");
-        var groupDetail = await groupDetailResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
         var eventMessagesResponse = await alexClient.GetAsync($"/api/v1/events/{eventDetail.EventId}/messages");
 
         Assert.Equal(HttpStatusCode.OK, blockResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, alexBudzResponse.StatusCode);
         Assert.DoesNotContain(alexBudz!, item => item.UserId == samSession.CurrentUser.UserId);
-        Assert.Equal(HttpStatusCode.OK, groupDetailResponse.StatusCode);
-        Assert.False(groupDetail!.IsCurrentUserMember);
-        Assert.DoesNotContain(groupDetail.Members, member => member.UserId == alexSession.CurrentUser.UserId);
+        Assert.Equal(HttpStatusCode.NotFound, groupDetailResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, eventMessagesResponse.StatusCode);
     }
 

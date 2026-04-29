@@ -128,6 +128,17 @@ public sealed class EventBrowseService(
             }
 
             var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
+
+            if (await EventPolicy.HasBlockedLiveParticipantAsync(
+                    profileRepository,
+                    eventRecord,
+                    participants,
+                    currentUserId,
+                    cancellationToken))
+            {
+                continue;
+            }
+
             var activeParticipants = participants.Count(participant => participant.State == EventParticipantState.Joined);
 
             if (query.Recommended && activeParticipants >= eventRecord.Capacity)

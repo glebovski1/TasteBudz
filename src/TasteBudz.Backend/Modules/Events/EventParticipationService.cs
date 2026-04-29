@@ -67,6 +67,17 @@ public sealed class EventParticipationService(
         }
 
         var participants = await eventRepository.ListParticipantsAsync(eventId, cancellationToken);
+
+        if (await EventPolicy.HasBlockedLiveParticipantAsync(
+                profileRepository,
+                eventRecord,
+                participants,
+                currentUser.UserId,
+                cancellationToken))
+        {
+            throw ApiException.Forbidden("Blocking prevents joining events with blocked users.");
+        }
+
         var existing = participants.FirstOrDefault(participant => participant.UserId == currentUser.UserId);
 
         if (existing?.State == EventParticipantState.Joined)

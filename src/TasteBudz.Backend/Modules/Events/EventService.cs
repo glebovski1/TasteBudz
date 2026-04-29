@@ -310,14 +310,26 @@ public sealed class EventService(
     /// </summary>
     private async Task EnsureCanViewAsync(Guid currentUserId, Event eventRecord, CancellationToken cancellationToken)
     {
-        if (await EventVisibilityPolicy.CanViewAsync(
-                currentUserId,
-                isPrivileged: false,
-                eventRecord,
-                eventRepository,
-                cancellationToken))
+        var canView = await EventVisibilityPolicy.CanViewAsync(
+            currentUserId,
+            isPrivileged: false,
+            eventRecord,
+            eventRepository,
+            cancellationToken);
+
+        if (canView)
         {
-            return;
+            var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
+
+            if (!await EventPolicy.HasBlockedLiveParticipantAsync(
+                    profileRepository,
+                    eventRecord,
+                    participants,
+                    currentUserId,
+                    cancellationToken))
+            {
+                return;
+            }
         }
 
         throw ApiException.NotFound("The requested event could not be found.");

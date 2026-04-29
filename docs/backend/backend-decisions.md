@@ -291,7 +291,7 @@ Blocking prevents new direct interaction paths such as messaging, invitations, a
 ### Consequences
 - Block cleanup must preserve historical records instead of physically deleting memberships, participations, messages, reports, or moderation actions.
 - Unblocking does not restore Budz, group membership, or event participation automatically.
-- Blocking filters must apply consistently in discovery, private-contact paths, and completed-event chat history.
+- Blocking filters must apply consistently in people discovery, private-contact paths, live event/group browse and join paths, and completed-event chat history.
 
 ## [ADR-015] Event Cancellation Is Status-Based
 

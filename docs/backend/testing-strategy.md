@@ -145,6 +145,7 @@ The following areas are the highest priority for backend testing.
 - discovery-disabled users are excluded where required
 - `DiscoveryVisibility` restrictions hide users from discovery/search where required
 - blocking prevents new disallowed interaction paths, removes active Budz, and separates shared live contexts
+- event/group browse, detail, and join paths exclude live contexts containing blocked users
 - launched-but-forbidden behavior returns the correct status code (for example `403`)
 - hidden/not-launched feature-flagged endpoints return `404`
 - role-owned later endpoints enforce the correct actor context (`GroupOwner`, `RestaurantAdmin`)

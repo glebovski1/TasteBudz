@@ -383,6 +383,56 @@ public sealed class EventWorkflowTests
     }
 
     [Fact]
+    public async Task GetAsync_WhenOpenEventHostIsBlocked_ReturnsNotFound()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Blocked host dinner",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        services.Store.Blocks[$"{host.UserId:N}:{guest.UserId:N}"] = new UserBlock(host.UserId, guest.UserId, clock.UtcNow);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventService.GetAsync(guest.UserId, detail.EventId));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task JoinOpenEventAsync_WhenEventHasBlockedParticipant_ReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var participant = ToCurrentUser(await RegisterAsync(services.AuthService, "participant", "participant@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Blocked participant dinner",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(1),
+            Capacity = 4,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        await services.EventParticipationService.JoinOpenEventAsync(participant, detail.EventId);
+        services.Store.Blocks[$"{participant.UserId:N}:{guest.UserId:N}"] = new UserBlock(participant.UserId, guest.UserId, clock.UtcNow);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
     public async Task JoinOpenEventAsync_LastSeatContentionAllowsOnlyOneWinner()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));

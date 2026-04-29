@@ -84,6 +84,89 @@ public sealed class GroupServiceTests
     }
 
     [Fact]
+    public async Task BrowseAsync_ExcludesPublicGroupsWithBlockedOwnerOrActiveMember()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var visibleOwner = await RegisterAsync(services.AuthService, "visibleowner", "visibleowner@example.com");
+        var blockedOwner = await RegisterAsync(services.AuthService, "blockedowner", "blockedowner@example.com");
+        var memberOwner = await RegisterAsync(services.AuthService, "memberowner", "memberowner@example.com");
+        var blockedMember = await RegisterAsync(services.AuthService, "blockedmember", "blockedmember@example.com");
+
+        var visibleGroup = await services.GroupService.CreateAsync(ToCurrentUser(visibleOwner), new CreateGroupRequest
+        {
+            Name = "Visible Crew",
+            Visibility = GroupVisibility.Public,
+        });
+        await services.GroupService.CreateAsync(ToCurrentUser(blockedOwner), new CreateGroupRequest
+        {
+            Name = "Blocked Owner Crew",
+            Visibility = GroupVisibility.Public,
+        });
+        var blockedMemberGroup = await services.GroupService.CreateAsync(ToCurrentUser(memberOwner), new CreateGroupRequest
+        {
+            Name = "Blocked Member Crew",
+            Visibility = GroupVisibility.Public,
+        });
+        await services.GroupService.JoinAsync(blockedMember.CurrentUser.UserId, blockedMemberGroup.GroupId);
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(guest.CurrentUser.UserId, blockedOwner.CurrentUser.UserId, clock.UtcNow));
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(blockedMember.CurrentUser.UserId, guest.CurrentUser.UserId, clock.UtcNow));
+
+        var browse = await services.GroupService.BrowseAsync(guest.CurrentUser.UserId, new BrowseGroupsQuery
+        {
+            PageSize = 10,
+        });
+
+        var item = Assert.Single(browse.Items);
+        Assert.Equal(visibleGroup.GroupId, item.GroupId);
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenPublicGroupHasBlockedActiveMember_ReturnsNotFound()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var blockedMember = await RegisterAsync(services.AuthService, "blockedmember", "blockedmember@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Public Crew",
+            Visibility = GroupVisibility.Public,
+        });
+        await services.GroupService.JoinAsync(blockedMember.CurrentUser.UserId, group.GroupId);
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(blockedMember.CurrentUser.UserId, guest.CurrentUser.UserId, clock.UtcNow));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.GroupService.GetAsync(guest.CurrentUser.UserId, group.GroupId));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task JoinAsync_WhenPublicGroupHasBlockedActiveMember_ReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var blockedMember = await RegisterAsync(services.AuthService, "blockedmember", "blockedmember@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Public Crew",
+            Visibility = GroupVisibility.Public,
+        });
+        await services.GroupService.JoinAsync(blockedMember.CurrentUser.UserId, group.GroupId);
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(guest.CurrentUser.UserId, blockedMember.CurrentUser.UserId, clock.UtcNow));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.GroupService.JoinAsync(guest.CurrentUser.UserId, group.GroupId));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
     public async Task RespondToInviteAsync_AcceptCreatesPrivateMembership()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
@@ -269,11 +352,12 @@ public sealed class GroupServiceTests
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
         var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, clock);
 
-        return new TestServices(authService, groupService, notificationService);
+        return new TestServices(authService, groupService, profileRepository, notificationService);
     }
 
     private sealed record TestServices(
         AuthService AuthService,
         GroupService GroupService,
+        IProfileRepository ProfileRepository,
         INotificationService NotificationService);
 }

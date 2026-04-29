@@ -239,32 +239,44 @@ public sealed class EventBrowseServiceTests
     }
 
     [Fact]
-    public async Task BrowseAsync_DoesNotHideOpenEventsForHostPrivacyOrBlocking()
+    public async Task BrowseAsync_HidesOpenEventsWithBlockedHostOrParticipant()
     {
         var services = CreateServices();
         var currentUserId = Guid.NewGuid();
         var visibleHostUserId = Guid.NewGuid();
-        var privateHostUserId = Guid.NewGuid();
         var blockedHostUserId = Guid.NewGuid();
+        var participantHostUserId = Guid.NewGuid();
+        var blockedParticipantUserId = Guid.NewGuid();
 
         await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
         await SaveProfileAsync(services.ProfileRepository, visibleHostUserId, "45220", "visible-host", services.Clock);
-        await SaveProfileAsync(services.ProfileRepository, privateHostUserId, "45220", "private-host", services.Clock);
         await SaveProfileAsync(services.ProfileRepository, blockedHostUserId, "45220", "blocked-host", services.Clock);
-        await services.ProfileRepository.SavePrivacySettingsAsync(new PrivacySettings(privateHostUserId, false, services.Clock.UtcNow));
-        await services.ProfileRepository.SaveBlockAsync(new UserBlock(blockedHostUserId, currentUserId, services.Clock.UtcNow));
+        await SaveProfileAsync(services.ProfileRepository, participantHostUserId, "45220", "participant-host", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, blockedParticipantUserId, "45220", "blocked-participant", services.Clock);
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(currentUserId, blockedHostUserId, services.Clock.UtcNow));
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(blockedParticipantUserId, currentUserId, services.Clock.UtcNow));
 
         await SaveEventAsync(services.EventRepository, CreateOpenEvent(visibleHostUserId, "Visible dinner", services.Clock.UtcNow.AddDays(2)), visibleHostUserId, services.Clock);
-        await SaveEventAsync(services.EventRepository, CreateOpenEvent(privateHostUserId, "Private host dinner", services.Clock.UtcNow.AddDays(2).AddHours(1)), privateHostUserId, services.Clock);
         await SaveEventAsync(services.EventRepository, CreateOpenEvent(blockedHostUserId, "Blocked host dinner", services.Clock.UtcNow.AddDays(2).AddHours(2)), blockedHostUserId, services.Clock);
+        var blockedParticipantEvent = CreateOpenEvent(participantHostUserId, "Blocked participant dinner", services.Clock.UtcNow.AddDays(2).AddHours(3));
+        await SaveEventAsync(services.EventRepository, blockedParticipantEvent, participantHostUserId, services.Clock);
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(
+            blockedParticipantEvent.Id,
+            blockedParticipantUserId,
+            EventParticipantState.Joined,
+            null,
+            services.Clock.UtcNow,
+            services.Clock.UtcNow,
+            null,
+            null));
 
         var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
         {
             PageSize = 10,
         });
 
-        Assert.Equal(3, result.TotalCount);
-        Assert.Equal(new[] { "Visible dinner", "Private host dinner", "Blocked host dinner" }, result.Items.Select(item => item.Title));
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Visible dinner", item.Title);
     }
 
     [Fact]

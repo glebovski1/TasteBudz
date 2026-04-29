@@ -193,7 +193,7 @@ Creating a block also:
 - makes the blocker leave shared active groups and non-completed joined events
 - removes the blocked user instead when the blocker is the group owner or event host
 - preserves completed shared events while filtering completed-event chat history between the pair
-- split an already shared event/group chat while both users remain authorized in that shared context
+- prevents either user from newly viewing or joining live event/group contexts that already contain the other user
 
 ### 5.15 Event defaults are explicit
 
@@ -440,6 +440,7 @@ Rules:
 - blocking filters discovery/search for the pair
 - blocking disables new direct/private interaction paths
 - blocking removes active Budz and separates live shared group/event contexts
+- blocking hides live event/group join surfaces that would place the blocked pair together
 - unblock does not recreate Budz, group membership, or event participation
 - blocking is reversible
 

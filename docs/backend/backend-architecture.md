@@ -340,8 +340,8 @@ MVP shared-chat rule:
 - event chat access is derived from current event participation state
 - group chat access is derived from current active group membership
 - support chat access is derived from the supported user id and admin role
-- blocking alone does not split or hide a shared event/group chat if both users remain authorized in that shared context
-- separation in shared chat requires host/owner/moderator action
+- blocking separates shared live event/group contexts by updating participation or membership state
+- live event/group browse, detail, and join paths must avoid placing blocked pairs back into the same active context
 
 Suggested model:
 
@@ -547,7 +547,7 @@ The service owns:
 
 Lives in `PrivacyService`, `BlockingService`, and related access/query filters.
 
-Soft blocking prevents new direct interaction paths such as direct/private messaging, new Bud interactions, and event/group invitations between the pair. It does not automatically remove users from already shared contexts or split existing shared-context chat.
+Soft blocking prevents new direct interaction paths such as direct/private messaging, new Bud interactions, and event/group invitations between the pair. It also prevents event/group browse, detail, and join paths from placing blocked pairs into the same live shared context. Creating a block separates existing shared active groups and non-completed joined events while preserving completed event history.
 
 ### 7.6 Moderation and Reports
 

@@ -43,10 +43,29 @@ internal static class EventPolicy
         Guid secondUserId,
         CancellationToken cancellationToken)
     {
-        if (await profileRepository.GetBlockAsync(firstUserId, secondUserId, cancellationToken) is not null ||
-            await profileRepository.GetBlockAsync(secondUserId, firstUserId, cancellationToken) is not null)
+        if (await BlockingPolicy.HasBlockBetweenAsync(profileRepository, firstUserId, secondUserId, cancellationToken))
         {
             throw ApiException.Forbidden("Blocking prevents event invitations between these users.");
         }
+    }
+
+    internal static async Task<bool> HasBlockedLiveParticipantAsync(
+        IProfileRepository profileRepository,
+        Event eventRecord,
+        IReadOnlyCollection<EventParticipant> participants,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        if (eventRecord.Status == EventStatus.Completed || eventRecord.HostUserId == currentUserId)
+        {
+            return false;
+        }
+
+        var activeUserIds = participants
+            .Where(participant => participant.State == EventParticipantState.Joined)
+            .Select(participant => participant.UserId)
+            .Append(eventRecord.HostUserId);
+
+        return await BlockingPolicy.HasBlockWithAnyAsync(profileRepository, currentUserId, activeUserIds, cancellationToken);
     }
 }

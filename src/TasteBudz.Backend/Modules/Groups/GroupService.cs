@@ -56,6 +56,12 @@ public sealed class GroupService(
             }
 
             var members = await groupRepository.ListMembersAsync(group.Id, cancellationToken);
+
+            if (await HasBlockedActiveMemberAsync(currentUserId, group, members, cancellationToken))
+            {
+                continue;
+            }
+
             filtered.Add(new GroupSummaryDto(
                 group.Id,
                 group.Name,
@@ -221,6 +227,13 @@ public sealed class GroupService(
         if (existing?.State == GroupMemberState.Removed)
         {
             throw ApiException.Forbidden("You have been removed from this group.");
+        }
+
+        var members = await groupRepository.ListMembersAsync(groupId, cancellationToken);
+
+        if (await HasBlockedActiveMemberAsync(currentUserId, group, members, cancellationToken))
+        {
+            throw ApiException.Forbidden("Blocking prevents joining groups with blocked users.");
         }
 
         var now = clock.UtcNow;
@@ -413,6 +426,11 @@ public sealed class GroupService(
     {
         if (group.Visibility == GroupVisibility.Public)
         {
+            if (await HasBlockedActiveMemberAsync(currentUserId, group, cancellationToken))
+            {
+                throw ApiException.NotFound("The requested group could not be found.");
+            }
+
             return;
         }
 
@@ -499,20 +517,60 @@ public sealed class GroupService(
     }
 
     private async Task<bool> CanViewLinkedEventAsync(Guid currentUserId, Event eventRecord, CancellationToken cancellationToken)
-        => await EventVisibilityPolicy.CanViewAsync(
+    {
+        var canView = await EventVisibilityPolicy.CanViewAsync(
             currentUserId,
             isPrivileged: false,
             eventRecord,
             eventRepository,
             cancellationToken);
 
+        if (!canView)
+        {
+            return false;
+        }
+
+        var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
+        return !await EventPolicy.HasBlockedLiveParticipantAsync(
+            profileRepository,
+            eventRecord,
+            participants,
+            currentUserId,
+            cancellationToken);
+    }
+
     private async Task EnsureNotBlockedAsync(Guid firstUserId, Guid secondUserId, CancellationToken cancellationToken)
     {
-        if (await profileRepository.GetBlockAsync(firstUserId, secondUserId, cancellationToken) is not null ||
-            await profileRepository.GetBlockAsync(secondUserId, firstUserId, cancellationToken) is not null)
+        if (await BlockingPolicy.HasBlockBetweenAsync(profileRepository, firstUserId, secondUserId, cancellationToken))
         {
             throw ApiException.Forbidden("Blocking prevents group invitations between these users.");
         }
+    }
+
+    private async Task<bool> HasBlockedActiveMemberAsync(Guid currentUserId, Group group, CancellationToken cancellationToken)
+    {
+        var members = await groupRepository.ListMembersAsync(group.Id, cancellationToken);
+        return await HasBlockedActiveMemberAsync(currentUserId, group, members, cancellationToken);
+    }
+
+    private async Task<bool> HasBlockedActiveMemberAsync(
+        Guid currentUserId,
+        Group group,
+        IReadOnlyCollection<GroupMember> members,
+        CancellationToken cancellationToken)
+    {
+        if (group.OwnerUserId == currentUserId ||
+            members.Any(member => member.UserId == currentUserId && member.State == GroupMemberState.Active))
+        {
+            return false;
+        }
+
+        var activeUserIds = members
+            .Where(member => member.State == GroupMemberState.Active)
+            .Select(member => member.UserId)
+            .Append(group.OwnerUserId);
+
+        return await BlockingPolicy.HasBlockWithAnyAsync(profileRepository, currentUserId, activeUserIds, cancellationToken);
     }
 
     private static string NormalizeRequiredName(string value)
