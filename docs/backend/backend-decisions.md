@@ -441,7 +441,7 @@ Store the backend testing strategy in `docs/backend/testing-strategy.md` and tre
 ## [ADR-023] SQLite Is the Approved MVP Runtime Persistence Path
 
 - Date: 2026-03-26
-- Status: Accepted
+- Status: Accepted historically; superseded for production by ADR-027
 - Owners: Backend team
 
 ### Context
@@ -453,8 +453,8 @@ Use SQLite as the only approved runtime persistence target for the implemented M
 ### Consequences
 - Runtime persistence is now relational and durable for the implemented backend slices without introducing a second provider.
 - Module repository interfaces remain the persistence boundary, and service-layer business rules stay unchanged at the HTTP contract level.
-- The checked-in `.sqlite` database file is a disposable artifact, not a schema authority.
-- Docs and tests must align to SQLite as the current MVP runtime direction unless a later ADR explicitly changes provider strategy.
+- A generated `.sqlite` database file is a disposable artifact, not a schema authority.
+- ADR-027 later changes provider strategy for Azure production. Local development and automated tests remain aligned to SQLite.
 
 ## [ADR-024] MVP Media Assets Use Database-Backed Image Storage
 
@@ -489,7 +489,7 @@ Run restaurant operations by default while retaining `FeatureFlags:RestaurantsOp
 - Default MVP/demo behavior includes restaurant-admin assignment, restaurant-admin slot management, host slot reservation, reserved-slot cancellation, and discount simulation.
 - If restaurant operation flags are explicitly disabled, affected endpoints return `404`.
 - Active endpoints return normal `401`/`403` authorization results when the caller lacks permission.
-- Restaurant operations add schema and service code without treating the checked-in `.sqlite` file as schema authority.
+- Restaurant operations add schema and service code without treating generated `.sqlite` files as schema authority.
 - Payment simulation, checkout state, and payment-side effects remain out of scope for restaurant operations itself; simulation-only checkout is separately governed by ADR-026.
 
 ## [ADR-026] Direct Chat and Checkout Launch Behind Explicit Feature Flags

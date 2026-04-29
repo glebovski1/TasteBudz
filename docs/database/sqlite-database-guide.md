@@ -1,105 +1,73 @@
 # SQLite Database Guide
 
-This is a simple, current-state explanation of how SQLite works in this repo today.
-SQLite is now the local development and automated test provider. Azure SQL / SQL Server is the production target for Azure deployment.
+This document explains how SQLite is used in the source-only repository.
+SQLite is the local development and automated test provider. Azure SQL / SQL Server is the production target for Azure deployment.
 
 For authoritative backend policy and architecture, see:
 
 - `docs/backend/backend-decisions.md`
 - `docs/backend/backend-architecture.md`
 
-Important rule:
+Important rules:
 
-- the SQL files under `src/TasteBudz.Database/sqlite/` are still the SQLite source of truth for local/test schema and seed data
+- the SQL files under `src/TasteBudz.Database/sqlite/` are the SQLite source of truth for local/test schema and seed data
 - the SQL files under `src/TasteBudz.Database/sqlserver/` are the manual Azure SQL production deployment scripts
-- the tracked `src/TasteBudz.Database/TasteBudz.sqlite` file is a convenient shared snapshot, not the schema authority
+- generated `.sqlite`, `*.sqlite-shm`, and `*.sqlite-wal` files are local artifacts and must not be committed
 
-## How the Database Connection Works
+## Runtime Behavior
 
-### 1. Default runtime behavior
-
-`src/TasteBudz.Web.Mvc/appsettings.json` uses:
+`src/TasteBudz.Web.Mvc/appsettings.json` defaults to:
 
 ```json
 "ConnectionStrings": {
   "TasteBudz": "Data Source=TasteBudz.sqlite;Foreign Keys=True;Pooling=False"
 },
 "Persistence": {
-  "Provider": "Sqlite"
+  "Provider": "Sqlite",
+  "InitializeSqliteOnStartup": false,
+  "SeedTestDataOnStartup": false
 }
 ```
 
-That is the safe default for non-development environments:
+That default expects an already prepared SQLite database next to the running app and validates required tables on startup.
 
-- the database file lives next to the running app
-- startup does **not** auto-create the database by default
-- startup only validates that the required tables already exist
+`src/TasteBudz.Web.Mvc/appsettings.Development.json` points local development at `.codex-temp\\TasteBudz.local.sqlite` and enables:
 
-This keeps publish/deploy output portable.
+- `Persistence:InitializeSqliteOnStartup=true`
+- `Persistence:SeedTestDataOnStartup=true`
 
-### 2. Development behavior
+The normal local command is:
 
-`src/TasteBudz.Web.Mvc/appsettings.Development.json` overrides the connection string to:
-
-```json
-"ConnectionStrings": {
-  "TasteBudz": "Data Source=..\\TasteBudz.Database\\TasteBudz.sqlite;Foreign Keys=True;Pooling=False"
-}
+```powershell
+.\start-dev.ps1 -ResetDatabase
 ```
 
-In Development:
+The script sets the SQLite connection string, recreates `.codex-temp\TasteBudz.local.sqlite` when requested, applies the source-controlled schema and seed scripts, and starts the single MVC/API/SignalR host.
 
-- the single web host points to `src/TasteBudz.Database/TasteBudz.sqlite`
-- `InitializeSqliteOnStartup` is `true`
-- `SeedTestDataOnStartup` is `true`
-
-That means local development uses the repo-level SQLite file instead of creating a throwaway DB inside the backend output folder.
-
-### 3. What startup does
+## Startup Flow
 
 On application startup:
 
-1. `src/TasteBudz.Web.Mvc/Program.cs` reads `Persistence:Provider` and `ConnectionStrings:TasteBudz`
-2. `SqliteConnectionStringHelper.Normalize(...)` resolves relative paths against the web host content root
-3. `SqliteDatabaseBootstrapper.EnsureInitializedAsync(...)` decides whether schema initialization is allowed
-4. if the environment is `Development` or `IntegrationTesting` and initialization is enabled:
-   - it applies `dbTasteBudz.sqlite.sql`
-   - it applies `dbTasteBudz.sqlite.seed.sql`
-   - it applies `dbTasteBudz.sqlite.testdata.sql` only when the database does not already contain users
-5. it validates that all required tables exist
+1. `src/TasteBudz.Web.Mvc/Program.cs` reads `Persistence:Provider` and `ConnectionStrings:TasteBudz`.
+2. `SqliteConnectionStringHelper.Normalize(...)` resolves relative SQLite paths against the web host content root.
+3. `SqliteDatabaseBootstrapper.EnsureInitializedAsync(...)` decides whether schema initialization is allowed.
+4. In `Development` or `IntegrationTesting`, when initialization is enabled, startup applies:
+   - `dbTasteBudz.sqlite.sql`
+   - `dbTasteBudz.sqlite.seed.sql`
+   - `dbTasteBudz.sqlite.testdata.sql` only when the database does not already contain users
+5. Startup validates that all required tables exist.
 
 Practical result:
 
-- Development and integration tests can bootstrap from source-controlled SQL
+- local development and integration tests bootstrap from source-controlled SQL
 - non-development SQLite environments must point to an already prepared database
-- production Azure SQL environments use the `sqlserver/` scripts manually and do not run SQLite bootstrap
-- the dev test-data seed is not re-applied over an existing user store
+- Azure production uses `Persistence:Provider=SqlServer` and the SQL Server scripts manually
 
-### 4. Integration test behavior
+## Integration Tests
 
-Integration tests do **not** use the shared tracked SQLite file.
+Integration tests create temporary SQLite files per test factory and initialize those files from the canonical SQL assets. They do not depend on any shared repository database file.
 
-They create temporary SQLite files per test factory and initialize those from the same canonical SQL assets. That keeps test runs isolated while still validating the real SQLite path.
-
-### 5. Git behavior right now
-
-The repo now tracks one canonical SQLite snapshot:
-
-- `src/TasteBudz.Database/TasteBudz.sqlite`
-
-Git rules:
-
-- the canonical snapshot file is allowed to be committed
-- SQLite sidecar files such as `*.sqlite-wal` and `*.sqlite-shm` are still ignored
-- `.gitattributes` marks the tracked snapshot as binary
-
-This means:
-
-- everyone who pulls the branch gets the same committed snapshot
-- changes to the snapshot still behave like binary changes in git
-- if two branches both modify the SQLite file, a manual choice is still required during merge
-
-### 6. Files involved
+## Files Involved
 
 - `src/TasteBudz.Web.Mvc/appsettings.json`
 - `src/TasteBudz.Web.Mvc/appsettings.Development.json`
@@ -113,281 +81,19 @@ This means:
 - `src/TasteBudz.Database/sqlserver/010_schema.sql`
 - `src/TasteBudz.Database/sqlserver/020_seed_reference_data.sql`
 - `src/TasteBudz.Database/init_sqlite.py`
-- `src/TasteBudz.Database/TasteBudz.sqlite`
 
-## Current Seeded Data
+## Seed Data
 
-The current tracked snapshot was rebuilt from:
+Reference seed data includes cuisines, ZIP coordinates, and restaurant catalog rows used by local/test workflows. Development/test scenario data adds demo users, preferences, Budz relationships, groups, events, restaurant slots, chat threads, notifications, moderation records, and audit examples.
 
-- schema: `dbTasteBudz.sqlite.sql`
-- reference seed: `dbTasteBudz.sqlite.seed.sql`
-- development/test scenario seed: `dbTasteBudz.sqlite.testdata.sql`
+All seeded scenario accounts use password `TasteBudz123!`. Common users include `alex`, `brooke`, `casey`, `devon`, `emery`, `gina`, and `jordan`.
 
-At the moment, the shared snapshot contains:
+## Manual Local Database Initialization
 
-- 45 tables
-- 13 cuisines
-- 7 ZIP coordinate rows
-- 8 restaurants
-- 10 user accounts
-- 8 groups
-- 21 events
-- 8 restaurant slots
-- 4 active event-slot reservations
-- 3 discount activation rows, including 2 active discounts
-- 14 chat threads
-- 4 notifications
-- 2 moderation reports
-- 1 moderation action
-- 1 active restriction
-- 1 audit log entry
-
-## Reference Seed Data
-
-### Cuisines
-
-- American
-- Indian
-- Italian
-- Japanese
-- Mediterranean
-- Mexican
-- Noodles
-- Pizza
-- Sushi
-- Tacos
-- Thai
-- Vegetarian
-- Vietnamese
-
-### ZIP coordinates
-
-- 41011
-- 45202
-- 45206
-- 45208
-- 45212
-- 45219
-- 45220
-
-### Restaurants
-
-- Campus Noodles: ZIP `45219`, cuisines `Noodles`, `Thai`
-- Garden Falafel: ZIP `45206`, cuisines `Mediterranean`, `Vegetarian`
-- Late Night Pizza Co: ZIP `45212`, cuisines `Italian`, `Pizza`
-- Little Saigon Table: ZIP `45208`, cuisine `Vietnamese`
-- Maki Social: ZIP `45220`, cuisines `Japanese`, `Sushi`
-- Over-the-Rhine Tacos: ZIP `45202`, cuisines `Mexican`, `Tacos`
-- Queen City Curry: ZIP `45202`, cuisine `Indian`
-- Riverfront Grill: ZIP `41011`, cuisine `American`
-
-## Development/Test Scenario Seed Data
-
-### Seeded login credentials
-
-All seeded scenario accounts use the same password:
-
-- `TasteBudz123!`
-
-| Username | Email | Password | Roles |
-|---|---|---|---|
-| alex | alex@tastebudz.local | TasteBudz123! | User |
-| brooke | brooke@tastebudz.local | TasteBudz123! | User |
-| casey | casey@tastebudz.local | TasteBudz123! | User |
-| devon | devon@tastebudz.local | TasteBudz123! | User, Moderator |
-| emery | emery@tastebudz.local | TasteBudz123! | User, Admin |
-| fin | fin@tastebudz.local | TasteBudz123! | User |
-| gina | gina@tastebudz.local | TasteBudz123! | User, RestaurantAdmin |
-| harper | harper@tastebudz.local | TasteBudz123! | User |
-| iris | iris@tastebudz.local | TasteBudz123! | User |
-| jordan | jordan@tastebudz.local | TasteBudz123! | User |
-
-### User accounts
-
-The current snapshot contains 10 scenario users.
-
-| Username | Display name | Roles | Home ZIP | Social goal | Discovery |
-|---|---|---|---|---|---|
-| alex | Alex Mercer | User | 45220 | Friends | Enabled |
-| brooke | Brooke Lane | User | 45202 | Dating | Enabled |
-| casey | Casey Harper | User | 45206 | Networking | Enabled |
-| devon | Devon Brooks | User, Moderator | 45219 | Networking | Enabled |
-| emery | Emery Stone | User, Admin | 41011 | Networking | Enabled |
-| fin | Fin Carter | User | 45212 | Friends | Disabled |
-| gina | Gina Patel | User, RestaurantAdmin | 45202 | Friends | Enabled |
-| harper | Harper Wells | User | 45208 | Dating | Enabled |
-| iris | Iris Nguyen | User | 45208 | Friends | Enabled |
-| jordan | Jordan Lee | User | 45212 | Networking | Disabled |
-
-### User preference data
-
-- alex: cuisines `Japanese`, `Sushi`; spice `Medium`; allergy `Peanuts`
-- brooke: cuisines `Indian`, `Pizza`; spice `Hot`; dietary flag `Vegetarian`; allergy `Shellfish`
-- casey: cuisine `Mediterranean`; spice `Mild`; dietary flag `Halal`
-- devon: cuisine `Thai`; spice `Medium`
-- emery: cuisine `American`; spice `Medium`; dietary flag `Gluten-Aware`
-- fin: cuisine `Mexican`; spice `Hot`; allergy `Dairy`
-- gina: cuisines `Tacos`, `Vegetarian`; spice `Medium`
-- harper: cuisine `Mediterranean`; spice `Mild`
-- iris: cuisine `Vietnamese`; spice `Hot`
-- jordan: cuisine `Pizza`; spice `Medium`
-
-### Availability
-
-Recurring windows:
-
-- alex: Friday dinner, `18:00` to `21:30`
-- brooke: Late dinner, `19:00` to `22:00`
-- casey: Weekend social, Saturday `17:00` to `20:00`
-
-One-off windows:
-
-- devon: Moderator evening availability, `2026-03-29T17:00:00Z` to `2026-03-29T21:00:00Z`
-- fin: Open for tacos, `2026-03-30T18:00:00Z` to `2026-03-30T22:00:00Z`
-
-### Discovery, Budz, and blocking
-
-Swipe decisions:
-
-- alex liked brooke
-- alex passed fin
-- brooke liked alex
-- casey liked alex
-
-Budz:
-
-- alex and brooke are connected
-
-Blocks:
-
-- brooke blocked fin
-
-### Groups
-
-- Clifton Supper Club
-  - owner: alex
-  - visibility: Public
-  - active members: alex, brooke
-
-- Quiet Table
-  - owner: casey
-  - visibility: Private
-  - active members: casey, devon
-
-- Additional local demo groups
-  - Downtown Lunch Crew: public, owner brooke
-  - Northside Vegetarian Nights: public, owner gina
-  - Admin Review Table: private, owner emery
-  - Hyde Park Brunch Budz: public, owner harper
-  - Late Night Pizza Circle: public, owner jordan
-  - Moderator Safety Sandbox: private, owner devon
-
-Group invites:
-
-- Quiet Table: devon invited by casey, status `Accepted`
-- Quiet Table: emery invited by casey, status `Pending`
-
-### Events
-
-- Friday Sushi Crawl
-  - host: alex
-  - type: Open
-  - status: Open
-  - capacity: 4
-  - min participants: 2
-  - restaurant: Maki Social
-  - group: Clifton Supper Club
-  - participants: alex joined, brooke joined, devon invited
-
-- Quiet Table Planning Dinner
-  - host: casey
-  - type: Closed
-  - status: Open
-  - capacity: 3
-  - min participants: 2
-  - cuisine target: Mediterranean
-  - group: Quiet Table
-  - participants: casey joined, devon invited
-
-- Last Week Pizza Night
-  - host: brooke
-  - type: Open
-  - status: Completed
-  - capacity: 4
-  - min participants: 2
-  - restaurant: Late Night Pizza Co
-  - participants: brooke joined, alex joined, fin left
-
-Additional local demo event coverage:
-
-- Future open, full, confirmed, cancelled, and completed events across Clifton, Downtown, Hyde Park, Pizza, Vegetarian, and Moderator review contexts.
-- Active event-slot reservation examples:
-  - `Sushi Budz Discount Table`: Maki Social, active reserved slot, active 15% discount, visible in Alex quick search because it matches cuisine preferences and has a Bud already joined.
-  - `Hyde Park Brunch Open Table`: Little Saigon Table, active reserved slot, discount not active yet.
-  - `Brooke Riverfront Grill Meetup`: Riverfront Grill, active reserved slot without a discount.
-  - `Full Late Night Pizza Table`: Late Night Pizza Co, active reserved slot and active 10% discount.
-- Recommendation-logic examples for alex:
-  - `Sushi Budz Discount Table`: distance + cuisine preference + Bud signal.
-  - `Sushi Preference Test Table`: distance + cuisine preference signal.
-  - `Brooke Riverfront Grill Meetup`: distance + Bud signal.
-  - `Nearby Campus Noodles Walkup`: distance-only signal.
-- Create-event discount-slot examples:
-  - unreserved next-30-day discounted slots exist for Queen City Curry and Garden Falafel.
-
-### Chat seed data
-
-Threads:
-
-- 1 event chat thread for Friday Sushi Crawl
-- 1 group chat thread for Clifton Supper Club
-- 1 group chat thread for Quiet Table
-
-Messages:
-
-- alex: `Booked Maki Social for Friday. Who is in?`
-- brooke: `Count me in. I can be there around seven.`
-- brooke: `Anyone want to plan something for next week too?`
-- casey: `Keeping this one small. Reply when you confirm.`
-
-### Notifications
-
-- brooke: `You joined Friday Sushi Crawl.`
-- devon: `Casey invited you to Quiet Table Planning Dinner.`
-- brooke: `You and Alex are now Budz.`
-- emery: `Casey invited you to Quiet Table.`
-
-### Moderation and audit
-
-Report:
-
-- brooke filed a Safety report for repeated unwanted contact after a block
-- status: Resolved
-
-Moderation action:
-
-- devon applied a discovery visibility restriction during review
-
-Restriction:
-
-- fin has an active `DiscoveryVisibility` restriction issued by devon
-
-Audit entry:
-
-- one `RestrictionCreated` audit log entry exists for that restriction
-
-## Refreshing the Shared Snapshot
-
-To rebuild the tracked SQLite snapshot from the SQL files:
+The preferred local path is `.\start-dev.ps1 -ResetDatabase`. If a standalone local database file is needed for inspection, this helper creates an ignored SQLite file from the source SQL scripts:
 
 ```powershell
 python src\TasteBudz.Database\init_sqlite.py --with-test-data
 ```
 
-That command:
-
-- deletes the current `src/TasteBudz.Database/TasteBudz.sqlite`
-- recreates it from the canonical schema
-- reapplies the shared reference seed
-- reapplies the development/test scenario seed
-
-Use that command when the SQL seed files change and you want the tracked snapshot to match them again.
+The generated database is a local artifact. Do not commit it.

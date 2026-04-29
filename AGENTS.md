@@ -35,16 +35,17 @@ Agents must not expand scope or redesign architecture unless explicitly instruct
 
 - Backend stack: ASP.NET Core Web API on .NET 9
 - Target architecture: single-deployable modular monolith
-- Persistence target for implemented MVP modules: SQLite
-- Canonical schema source: source-controlled SQLite SQL scripts under `src/TasteBudz.Database`
-- Current implementation status: SQLite runtime persistence is implemented for the current backend module set, and code plus docs should stay aligned to that approved direction
+- Local/test persistence target: SQLite
+- Azure production persistence target: SQL Server / Azure SQL
+- Canonical schema source: source-controlled SQLite and SQL Server scripts under `src/TasteBudz.Database`
+- Current implementation status: runtime persistence is selected by configuration; local development and automated tests use SQLite, while Azure production uses SQL Server / Azure SQL
 
 Implication:
 
 - when authoritative docs and current code disagree, treat the docs as the target state unless the user explicitly instructs otherwise
 - do not weaken approved docs just to fit incomplete or placeholder code
 - if recent code appears to invalidate a document, report the mismatch explicitly before changing either side
-- do not treat a checked-in `.sqlite` file as authoritative; the schema and seed SQL scripts are the authority
+- do not commit generated `.sqlite` files; the schema and seed SQL scripts are the authority
 
 ---
 

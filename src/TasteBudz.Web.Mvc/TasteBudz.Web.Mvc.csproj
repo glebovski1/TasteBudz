@@ -12,10 +12,6 @@
     <Compile Remove="artifacts/**/*.cs" />
     <Content Remove="artifacts/**" />
     <None Remove="artifacts/**" />
-    <Content Remove="wwwroot/mockups/**" />
-    <None Remove="wwwroot/mockups/**" />
-    <StaticWebAsset Remove="wwwroot/mockups/**" />
-    <ResolvedFileToPublish Remove="wwwroot/mockups/**" />
     <Content Update="appsettings.Development.json;appsettings.Production.json" CopyToPublishDirectory="Never" />
     <None Update="appsettings.Development.json;appsettings.Production.json" CopyToPublishDirectory="Never" />
   </ItemGroup>

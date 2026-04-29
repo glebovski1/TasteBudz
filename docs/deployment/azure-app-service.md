@@ -45,14 +45,26 @@ For an existing Azure SQL database, apply only the needed incremental patch scri
 
 Startup validates required SQL Server tables and columns. It does not create or migrate production schema.
 
-## Codex Deployment Automation
+## Deployment Scripts
 
-Use the repo-local Codex skill at `.agents/skills/azure-app-service-deployment` for Azure App Service deployment work.
+Human-usable deployment helpers live under `scripts/deployment`.
 
 For code-only updates to the existing published app, use:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .agents\skills\azure-app-service-deployment\scripts\update-published-app.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\deployment\update-published-app.ps1
 ```
 
-The script validates Release restore/build/test, publishes only the MVC host, deploys a zip package, and verifies the homepage plus unauthenticated API and SignalR `401` responses. SQL schema deployment remains manual: when schema changes, apply the required bootstrap or patch scripts from `src/TasteBudz.Database/sqlserver` as a separate release step and keep production startup migrations disabled.
+For a release that also applies explicit SQL scripts and can run rollback steps, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\deployment\release-with-rollback.ps1 -ScriptPath src\TasteBudz.Database\sqlserver\patches\<patch-file>.sql
+```
+
+For manual Azure SQL schema application without deploying app code, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\deployment\apply-azure-sql-schema.ps1
+```
+
+The app update script validates Release restore/build/test, publishes only the MVC host, deploys a zip package, and verifies the homepage plus unauthenticated API and SignalR `401` responses. SQL schema deployment remains manual: when schema changes, apply the required bootstrap or patch scripts from `src/TasteBudz.Database/sqlserver` as a separate release step and keep production startup migrations disabled.
