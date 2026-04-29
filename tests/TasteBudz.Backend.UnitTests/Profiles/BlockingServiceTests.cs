@@ -6,6 +6,7 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.UnitTests.Shared;
 
@@ -84,6 +85,37 @@ public sealed class BlockingServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WhenBlockerLeavesFullSharedEvent_ReopensEvent()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 4, 10, 15, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var blocker = await RegisterAsync(services.AuthService, "blocker", "blocker@example.com");
+        var blocked = await RegisterAsync(services.AuthService, "blocked", "blocked@example.com");
+        var eventId = Guid.NewGuid();
+
+        await SaveEventWithJoinedPairAsync(
+            services.EventRepository,
+            eventId,
+            blocker.CurrentUser.UserId,
+            blocked.CurrentUser.UserId,
+            hostUserId: Guid.NewGuid(),
+            EventStatus.Full,
+            clock,
+            capacity: 2);
+
+        await services.BlockingService.CreateAsync(blocker.CurrentUser.UserId, new CreateBlockRequest
+        {
+            BlockedUserId = blocked.CurrentUser.UserId,
+        });
+
+        var eventRecord = await services.EventRepository.GetAsync(eventId);
+        var blockerParticipant = await services.EventRepository.GetParticipantAsync(eventId, blocker.CurrentUser.UserId);
+
+        Assert.Equal(EventStatus.Open, eventRecord!.Status);
+        Assert.Equal(EventParticipantState.Left, blockerParticipant!.State);
+    }
+
+    [Fact]
     public async Task CreateAsync_DoesNotChangeCompletedSharedEvents()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 4, 10, 15, 0, 0, TimeSpan.Zero));
@@ -157,7 +189,8 @@ public sealed class BlockingServiceTests
         Guid blockedUserId,
         Guid hostUserId,
         EventStatus status,
-        TestClock clock)
+        TestClock clock,
+        int capacity = 4)
     {
         await eventRepository.SaveAsync(new Event(
             eventId,
@@ -167,7 +200,7 @@ public sealed class BlockingServiceTests
             status,
             clock.UtcNow.AddDays(status == EventStatus.Completed ? -1 : 1),
             clock.UtcNow.AddHours(status == EventStatus.Completed ? -26 : 2),
-            4,
+            capacity,
             2,
             Guid.Parse("11111111-1111-1111-1111-111111111111"),
             null,
@@ -212,8 +245,10 @@ public sealed class BlockingServiceTests
         var discoveryRepository = new InMemoryDiscoveryRepository(store);
         var eventRepository = new InMemoryEventRepository(store);
         var groupRepository = new InMemoryGroupRepository(store);
+        var notificationService = new InMemoryNotificationService(store);
         var authService = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock);
-        var blockingService = new BlockingService(authRepository, profileRepository, discoveryRepository, eventRepository, groupRepository, clock);
+        var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
+        var blockingService = new BlockingService(authRepository, profileRepository, discoveryRepository, eventRepository, groupRepository, lifecycleService, clock);
 
         return new TestServices(authService, blockingService, discoveryRepository, eventRepository, groupRepository);
     }

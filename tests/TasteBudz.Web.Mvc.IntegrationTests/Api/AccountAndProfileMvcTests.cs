@@ -484,7 +484,7 @@ public sealed class AccountAndProfileMvcTests
         Assert.Contains("Upcoming Events", html);
         Assert.Contains("Every future event tied to you, sorted by date.", html);
         Assert.Contains("My Events", html);
-        Assert.Contains("/Profile/View#upcoming-events", html);
+        Assert.Contains("data-profile-section=\"upcoming-events\"", html);
         Assert.Contains("Group events", html);
         Assert.Contains("Standalone events", html);
         Assert.DoesNotContain("Ordinary event", html);

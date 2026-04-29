@@ -7,6 +7,7 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Restaurants;
 
 namespace TasteBudz.Backend.Modules.Profiles;
 
@@ -19,8 +20,10 @@ public sealed class BlockingService(
     IDiscoveryRepository discoveryRepository,
     IEventRepository eventRepository,
     IGroupRepository groupRepository,
+    EventLifecycleService lifecycleService,
     IClock clock,
-    IPersistenceTransactionRunner? transactionRunner = null)
+    IPersistenceTransactionRunner? transactionRunner = null,
+    DiscountEligibilityService? discountEligibilityService = null)
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
 
@@ -101,7 +104,14 @@ public sealed class BlockingService(
         {
             var eventRecord = await eventRepository.GetAsync(blockerParticipation.EventId, cancellationToken);
 
-            if (eventRecord is null || eventRecord.Status == EventStatus.Completed)
+            if (eventRecord is null)
+            {
+                continue;
+            }
+
+            eventRecord = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+
+            if (eventRecord.Status == EventStatus.Completed)
             {
                 continue;
             }
@@ -121,6 +131,7 @@ public sealed class BlockingService(
                     RespondedAtUtc = now,
                     RemovedAtUtc = now,
                 }, cancellationToken);
+                await SynchronizeEventAfterSeparationAsync(eventRecord, cancellationToken);
                 continue;
             }
 
@@ -130,6 +141,17 @@ public sealed class BlockingService(
                 RespondedAtUtc = now,
                 LeftAtUtc = now,
             }, cancellationToken);
+            await SynchronizeEventAfterSeparationAsync(eventRecord, cancellationToken);
+        }
+    }
+
+    private async Task SynchronizeEventAfterSeparationAsync(Event eventRecord, CancellationToken cancellationToken)
+    {
+        await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+
+        if (discountEligibilityService is not null)
+        {
+            await discountEligibilityService.EvaluateForEventAsync(eventRecord.Id, cancellationToken);
         }
     }
 
