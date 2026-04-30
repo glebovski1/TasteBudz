@@ -229,6 +229,63 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task SeedTestDataOnStartup_WhenEnabled_IncludesAdditionalRestaurantDiscountSlotsAndSlotLinkedEvents()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "RestaurantSlots",
+            """
+            Status = 0
+            AND MinThresholdForDiscount IS NOT NULL
+            AND DiscountPercent IS NOT NULL
+            AND Id IN (
+                '00000000-0000-0000-0000-000000009009',
+                '00000000-0000-0000-0000-000000009010'
+            )
+            """) == 2);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "RestaurantSlots s LEFT JOIN EventSlotReservations r ON s.Id = r.SlotId AND r.Status = 0",
+            """
+            r.Id IS NULL
+            AND s.RestaurantId IN (
+                '33333333-3333-3333-3333-333333333333',
+                '44444444-4444-4444-4444-444444444444'
+            )
+            AND s.MinThresholdForDiscount IS NOT NULL
+            AND s.DiscountPercent IS NOT NULL
+            """) >= 2);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN EventSlotReservations r ON e.Id = r.EventId JOIN RestaurantSlots s ON r.SlotId = s.Id JOIN DiscountActivations d ON r.Id = d.ReservationId",
+            """
+            e.Title IN ('Campus Noodles Discount Table', 'Over-the-Rhine Tacos Discount Table')
+            AND e.Status = 0
+            AND r.Status = 0
+            AND s.MinThresholdForDiscount IS NOT NULL
+            AND s.DiscountPercent IS NOT NULL
+            AND d.IsFinalized = 0
+            """) == 2);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN EventSlotReservations r ON e.Id = r.EventId JOIN RestaurantSlots s ON r.SlotId = s.Id JOIN DiscountActivations d ON r.Id = d.ReservationId",
+            "e.Title = 'Campus Noodles Discount Table' AND e.SelectedRestaurantId = s.RestaurantId AND d.IsActive = 1") == 1);
+        Assert.True(await CountRowsAsync(
+            customFactory.ConnectionString,
+            "Events e JOIN EventSlotReservations r ON e.Id = r.EventId JOIN RestaurantSlots s ON r.SlotId = s.Id JOIN DiscountActivations d ON r.Id = d.ReservationId",
+            "e.Title = 'Over-the-Rhine Tacos Discount Table' AND e.SelectedRestaurantId = s.RestaurantId AND d.IsActive = 0") == 1);
+    }
+
+    [Fact]
     public async Task SeedTestDataOnStartup_WhenDisabled_DoesNotPopulateDevelopmentAccounts()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
@@ -353,6 +410,8 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         {
             Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "demo", "20260426_feature_seed_topup.sql"),
             Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "demo", "20260426_feature_seed_topup_rollback.sql"),
+            Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "demo", "20260430_discount_slot_seed_topup.sql"),
+            Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "demo", "20260430_discount_slot_seed_topup_rollback.sql"),
         };
 
         foreach (var scriptPath in scriptPaths)

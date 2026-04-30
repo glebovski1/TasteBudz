@@ -20,6 +20,8 @@ Optional demo-data helpers live under `src/TasteBudz.Database/sqlserver/demo`:
 - `20260426_feature_seed_inventory.sql` reports row counts for each implemented feature surface.
 - `20260426_feature_seed_topup.sql` adds a small, deterministic feature-coverage data set only when you explicitly choose to top up a demo database.
 - `20260426_feature_seed_topup_rollback.sql` removes that deterministic demo top-up data.
+- `20260430_discount_slot_seed_topup.sql` adds extra deterministic restaurant discount slots plus two slot-linked demo events.
+- `20260430_discount_slot_seed_topup_rollback.sql` removes only that extra discount-slot demo data.
 
 Do not include demo top-up scripts in normal production bootstrap or routine startup paths.
 
