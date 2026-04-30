@@ -3,6 +3,7 @@ using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.FeatureFlags;
 using TasteBudz.Backend.Infrastructure.ProblemDetails;
+using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.Modules.Restaurants;
@@ -19,7 +20,8 @@ public sealed class EventBrowseService(
     IDiscoveryRepository discoveryRepository,
     EventLifecycleService lifecycleService,
     IRestaurantOperationsRepository restaurantOperationsRepository,
-    IFeatureFlagService featureFlagService)
+    IFeatureFlagService featureFlagService,
+    IClock clock)
 {
     public async Task<ListResponse<EventSummaryDto>> BrowseAsync(Guid currentUserId, BrowseEventsQuery query, CancellationToken cancellationToken = default)
     {
@@ -82,6 +84,11 @@ public sealed class EventBrowseService(
                 continue;
             }
 
+            if (query.Recommended && eventRecord.EventStartAtUtc <= clock.UtcNow)
+            {
+                continue;
+            }
+
             if (query.Status.HasValue && eventRecord.Status != query.Status.Value)
             {
                 continue;
@@ -128,6 +135,13 @@ public sealed class EventBrowseService(
             }
 
             var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
+
+            if (query.Recommended &&
+                (eventRecord.HostUserId == currentUserId ||
+                 participants.Any(participant => participant.UserId == currentUserId && participant.State == EventParticipantState.Joined)))
+            {
+                continue;
+            }
 
             if (await EventPolicy.HasBlockedLiveParticipantAsync(
                     profileRepository,

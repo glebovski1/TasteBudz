@@ -90,6 +90,11 @@ public sealed class EventInviteService(
                     {
                         throw ApiException.Conflict($"User '{invitee.Username}' is already participating in the event.");
                     }
+
+                    if (existingParticipants.TryGetValue(invitee.Id, out existing) && existing.State == EventParticipantState.Removed)
+                    {
+                        throw ApiException.Forbidden($"User '{invitee.Username}' has been removed from this event.");
+                    }
                 }
 
                 foreach (var invitee in invitees)

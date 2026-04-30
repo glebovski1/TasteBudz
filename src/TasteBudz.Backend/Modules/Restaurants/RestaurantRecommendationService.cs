@@ -91,14 +91,24 @@ public sealed class RestaurantRecommendationService(
 
     private async Task EnsureCanUseEventContextAsync(CurrentUser currentUser, Event eventRecord, CancellationToken cancellationToken)
     {
-        if (eventRecord.EventType == EventType.Open || eventRecord.HostUserId == currentUser.UserId)
+        if (!await EventVisibilityPolicy.CanViewAsync(
+                currentUser.UserId,
+                isPrivileged: false,
+                eventRecord,
+                eventRepository,
+                cancellationToken))
         {
-            return;
+            throw ApiException.NotFound("The requested event could not be found.");
         }
 
-        var participant = await eventRepository.GetParticipantAsync(eventRecord.Id, currentUser.UserId, cancellationToken);
+        var participants = await eventRepository.ListParticipantsAsync(eventRecord.Id, cancellationToken);
 
-        if (participant is null || participant.State == EventParticipantState.Removed)
+        if (await EventPolicy.HasBlockedLiveParticipantAsync(
+                profileRepository,
+                eventRecord,
+                participants,
+                currentUser.UserId,
+                cancellationToken))
         {
             throw ApiException.NotFound("The requested event could not be found.");
         }

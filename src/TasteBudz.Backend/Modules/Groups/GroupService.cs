@@ -322,6 +322,11 @@ public sealed class GroupService(
             throw ApiException.Conflict($"User '{invitee.Username}' is already a member of this group.");
         }
 
+        if (membership?.State == GroupMemberState.Removed)
+        {
+            throw ApiException.Forbidden($"User '{invitee.Username}' has been removed from this group.");
+        }
+
         var invites = await groupRepository.ListInvitesForGroupAsync(groupId, cancellationToken);
         var pending = invites.FirstOrDefault(existing =>
             existing.InvitedUserId == invitee.Id &&
@@ -392,6 +397,17 @@ public sealed class GroupService(
                 {
                     await EnsureNotBlockedAsync(group.OwnerUserId, currentUser.UserId, cancellationToken);
                     var membership = await groupRepository.GetMemberAsync(group.Id, currentUser.UserId, cancellationToken);
+
+                    if (membership?.State == GroupMemberState.Removed)
+                    {
+                        throw ApiException.Forbidden("You have been removed from this group.");
+                    }
+
+                    if (await HasBlockedActiveMemberAsync(currentUser.UserId, group, cancellationToken))
+                    {
+                        throw ApiException.Forbidden("Blocking prevents joining groups with blocked users.");
+                    }
+
                     await groupRepository.SaveMemberAsync(new GroupMember(
                         group.Id,
                         currentUser.UserId,

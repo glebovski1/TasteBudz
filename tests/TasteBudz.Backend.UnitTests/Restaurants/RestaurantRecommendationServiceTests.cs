@@ -58,6 +58,52 @@ public sealed class RestaurantRecommendationServiceTests
         Assert.Equal(404, exception.StatusCode);
     }
 
+    [Fact]
+    public async Task GetSuggestionsAsync_WithOpenEventBlockedHost_ReturnsNotFound()
+    {
+        var store = new InMemoryTasteBudzStore();
+        store.Reset();
+        var now = DateTimeOffset.UtcNow;
+        var hostUserId = Guid.NewGuid();
+        var callerUserId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+
+        store.Profiles[hostUserId] = new UserProfile(hostUserId, "Host", "Host", "45220", SocialGoal.Friends, now, now);
+        store.Events[eventId] = new Event(
+            eventId,
+            hostUserId,
+            "Blocked host dinner",
+            EventType.Open,
+            EventStatus.Open,
+            now.AddDays(1),
+            now.AddDays(1).AddMinutes(-15),
+            4,
+            2,
+            null,
+            "Sushi",
+            null,
+            null,
+            now,
+            now,
+            null,
+            null);
+        store.EventParticipants[$"{eventId:N}:{hostUserId:N}"] =
+            new EventParticipant(eventId, hostUserId, EventParticipantState.Joined, null, now, now, null, null);
+        store.Blocks[$"{hostUserId:N}:{callerUserId:N}"] = new UserBlock(hostUserId, callerUserId, now);
+
+        var service = CreateService(store);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            service.GetSuggestionsAsync(
+                new CurrentUser(callerUserId, "caller", Array.Empty<UserRole>()),
+                new RestaurantSuggestionsQuery
+                {
+                    EventId = eventId,
+                }));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
     /// <summary>
     /// A bogus group id must fail fast so clients are not misled by generic fallback suggestions.
     /// </summary>
