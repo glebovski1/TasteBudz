@@ -1,6 +1,8 @@
 -- Rollback for 20260426_feature_seed_topup.sql.
 -- Deletes only deterministic demo rows created by that optional top-up script.
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 SET XACT_ABORT ON;
 SET NOCOUNT ON;
 

@@ -2,6 +2,8 @@
 -- Run only after the normal SQL Server schema, reference seed, and current patches are applied.
 -- This script is guarded by fixed GUIDs and is intentionally separate from production bootstrap.
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 SET XACT_ABORT ON;
 SET NOCOUNT ON;
 
@@ -31,6 +33,8 @@ DECLARE @Reservation UNIQUEIDENTIFIER = CONVERT(UNIQUEIDENTIFIER, '20000000-0000
 DECLARE @AvatarMedia UNIQUEIDENTIFIER = CONVERT(UNIQUEIDENTIFIER, '20000000-0000-0000-0000-000000010001');
 DECLARE @ReportMedia UNIQUEIDENTIFIER = CONVERT(UNIQUEIDENTIFIER, '20000000-0000-0000-0000-000000010002');
 DECLARE @FeedbackMedia UNIQUEIDENTIFIER = CONVERT(UNIQUEIDENTIFIER, '20000000-0000-0000-0000-000000010003');
+-- Complete demo feedback PNG; earlier top-up rows may contain only the PNG signature.
+DECLARE @DemoFeedbackPng VARBINARY(MAX) = 0x89504E470D0A1A0A0000000D494844520000003000000020080600000054D4FB1C000000B04944415478DAEDD8B10980401004C00FADC3DC026CC3D47AACC8AE046343C5C0C740E4EFFC3D56D86013F1E1063D583E0D7DB7BF65999B9C761A73EECF9F12F56E2A05300E5F0C601DBE08C03CBC09C0387C31807578D312330EFF19C0B01F6EC0BEADD5E381BA00E74104C0F395CC80EB201260F9C592B74AA000615502B5036155221A50BD4A44022055220A00AB12110068954003E05502095095509550955095D0AD04CFAD047B041040809F030E30943100E1EB15040000000049454E44AE426082;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.UserAccounts WHERE Id = @Alex)
     INSERT INTO dbo.UserAccounts (Id, Username, NormalizedUsername, Email, NormalizedEmail, PasswordHash, Status, CreatedAtUtc, UpdatedAtUtc, DeletedAtUtc)
@@ -212,11 +216,25 @@ MERGE dbo.MediaAssets AS target
 USING (VALUES
     (@AvatarMedia, @Alex, @Alex, NULL, NULL, NULL, N'tb-demo-avatar.png', N'image/png', 8, 0x89504E470D0A1A0A, '2026-04-26T14:50:00Z'),
     (@ReportMedia, @Alex, NULL, NULL, NULL, @Report, N'tb-demo-report.png', N'image/png', 8, 0x89504E470D0A1A0A, '2026-04-26T14:51:00Z'),
-    (@FeedbackMedia, @Brooke, NULL, NULL, @CompletedEvent, NULL, N'tb-demo-feedback.png', N'image/png', 8, 0x89504E470D0A1A0A, '2026-04-26T14:52:00Z')
+    (@FeedbackMedia, @Alex, NULL, NULL, @CompletedEvent, NULL, N'tb-demo-feedback.png', N'image/png', DATALENGTH(@DemoFeedbackPng), @DemoFeedbackPng, '2026-04-26T14:52:00Z')
 ) AS source (Id, OwnerUserId, ProfileUserId, GroupId, EventId, ReportId, OriginalFileName, ContentType, ContentLength, Content, CreatedAtUtc)
 ON target.Id = source.Id
 WHEN NOT MATCHED THEN INSERT (Id, OwnerUserId, ProfileUserId, GroupId, EventId, ReportId, OriginalFileName, ContentType, ContentLength, Content, CreatedAtUtc)
 VALUES (source.Id, source.OwnerUserId, source.ProfileUserId, source.GroupId, source.EventId, source.ReportId, source.OriginalFileName, source.ContentType, source.ContentLength, source.Content, source.CreatedAtUtc);
+
+UPDATE dbo.MediaAssets
+SET ContentLength = DATALENGTH(@DemoFeedbackPng),
+    Content = @DemoFeedbackPng,
+    OwnerUserId = @Alex
+WHERE Id = @FeedbackMedia
+  AND ContentType = N'image/png'
+  AND ContentLength = 8
+  AND Content = 0x89504E470D0A1A0A;
+
+UPDATE dbo.MediaAssets
+SET OwnerUserId = @Alex
+WHERE Id = @FeedbackMedia
+  AND OwnerUserId = @Brooke;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.EventFeedbackPhotos WHERE EventFeedbackId = @Feedback AND MediaAssetId = @FeedbackMedia)
     INSERT INTO dbo.EventFeedbackPhotos (EventFeedbackId, MediaAssetId, CreatedAtUtc)

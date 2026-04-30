@@ -1,4 +1,5 @@
 // Basic integration smoke tests for host startup and routing.
+using System.Buffers.Binary;
 using System.Net;
 using Microsoft.Data.Sqlite;
 using TasteBudz.Backend.Infrastructure.Persistence.Sqlite;
@@ -160,6 +161,41 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task SeedTestDataOnStartup_WhenEnabled_StoresRenderableFeedbackPhotoBytes()
+    {
+        using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
+        {
+            ["Persistence:SeedTestDataOnStartup"] = "true",
+        });
+        using var client = customFactory.CreateClient();
+
+        var response = await client.GetAsync("/definitely-missing");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        await using var connection = new SqliteConnection(customFactory.ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT m.ContentType, m.ContentLength, m.Content
+            FROM MediaAssets m
+            INNER JOIN EventFeedbackPhotos p ON p.MediaAssetId = m.Id
+            WHERE m.Id = '00000000-0000-0000-0000-000000010003';
+            """;
+
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        var contentType = reader.GetString(0);
+        var contentLength = reader.GetInt64(1);
+        var bytes = (byte[])reader["Content"];
+
+        Assert.Equal("image/png", contentType);
+        Assert.Equal(contentLength, bytes.LongLength);
+        Assert.True(IsCompletePng(bytes));
+    }
+
+    [Fact]
     public async Task SeedTestDataOnStartup_WhenEnabled_IncludesActiveSlotAndRecommendationSignalDemoEvents()
     {
         using var customFactory = factory.WithConfigurationOverrides(new Dictionary<string, string?>
@@ -309,6 +345,25 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         Assert.Contains("IsArchived BIT NOT NULL", sqlServerScript);
     }
 
+    [Fact]
+    public void AzureSqlDemoDataScripts_EnableRequiredSqlServerSetOptions()
+    {
+        var root = FindRepositoryRoot();
+        var scriptPaths = new[]
+        {
+            Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "demo", "20260426_feature_seed_topup.sql"),
+            Path.Combine(root, "src", "TasteBudz.Database", "sqlserver", "demo", "20260426_feature_seed_topup_rollback.sql"),
+        };
+
+        foreach (var scriptPath in scriptPaths)
+        {
+            var script = File.ReadAllText(scriptPath);
+
+            Assert.Contains("SET ANSI_NULLS ON;", script);
+            Assert.Contains("SET QUOTED_IDENTIFIER ON;", script);
+        }
+    }
+
     private static async Task DropTableAsync(string connectionString, string tableName)
     {
         await using var connection = new SqliteConnection(connectionString);
@@ -406,6 +461,47 @@ public sealed class HostStartupTests(TasteBudzApiFactory factory) : IClassFixtur
         command.CommandText = $"SELECT COUNT(*) FROM {tableName} WHERE {whereClause};";
 
         return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    private static bool IsCompletePng(byte[] bytes)
+    {
+        ReadOnlySpan<byte> signature = stackalloc byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+
+        if (bytes.Length < signature.Length + 12 || !bytes.AsSpan(0, signature.Length).SequenceEqual(signature))
+        {
+            return false;
+        }
+
+        var offset = signature.Length;
+        var sawHeader = false;
+
+        while (offset <= bytes.Length - 12)
+        {
+            var length = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(offset, 4));
+            offset += 4;
+
+            if (length < 0 || offset + 4 + length + 4 > bytes.Length)
+            {
+                return false;
+            }
+
+            var chunkType = bytes.AsSpan(offset, 4);
+            offset += 4;
+
+            if (chunkType.SequenceEqual("IHDR"u8))
+            {
+                sawHeader = true;
+            }
+
+            offset += length + 4;
+
+            if (chunkType.SequenceEqual("IEND"u8))
+            {
+                return sawHeader && offset == bytes.Length;
+            }
+        }
+
+        return false;
     }
 
     private static async Task InsertUserAsync(string connectionString, string id, string username, string email)
