@@ -1,5 +1,6 @@
 // User-scoped event read models used by dashboard-style endpoints.
 using TasteBudz.Backend.Domain;
+using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.Modules.Events;
 
@@ -8,6 +9,7 @@ namespace TasteBudz.Backend.Modules.Events;
 /// </summary>
 public sealed class UserEventQueryService(
     IEventRepository eventRepository,
+    IProfileRepository profileRepository,
     EventLifecycleService lifecycleService)
 {
     public async Task<IReadOnlyCollection<UserEventSummary>> ListActiveForUserAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -47,6 +49,17 @@ public sealed class UserEventQueryService(
             }
 
             var synchronized = await lifecycleService.SynchronizeAsync(eventRecord, cancellationToken);
+            var participants = await eventRepository.ListParticipantsAsync(synchronized.Id, cancellationToken);
+
+            if (await EventPolicy.HasBlockedLiveParticipantAsync(
+                    profileRepository,
+                    synchronized,
+                    participants,
+                    userId,
+                    cancellationToken))
+            {
+                continue;
+            }
 
             items.Add(new UserEventSummary(
                 synchronized.Id,

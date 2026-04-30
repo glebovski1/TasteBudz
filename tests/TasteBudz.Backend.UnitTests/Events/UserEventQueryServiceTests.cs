@@ -3,6 +3,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Persistence.InMemory;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Notifications;
+using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.UnitTests.Shared;
 
 namespace TasteBudz.Backend.UnitTests.Events;
@@ -20,9 +21,10 @@ public sealed class UserEventQueryServiceTests
         var store = new InMemoryTasteBudzStore();
         store.Reset();
         var eventRepository = new InMemoryEventRepository(store);
+        var profileRepository = new InMemoryProfileRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var queryService = new UserEventQueryService(eventRepository, lifecycleService);
+        var queryService = new UserEventQueryService(eventRepository, profileRepository, lifecycleService);
         var hostUserId = Guid.NewGuid();
         var eventId = Guid.NewGuid();
 
@@ -70,9 +72,10 @@ public sealed class UserEventQueryServiceTests
         var store = new InMemoryTasteBudzStore();
         store.Reset();
         var eventRepository = new InMemoryEventRepository(store);
+        var profileRepository = new InMemoryProfileRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var queryService = new UserEventQueryService(eventRepository, lifecycleService);
+        var queryService = new UserEventQueryService(eventRepository, profileRepository, lifecycleService);
         var currentUserId = Guid.NewGuid();
         var hostUserId = Guid.NewGuid();
         var groupId = Guid.NewGuid();
@@ -109,6 +112,41 @@ public sealed class UserEventQueryServiceTests
     }
 
     [Fact]
+    public async Task ListForUserAsync_ExcludesLiveEventsWithBlockedParticipants()
+    {
+        var now = new DateTimeOffset(2026, 3, 9, 18, 0, 0, TimeSpan.Zero);
+        var clock = new TestClock(now);
+        var store = new InMemoryTasteBudzStore();
+        store.Reset();
+        var eventRepository = new InMemoryEventRepository(store);
+        var profileRepository = new InMemoryProfileRepository(store);
+        var notificationService = new InMemoryNotificationService(store);
+        var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
+        var queryService = new UserEventQueryService(eventRepository, profileRepository, lifecycleService);
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+        var blockedUserId = Guid.NewGuid();
+
+        var visibleEvent = CreateEvent(hostUserId, "Visible joined", EventType.Open, EventStatus.Open, now.AddDays(1), null);
+        var blockedEvent = CreateEvent(hostUserId, "Blocked joined", EventType.Open, EventStatus.Open, now.AddDays(2), null);
+
+        foreach (var eventRecord in new[] { visibleEvent, blockedEvent })
+        {
+            await eventRepository.SaveAsync(eventRecord);
+            await eventRepository.SaveParticipantAsync(new EventParticipant(eventRecord.Id, hostUserId, EventParticipantState.Joined, null, now.AddDays(-4), now.AddDays(-4), null, null));
+            await eventRepository.SaveParticipantAsync(new EventParticipant(eventRecord.Id, currentUserId, EventParticipantState.Joined, null, now.AddDays(-3), now.AddDays(-3), null, null));
+        }
+
+        await eventRepository.SaveParticipantAsync(new EventParticipant(blockedEvent.Id, blockedUserId, EventParticipantState.Joined, null, now.AddDays(-2), now.AddDays(-2), null, null));
+        await profileRepository.SaveBlockAsync(new UserBlock(currentUserId, blockedUserId, now.AddHours(-1)));
+
+        var events = await queryService.ListForUserAsync(currentUserId, Array.Empty<Guid>());
+
+        Assert.Contains(events, item => item.EventId == visibleEvent.Id);
+        Assert.DoesNotContain(events, item => item.EventId == blockedEvent.Id);
+    }
+
+    [Fact]
     public async Task ListPendingInvitesForUserAsync_ExcludesInvitesAfterDecisionAt()
     {
         var now = new DateTimeOffset(2026, 3, 9, 18, 0, 0, TimeSpan.Zero);
@@ -116,9 +154,10 @@ public sealed class UserEventQueryServiceTests
         var store = new InMemoryTasteBudzStore();
         store.Reset();
         var eventRepository = new InMemoryEventRepository(store);
+        var profileRepository = new InMemoryProfileRepository(store);
         var notificationService = new InMemoryNotificationService(store);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var queryService = new UserEventQueryService(eventRepository, lifecycleService);
+        var queryService = new UserEventQueryService(eventRepository, profileRepository, lifecycleService);
         var hostUserId = Guid.NewGuid();
         var guestUserId = Guid.NewGuid();
         var staleInviteEventId = Guid.NewGuid();
