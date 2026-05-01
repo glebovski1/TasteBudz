@@ -13,6 +13,9 @@
             <p class="admin-subtitle">Review reports, manage user restrictions, and maintain catalog data.</p>
         </div>
         <div class="button-row">
+            <a asp-action="Search" class="button button--secondary">
+                Content Search
+            </a>
             <a asp-action="Reports" class="button button--secondary">
                 All Reports
             </a>
@@ -169,6 +172,8 @@
             <div class="report-list">
                 @foreach (var report in Model.PendingReports)
                 {
+                    var banSubjectUserId = report.RelatedUserId ?? (report.TargetType == TasteBudz.Backend.Domain.ReportTargetType.User ? report.TargetId : null);
+
                     <div class="report-card card">
                         <div class="report-card__header">
                             <div class="report-card__meta">
@@ -189,20 +194,20 @@
 
                         <div class="report-card__footer">
                             <div class="report-card__ids">
-                                <span class="muted-note">Reporter: <code>@report.ReporterUserId.ToString()[..8]…</code></span>
-                                @if (report.RelatedUserId.HasValue)
+                                <span class="muted-note">Reporter recorded</span>
+                                @if (banSubjectUserId.HasValue)
                                 {
-                                    <span class="muted-note">Reported user: <code>@report.RelatedUserId.Value.ToString()[..8]…</code></span>
+                                    <a asp-action="UserDetail" asp-route-userId="@banSubjectUserId.Value" class="button button--secondary">Open User</a>
                                 }
                             </div>
                             <div class="button-row">
                                 <a asp-action="ReportDetail" asp-route-id="@report.ReportId" class="button button--secondary">
                                     View Details
                                 </a>
-                                @if (report.RelatedUserId.HasValue)
+                                @if (banSubjectUserId.HasValue)
                                 {
                                     <button class="button button--danger"
-                                            onclick="openBanModal('@report.RelatedUserId', '@report.ReportId')">
+                                            onclick="openBanModal('@banSubjectUserId.Value', '@report.ReportId')">
                                         Ban User
                                     </button>
                                 }

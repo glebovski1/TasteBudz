@@ -29,7 +29,17 @@ public sealed class AdminReportsViewModel
 
 public sealed class AdminReportDetailViewModel
 {
-    public ModerationReportDto Report { get; init; } = null!;
+    public ModerationReportReviewDto Review { get; init; } = null!;
+
+    public ModerationReportDto Report => Review.Report;
+
+    public ModerationUserSummaryDto? Reporter => Review.Reporter;
+
+    public ModerationUserSummaryDto? SubjectUser => Review.SubjectUser;
+
+    public ModerationUserSummaryDto? RelatedUser => Review.RelatedUser;
+
+    public ModerationSearchResultDto? RelatedMessage => Review.RelatedMessage;
 }
 
 public sealed class RestaurantAssignmentPanelItem
@@ -41,6 +51,24 @@ public sealed class RestaurantAssignmentPanelItem
 public sealed class AdminSupportThreadsViewModel
 {
     public IReadOnlyCollection<SupportThreadDto> Threads { get; init; } = [];
+}
+
+public sealed class AdminSearchViewModel
+{
+    public const int PageSize = 20;
+
+    public string? Query { get; init; }
+    public ModerationSearchResultKind? Type { get; init; }
+    public IReadOnlyCollection<ModerationSearchResultDto> Results { get; init; } = [];
+    public int CurrentPage { get; init; } = 1;
+    public int TotalCount { get; init; }
+
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+}
+
+public sealed class AdminUserDetailViewModel
+{
+    public ModerationUserDetailDto Detail { get; init; } = null!;
 }
 
 public sealed class AdminRestaurantsViewModel

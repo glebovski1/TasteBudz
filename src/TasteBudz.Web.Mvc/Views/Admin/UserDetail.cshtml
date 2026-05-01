@@ -1,0 +1,87 @@
+@model AdminUserDetailViewModel
+
+@{
+    var detail = Model.Detail;
+    var user = detail.User;
+    ViewData["Title"] = $"{user.DisplayName} (@{user.Username})";
+}
+
+<div class="admin-shell">
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">Moderation</span>
+            <h1 class="admin-title">@user.DisplayName (@user.Username)</h1>
+            <p class="admin-subtitle">@user.Email</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Search" class="button button--secondary">Content Search</a>
+            <a asp-action="Reports" class="button button--secondary">All Reports</a>
+            <a asp-action="Index" class="button button--secondary">Admin Panel</a>
+        </div>
+    </div>
+
+    <section class="admin-section">
+        <div class="editor-grid">
+            <div class="summary-card">
+                <strong>Account</strong>
+                <span>@user.Status</span>
+                <p class="muted-note">User id <code>@user.UserId</code></p>
+            </div>
+            <div class="summary-card">
+                <strong>Roles</strong>
+                <span>@string.Join(", ", user.Roles)</span>
+            </div>
+            <div class="summary-card">
+                <strong>Reports</strong>
+                <span>@detail.ReportCount related report(s)</span>
+            </div>
+            <div class="summary-card">
+                <strong>Messages</strong>
+                <span>@detail.MessageCount sent message(s)</span>
+                @if (detail.LastMessageAtUtc.HasValue)
+                {
+                    <p class="muted-note">Last message @detail.LastMessageAtUtc.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">Restrictions</h2>
+        </div>
+
+        @if (!detail.Restrictions.Any())
+        {
+            <p class="muted-note">No restrictions recorded for this user.</p>
+        }
+        else
+        {
+            <div class="report-list">
+                @foreach (var restriction in detail.Restrictions)
+                {
+                    <article class="report-card card">
+                        <div class="report-card__header">
+                            <div>
+                                <strong>@restriction.Scope</strong>
+                                <span class="pill">@restriction.Status</span>
+                            </div>
+                            <time class="report-card__time" datetime="@restriction.StartsAtUtc.ToString("o")">
+                                @restriction.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                            </time>
+                        </div>
+                        <p class="report-card__reason">@restriction.Reason</p>
+                        @if (restriction.ExpiresAtUtc.HasValue)
+                        {
+                            <p class="muted-note">Expires @restriction.ExpiresAtUtc.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                        }
+                        else
+                        {
+                            <p class="muted-note">No expiration.</p>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>

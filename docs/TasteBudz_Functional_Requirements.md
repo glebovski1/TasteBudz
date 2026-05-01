@@ -50,7 +50,7 @@ User wants food -> discovers Budz, a group, or an event -> restaurant is selecte
 | User | Register/login/logout and submit or complete password reset flows (FR-001), update profile/preferences/availability/privacy (FR-002 to FR-005), browse/filter restaurants (FR-007), search/swipe people and view Budz (FR-018 to FR-020), browse/search open events and public groups (FR-022), join/leave Open events and accept/decline event invites (FR-008 to FR-009), use event chat when participating, group chat when a current member, and support chat with admins (FR-017 to FR-017B), block/report users (FR-024 to FR-025) |
 | Host | Create Open/Closed events (FR-008), invite users to events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
 | Group Owner | Create group, manage name/description/visibility (FR-011 to FR-012), remove group members (FR-012), transfer ownership or dissolve group later (FR-012A), create/view group-linked events (FR-013), use group chat (FR-017A) |
-| Moderator | View report queue, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
+| Moderator | View report queue, search moderation-relevant users/messages/content, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
 | Admin | All Moderator actions plus support chat replies, password reset-request review, password reset-token issuance, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-014, FR-017B, FR-026 to FR-028) |
 
 ## 2. Functional Requirements Catalogue
@@ -89,6 +89,7 @@ Priority legend:
 - US-022: As a user, I want to report inappropriate behavior.
 - US-023: As a moderator, I want a queue of reports to review.
 - US-024: As an admin/moderator, I want sensitive actions to be audit-logged.
+- US-024A: As an admin/moderator, I want to search users, messages, reports, and content so I can quickly review safety issues.
 - US-025: As a user, I want to search people by username/display name.
 - US-026: As a user, I want to Like/Pass discovery candidates quickly.
 - US-027: As a user, I want mutual Like to create a Budz connection.
@@ -586,6 +587,8 @@ Priority legend:
 **Acceptance Criteria**
 
 - Moderators can view reports in a review queue.
+- Moderators and admins can search users, messages, reports, events, groups, feedback, restaurants, and other moderation-relevant content from a privileged staff surface.
+- Report review shows reporter, reported user, message sender, or content author as readable user links such as display name plus username, with GUIDs only as secondary traceability metadata.
 - Moderators can resolve reports with a recorded decision.
 - Moderation actions are stored.
 

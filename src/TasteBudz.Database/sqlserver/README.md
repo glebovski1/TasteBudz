@@ -14,6 +14,7 @@ Current incremental repair scripts include:
 - `patches/20260422_password_reset_requests_and_restaurant_catalog.sql`
 - `patches/20260425_group_announcements_wallpaper.sql`
 - `patches/20260426_restaurant_slot_discount_percent.sql`
+- `patches/20260501_add_devon_moderator_account.sql`
 
 Optional demo-data helpers live under `src/TasteBudz.Database/sqlserver/demo`:
 

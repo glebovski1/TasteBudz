@@ -190,6 +190,9 @@ The following areas are the highest priority for backend testing.
 - reports can be created and resolved
 - report-evidence attachments respect reporter vs moderator/admin access boundaries
 - event-feedback reports preserve the feedback author's user target and related event context
+- moderator/admin global search returns users, messages, reports, and content while denying normal users
+- report review resolves reporter, reported user, message sender, or content author into readable user summaries for staff links
+- moderator search omits admin-only audit results unless audit visibility policy changes
 - restrictions prevent forbidden actions while active
 - restriction scope values are validated against the documented API contract
 - moderation and support actions create audit records where required
@@ -291,6 +294,7 @@ These scenarios should anchor early backend testing work.
 | BT-09 | Reciprocal Like creates one Bud connection | Medium | Matching logic respects the accepted MVP rule |
 | BT-09A | Blocking an active Bud removes the Budz connection and separates shared live groups/events | High | Block cleanup keeps live social contexts coherent |
 | BT-10 | Moderator applies a scoped restriction that blocks a forbidden action | High | Restriction enforcement is active and auditable |
+| BT-10A | Admin/Moderator searches users, messages, and reports | High | Privileged search is role-protected, returns readable user summaries, and denies normal users |
 | BT-11 | Non-owner cannot link an event to group context, and group-linked event type must match group visibility | High | Group-linked events stay owner-managed and visibility-consistent |
 | BT-12 | Discovery search excludes a user with an active `DiscoveryVisibility` restriction | High | Discovery filtering respects moderation scope |
 | BT-13 | Profile avatar upload replaces the previous avatar and serves stored bytes | High | Media storage and profile contracts stay aligned |
@@ -323,7 +327,7 @@ These scenarios should anchor early backend testing work.
 | Messaging | membership-derived access, support-scope access, Budz-only direct chat, history retrieval, restriction-aware send behavior |
 | Payments | feature-flag behavior, participant-owned checkout creation, simulated totals, completion/cancellation state rules |
 | Notifications | workflow-triggered notifications, type contract, required context payload, read-state updates |
-| Moderation and Audit | reports, restrictions, scope validation, role enforcement, audit entries |
+| Moderation and Audit | reports, privileged search, report-review user identity resolution, restrictions, scope validation, role enforcement, audit entries |
 
 ## 15. Definition of Done for Backend Features
 

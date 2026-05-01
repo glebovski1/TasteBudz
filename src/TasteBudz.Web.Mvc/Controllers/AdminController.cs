@@ -83,8 +83,57 @@ public sealed class AdminController : Controller
     {
         try
         {
-            var report = await moderationApiService.GetReportAsync(id, cancellationToken);
-            return View(new AdminReportDetailViewModel { Report = report });
+            var review = await moderationApiService.GetReportReviewAsync(id, cancellationToken);
+            return View(new AdminReportDetailViewModel { Review = review });
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Search(
+        string? q,
+        ModerationSearchResultKind? type,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var currentPage = Math.Max(1, page);
+            var response = await moderationApiService.SearchAsync(
+                new ModerationSearchQuery
+                {
+                    Q = string.IsNullOrWhiteSpace(q) ? null : q.Trim(),
+                    Type = type,
+                    Page = currentPage,
+                    PageSize = AdminSearchViewModel.PageSize,
+                },
+                cancellationToken);
+
+            return View(new AdminSearchViewModel
+            {
+                Query = q,
+                Type = type,
+                Results = response.Items,
+                TotalCount = response.TotalCount,
+                CurrentPage = currentPage,
+            });
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+    }
+
+    [HttpGet("Admin/Users/{userId:guid}")]
+    public async Task<IActionResult> UserDetail(Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var detail = await moderationApiService.GetUserDetailAsync(userId, cancellationToken);
+            return View(new AdminUserDetailViewModel { Detail = detail });
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -96,18 +145,19 @@ public sealed class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> BanUser(
         Guid userId,
+        Guid? reportId,
         bool permanent,
         string reason,
         CancellationToken cancellationToken)
     {
         try
         {
-            await moderationApiService.CreateRestrictionAsync(new CreateRestrictionRequest
+            await moderationApiService.CreateUserBanAsync(new CreateUserBanRequest
             {
                 SubjectUserId = userId,
-                Scope = RestrictionScope.DiscoveryVisibility,
                 Reason = reason,
                 ExpiresAtUtc = permanent ? null : DateTimeOffset.UtcNow.AddDays(7),
+                ReportId = reportId,
             }, cancellationToken);
 
             TempData["StatusMessage"] = permanent

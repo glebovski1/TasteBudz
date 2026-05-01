@@ -574,10 +574,14 @@ MVP notification contract:
 | Submit Report | POST | `/api/v1/reports` | Submit moderation report | Yes |
 | Upload Report Attachment | POST | `/api/v1/reports/{reportId}/attachments` | Add image evidence to a pending report | Yes |
 | List Report Attachments | GET | `/api/v1/reports/{reportId}/attachments` | List authorized report evidence attachments | Reporter/Moderator/Admin |
+| Search Moderation Content | GET | `/api/v1/moderation/search` | Search users, messages, reports, events, groups, feedback, restaurants, and admin-visible audit entries | Moderator/Admin |
 | List Moderation Reports | GET | `/api/v1/moderation/reports` | Return moderation queue | Moderator/Admin |
 | Get Moderation Report | GET | `/api/v1/moderation/reports/{reportId}` | Return report detail | Moderator/Admin |
+| Get Moderation Report Review | GET | `/api/v1/moderation/reports/{reportId}/review` | Return report detail with resolved reporter, subject, and message-sender user summaries | Moderator/Admin |
+| Get Moderation User Detail | GET | `/api/v1/moderation/users/{userId}` | Return staff user summary, restriction history, and moderation counts | Moderator/Admin |
 | Resolve Moderation Report | PATCH | `/api/v1/moderation/reports/{reportId}` | Resolve report | Moderator/Admin |
 | Create Restriction | POST | `/api/v1/moderation/restrictions` | Apply scoped restriction | Moderator/Admin |
+| Create User Ban | POST | `/api/v1/moderation/bans` | Apply full MVP soft ban across all restriction scopes; optionally resolve a matching pending report | Moderator/Admin |
 | Update Restriction | PATCH | `/api/v1/moderation/restrictions/{restrictionId}` | Revoke/update restriction | Moderator/Admin |
 | View Audit Logs | GET | `/api/v1/audit-logs` | Return audit log entries | Admin |
 
@@ -607,7 +611,16 @@ Multipart report-attachment upload shape:
   "subjectUserId": "uuid",
   "scope": "DiscoveryVisibility",
   "reason": "Harassment",
-  "expiresAt": "timestamp"
+  "expiresAtUtc": "timestamp"
+}
+```
+
+```json
+{
+  "subjectUserId": "uuid",
+  "reason": "Harassment",
+  "expiresAtUtc": "timestamp",
+  "reportId": "uuid"
 }
 ```
 
@@ -617,6 +630,12 @@ Allowed MVP restriction scopes:
 - `ChatSend`
 - `EventJoin`
 - `EventCreate`
+
+`POST /api/v1/moderation/bans` creates active restrictions for all four MVP scopes (`DiscoveryVisibility`, `ChatSend`, `EventJoin`, and `EventCreate`) with the same reason and expiry. When `reportId` is supplied, the report must be pending and match the banned user through either `targetType: "User"` plus `targetId`, or `relatedUserId`; the endpoint resolves the report with a soft-ban decision.
+
+`GET /api/v1/moderation/search` accepts `q`, optional `type`, `page`, and `pageSize`. Supported result types are `User`, `Message`, `Report`, `Event`, `Group`, `Feedback`, `Restaurant`, and `Audit`. `Audit` results are returned only to Admin callers under the current audit policy.
+
+`GET /api/v1/moderation/reports/{reportId}/review` resolves user references for report review. User reports resolve the target user as the ban subject. Message reports resolve the related/target chat message sender as the ban subject. The response exposes readable user summaries so staff UI can render display-name/username links instead of GUID-only identifiers.
 
 Audit log query parameters may include `actorUserId`, `targetEntityType`, `targetEntityId`, `page`, and `pageSize`.
 
