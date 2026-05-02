@@ -50,6 +50,10 @@ public sealed class RestaurantOperationsApiTests(TasteBudzApiFactory factory) : 
         enabledFactory.ResetState();
         using var client = enabledFactory.CreateClient();
         var restaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var slotStartsAt = DateTimeOffset.UtcNow.AddDays(7);
+        var slotEndsAt = slotStartsAt.AddHours(4);
+        var slotCutoffAt = slotStartsAt.AddHours(-1);
+        var eventStartsAt = slotStartsAt.AddHours(1);
 
         var admin = await ApiTestHelpers.RegisterAsync(client, username: "admin", email: "admin@example.com");
         var manager = await ApiTestHelpers.RegisterAsync(client, username: "manager", email: "manager@example.com");
@@ -70,10 +74,10 @@ public sealed class RestaurantOperationsApiTests(TasteBudzApiFactory factory) : 
             $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
             new CreateRestaurantSlotRequest
             {
-                StartsAtUtc = new DateTimeOffset(2026, 5, 1, 18, 0, 0, TimeSpan.Zero),
-                EndsAtUtc = new DateTimeOffset(2026, 5, 1, 22, 0, 0, TimeSpan.Zero),
+                StartsAtUtc = slotStartsAt,
+                EndsAtUtc = slotEndsAt,
                 Capacity = 4,
-                CutoffAtUtc = new DateTimeOffset(2026, 5, 1, 17, 0, 0, TimeSpan.Zero),
+                CutoffAtUtc = slotCutoffAt,
                 MinThresholdForDiscount = 2,
                 DiscountPercent = 25,
             },
@@ -86,7 +90,7 @@ public sealed class RestaurantOperationsApiTests(TasteBudzApiFactory factory) : 
             new CreateEventRequest
             {
                 EventType = EventType.Open,
-                EventStartAtUtc = new DateTimeOffset(2026, 5, 1, 19, 0, 0, TimeSpan.Zero),
+                EventStartAtUtc = eventStartsAt,
                 Capacity = 4,
                 Title = "Slot night",
                 SelectedRestaurantId = restaurantId,
@@ -139,6 +143,9 @@ public sealed class RestaurantOperationsApiTests(TasteBudzApiFactory factory) : 
         var manager = await ApiTestHelpers.RegisterAsync(client, username: "manager", email: "manager@example.com");
         var firstHost = await ApiTestHelpers.RegisterAsync(client, username: "host1", email: "host1@example.com");
         var secondHost = await ApiTestHelpers.RegisterAsync(client, username: "host2", email: "host2@example.com");
+        var slotStartsAt = DateTimeOffset.UtcNow.AddDays(7);
+        var slotEndsAt = slotStartsAt.AddHours(4);
+        var slotCutoffAt = slotStartsAt.AddHours(-1);
         await ApiTestHelpers.PromoteRolesAsync(enabledFactory.Services, admin.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
 
         ApiTestHelpers.SetBearer(client, admin.AccessToken);
@@ -152,16 +159,16 @@ public sealed class RestaurantOperationsApiTests(TasteBudzApiFactory factory) : 
             $"/api/v1/restaurant-admin/restaurants/{restaurantId}/slots",
             new CreateRestaurantSlotRequest
             {
-                StartsAtUtc = new DateTimeOffset(2026, 5, 2, 18, 0, 0, TimeSpan.Zero),
-                EndsAtUtc = new DateTimeOffset(2026, 5, 2, 22, 0, 0, TimeSpan.Zero),
+                StartsAtUtc = slotStartsAt,
+                EndsAtUtc = slotEndsAt,
                 Capacity = 4,
-                CutoffAtUtc = new DateTimeOffset(2026, 5, 2, 17, 0, 0, TimeSpan.Zero),
+                CutoffAtUtc = slotCutoffAt,
             },
             ApiTestHelpers.JsonOptions);
         var slot = await slotResponse.Content.ReadFromJsonAsync<RestaurantSlotDto>(ApiTestHelpers.JsonOptions);
 
-        var firstEvent = await CreateEventAsync(client, firstHost, restaurantId, new DateTimeOffset(2026, 5, 2, 19, 0, 0, TimeSpan.Zero));
-        var secondEvent = await CreateEventAsync(client, secondHost, restaurantId, new DateTimeOffset(2026, 5, 2, 19, 30, 0, TimeSpan.Zero));
+        var firstEvent = await CreateEventAsync(client, firstHost, restaurantId, slotStartsAt.AddHours(1));
+        var secondEvent = await CreateEventAsync(client, secondHost, restaurantId, slotStartsAt.AddHours(1).AddMinutes(30));
 
         ApiTestHelpers.SetBearer(client, firstHost.AccessToken);
         await client.PostAsJsonAsync(

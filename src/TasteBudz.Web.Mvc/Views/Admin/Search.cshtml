@@ -38,6 +38,7 @@
             </div>
             <div class="button-row">
                 <button type="submit" class="button button--primary">Search</button>
+                <a asp-action="Search" class="button button--secondary">Show Latest (Browse)</a>
             </div>
         </form>
     </section>
@@ -89,12 +90,6 @@
                                         <p class="muted-note">@result.Subtitle</p>
                                     }
                                 </div>
-                                @if (result.CreatedAtUtc.HasValue)
-                                {
-                                    <time class="report-card__time" datetime="@result.CreatedAtUtc.Value.ToString("o")">
-                                        @result.CreatedAtUtc.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
-                                    </time>
-                                }
                             </div>
 
                             @if (!string.IsNullOrWhiteSpace(result.Snippet))
@@ -103,17 +98,13 @@
                             }
 
                             <div class="button-row">
-                                @if (result.PrimaryUser is not null && result.Kind != ModerationSearchResultKind.User)
+                                @if (result.PrimaryUser is not null)
                                 {
-                                    <a asp-action="UserDetail" asp-route-userId="@result.PrimaryUser.UserId" class="button button--secondary">
-                                        @UserLabel(result.PrimaryUser)
-                                    </a>
+                                    <a asp-action="UserDetail" asp-route-userId="@result.PrimaryUser.UserId" class="button button--secondary">@UserLabel(result.PrimaryUser)</a>
                                 }
                                 @if (result.SecondaryUser is not null)
                                 {
-                                    <a asp-action="UserDetail" asp-route-userId="@result.SecondaryUser.UserId" class="button button--secondary">
-                                        Subject: @UserLabel(result.SecondaryUser)
-                                    </a>
+                                    <a asp-action="UserDetail" asp-route-userId="@result.SecondaryUser.UserId" class="button button--secondary">Subject: @UserLabel(result.SecondaryUser)</a>
                                 }
                                 @if (result.Kind == ModerationSearchResultKind.Report)
                                 {

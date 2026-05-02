@@ -84,4 +84,72 @@
             </div>
         }
     </section>
+
+    @if (Model.HasActiveFullBan)
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Active Ban</h2>
+            </div>
+            <div class="summary-card">
+                <strong>Full soft ban is active</strong>
+                <p class="muted-note">
+                    This user already has active DiscoveryVisibility, ChatSend, EventJoin, and EventCreate restrictions.
+                </p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Quick Ban</h2>
+            </div>
+            <form asp-action="BanUser" method="post" class="card stack" style="max-width: 720px;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="userId" value="@user.UserId" />
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <div class="field">
+                    <label for="reason">Reason</label>
+                    <input id="reason" name="reason" value="Moderator action" maxlength="200" required />
+                </div>
+                <div class="button-row">
+                    <button type="submit" name="permanent" value="false" class="button button--primary">7-Day Ban</button>
+                    <button type="submit" name="permanent" value="true" class="button button--danger">Permanent Ban</button>
+                </div>
+            </form>
+        </section>
+    }
+
+    @if (User.IsInRole("Admin"))
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Account Deletion</h2>
+            </div>
+            <div class="editor-grid">
+                <form asp-action="DeleteUser" method="post" class="card stack">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@user.UserId" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <strong>Delete Account</strong>
+                    <p class="muted-note">Soft delete revokes sessions and removes the account from active use.</p>
+                    <button type="submit" class="button button--danger">Delete Account</button>
+                </form>
+
+                <form asp-action="PermanentlyDeleteUser" method="post" class="card stack">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@user.UserId" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <strong>Permanent Delete</strong>
+                    <p class="muted-note">Only soft-deleted users without historical records can be physically deleted.</p>
+                    <div class="field">
+                        <label for="confirmation">Type delete to confirm</label>
+                        <input id="confirmation" name="confirmation" placeholder="delete" autocomplete="off" required />
+                    </div>
+                    <button type="submit" class="button button--danger">Permanent Delete</button>
+                </form>
+            </div>
+        </section>
+    }
 </div>

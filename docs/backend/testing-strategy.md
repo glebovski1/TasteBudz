@@ -142,8 +142,10 @@ The following areas are the highest priority for backend testing.
 
 - only authorized actors can edit, remove, moderate, or access protected resources
 - only admins can issue password reset tokens, anonymous reset requests do not disclose account existence, and reset completion revokes existing sessions
+- only admins can soft-delete another user, only dependency-free soft-deleted accounts can be permanently deleted, and permanent deletion requires exact confirmation
 - discovery-disabled users are excluded where required
 - `DiscoveryVisibility` restrictions hide users from discovery/search where required
+- a full soft ban revokes sessions, blocks login/refresh/token authentication while active, and hides the banned account from regular active social surfaces such as Budz, group member lists, and event participant lists
 - blocking prevents new disallowed interaction paths, removes active Budz, and separates shared live contexts
 - event/group browse, detail, and join paths exclude live contexts containing blocked users
 - launched-but-forbidden behavior returns the correct status code (for example `403`)
@@ -194,6 +196,7 @@ The following areas are the highest priority for backend testing.
 - report review resolves reporter, reported user, message sender, or content author into readable user summaries for staff links
 - moderator search omits admin-only audit results unless audit visibility policy changes
 - restrictions prevent forbidden actions while active
+- full-ban tests cover the four-scope ban path, session revocation, auth rejection, user-facing social-list hiding, and staff traceability
 - restriction scope values are validated against the documented API contract
 - moderation and support actions create audit records where required
 
@@ -297,6 +300,7 @@ These scenarios should anchor early backend testing work.
 | BT-10A | Admin/Moderator searches users, messages, and reports | High | Privileged search is role-protected, returns readable user summaries, and denies normal users |
 | BT-11 | Non-owner cannot link an event to group context, and group-linked event type must match group visibility | High | Group-linked events stay owner-managed and visibility-consistent |
 | BT-12 | Discovery search excludes a user with an active `DiscoveryVisibility` restriction | High | Discovery filtering respects moderation scope |
+| BT-12A | Full soft ban revokes sessions and hides the user from active social surfaces | High | Login/refresh/protected access fail, and Budz/group/event participant lists omit the banned account while moderation detail remains available |
 | BT-13 | Profile avatar upload replaces the previous avatar and serves stored bytes | High | Media storage and profile contracts stay aligned |
 | BT-14 | Report evidence attachment is hidden from unrelated users but visible to moderators | High | Media authorization respects moderation context |
 | BT-15 | Admin grants and revokes a restaurant admin assignment | High | Role and assignment authority stay aligned |
@@ -317,7 +321,7 @@ These scenarios should anchor early backend testing work.
 
 | Module | Main proof to prioritize |
 |---|---|
-| Auth and Access | login, logout, auth boundaries, protected endpoint access, anonymous reset requests, admin-issued password reset |
+| Auth and Access | login, logout, auth boundaries, protected endpoint access, anonymous reset requests, admin-issued password reset, admin soft/permanent deletion |
 | Profiles and Preferences | current-user isolation, availability behavior, privacy, blocks |
 | Restaurants | browse and filter correctness, deterministic suggestions |
 | Restaurant Operations | default-active behavior, kill-switch behavior, assignments, slot lifecycle, reservation invariants, discount simulation |
@@ -327,7 +331,7 @@ These scenarios should anchor early backend testing work.
 | Messaging | membership-derived access, support-scope access, Budz-only direct chat, history retrieval, restriction-aware send behavior |
 | Payments | feature-flag behavior, participant-owned checkout creation, simulated totals, completion/cancellation state rules |
 | Notifications | workflow-triggered notifications, type contract, required context payload, read-state updates |
-| Moderation and Audit | reports, privileged search, report-review user identity resolution, restrictions, scope validation, role enforcement, audit entries |
+| Moderation and Audit | reports, privileged search, report-review user identity resolution, restrictions, full soft-ban auth/list enforcement, scope validation, role enforcement, audit entries |
 
 ## 15. Definition of Done for Backend Features
 

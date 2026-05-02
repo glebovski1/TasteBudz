@@ -102,6 +102,8 @@ public sealed class RestrictionService(
                         new AuditLogEntry(Guid.NewGuid(), "ReportResolved", actor.UserId, nameof(ModerationReport), resolvedReport.Id, now, resolvedReport.ResolutionDecision!),
                         cancellationToken);
                 }
+
+                await authRepository.RevokeAllSessionsForUserAsync(subjectUserId, now, cancellationToken);
             },
             cancellationToken);
 
@@ -215,6 +217,28 @@ public sealed class RestrictionService(
         }
 
         return false;
+    }
+
+    public async Task<bool> IsFullBanActiveAsync(Guid subjectUserId, CancellationToken cancellationToken = default)
+    {
+        var activeScopes = new HashSet<RestrictionScope>();
+        var restrictions = await moderationRepository.ListRestrictionsAsync(cancellationToken);
+
+        foreach (var restriction in restrictions.Where(candidate =>
+            candidate.SubjectUserId == subjectUserId &&
+            FullBanScopes.Contains(candidate.Scope)))
+        {
+            var evaluated = await EvaluateStatusAsync(restriction, cancellationToken);
+
+            if (evaluated.Status == RestrictionStatus.Active &&
+                evaluated.StartsAtUtc <= clock.UtcNow &&
+                (!evaluated.ExpiresAtUtc.HasValue || evaluated.ExpiresAtUtc > clock.UtcNow))
+            {
+                activeScopes.Add(evaluated.Scope);
+            }
+        }
+
+        return FullBanScopes.All(activeScopes.Contains);
     }
 
     public async Task EnsureNotRestrictedAsync(Guid subjectUserId, RestrictionScope scope, string detail, CancellationToken cancellationToken = default)

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
 using TasteBudz.Backend.Modules.Auth;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.IntegrationTests.Api;
@@ -148,6 +149,73 @@ public sealed class AuthApiTests(TasteBudzApiFactory factory) : IClassFixture<Ta
 
         Assert.Equal(HttpStatusCode.NoContent, deletionResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, protectedResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminUserDeletion_SoftDeletesTargetRevokesSessionsAndPreventsLogin()
+    {
+        factory.ResetState();
+        using var adminClient = factory.CreateClient();
+        using var targetClient = factory.CreateClient();
+
+        var adminSession = await ApiTestHelpers.RegisterAsync(adminClient, username: "admin", email: "admin@example.com");
+        var targetSession = await ApiTestHelpers.RegisterAsync(targetClient, username: "delete-target", email: "delete-target@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, adminSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(adminClient, adminSession.AccessToken);
+        ApiTestHelpers.SetBearer(targetClient, targetSession.AccessToken);
+
+        var deletionResponse = await adminClient.PostAsync($"/api/v1/admin/users/{targetSession.CurrentUser.UserId}/deletion", null);
+        var protectedResponse = await targetClient.GetAsync("/api/v1/profiles/me");
+        var loginResponse = await targetClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest
+        {
+            UsernameOrEmail = "delete-target",
+            Password = "Pa$$w0rd123",
+        });
+        var detailResponse = await adminClient.GetAsync($"/api/v1/moderation/users/{targetSession.CurrentUser.UserId}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<ModerationUserDetailDto>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.NoContent, deletionResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, protectedResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        Assert.Equal(AccountStatus.Deleted, detail!.User.Status);
+    }
+
+    [Fact]
+    public async Task AdminPermanentUserDeletion_RequiresSoftDeletedTargetAndDeleteConfirmation()
+    {
+        factory.ResetState();
+        using var adminClient = factory.CreateClient();
+        using var targetClient = factory.CreateClient();
+
+        var adminSession = await ApiTestHelpers.RegisterAsync(adminClient, username: "admin", email: "admin@example.com");
+        var targetSession = await ApiTestHelpers.RegisterAsync(targetClient, username: "delete-target", email: "delete-target@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, adminSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Admin });
+        ApiTestHelpers.SetBearer(adminClient, adminSession.AccessToken);
+
+        var beforeSoftDeleteResponse = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/users/{targetSession.CurrentUser.UserId}/permanent-deletion",
+            new { Confirmation = "delete" });
+        var softDeleteResponse = await adminClient.PostAsync($"/api/v1/admin/users/{targetSession.CurrentUser.UserId}/deletion", null);
+        var wrongConfirmationResponse = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/users/{targetSession.CurrentUser.UserId}/permanent-deletion",
+            new { Confirmation = "DELETE" });
+        var permanentDeleteResponse = await adminClient.PostAsJsonAsync(
+            $"/api/v1/admin/users/{targetSession.CurrentUser.UserId}/permanent-deletion",
+            new { Confirmation = "delete" });
+        var detailResponse = await adminClient.GetAsync($"/api/v1/moderation/users/{targetSession.CurrentUser.UserId}");
+        var loginResponse = await targetClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest
+        {
+            UsernameOrEmail = "delete-target",
+            Password = "Pa$$w0rd123",
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, beforeSoftDeleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, softDeleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, wrongConfirmationResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, permanentDeleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, detailResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
     }
 

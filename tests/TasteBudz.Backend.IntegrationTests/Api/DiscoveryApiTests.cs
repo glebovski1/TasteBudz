@@ -59,6 +59,46 @@ public sealed class DiscoveryApiTests(TasteBudzApiFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task BudzList_HidesFullBannedUsers()
+    {
+        factory.ResetState();
+        using var moderatorClient = factory.CreateClient();
+        using var alexClient = factory.CreateClient();
+        using var samClient = factory.CreateClient();
+
+        var moderatorSession = await ApiTestHelpers.RegisterAsync(moderatorClient, username: "mod", email: "mod@example.com");
+        var alexSession = await ApiTestHelpers.RegisterAsync(alexClient, username: "alex", email: "alex@example.com");
+        var samSession = await ApiTestHelpers.RegisterAsync(samClient, username: "sam", email: "sam@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, moderatorSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Moderator });
+        ApiTestHelpers.SetBearer(moderatorClient, moderatorSession.AccessToken);
+        ApiTestHelpers.SetBearer(alexClient, alexSession.AccessToken);
+        ApiTestHelpers.SetBearer(samClient, samSession.AccessToken);
+
+        await alexClient.PostAsJsonAsync("/api/v1/discovery/swipes", new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = samSession.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+        await samClient.PostAsJsonAsync("/api/v1/discovery/swipes", new RecordSwipeDecisionRequest
+        {
+            SubjectUserId = alexSession.CurrentUser.UserId,
+            Decision = SwipeDecisionType.Like,
+        });
+
+        var banResponse = await moderatorClient.PostAsJsonAsync("/api/v1/moderation/bans", new CreateUserBanRequest
+        {
+            SubjectUserId = samSession.CurrentUser.UserId,
+            Reason = "Full safety ban",
+        });
+        var budzResponse = await alexClient.GetAsync("/api/v1/budz");
+        var budz = await budzResponse.Content.ReadFromJsonAsync<BudConnectionDto[]>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, banResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, budzResponse.StatusCode);
+        Assert.DoesNotContain(budz!, item => item.UserId == samSession.CurrentUser.UserId);
+    }
+
+    [Fact]
     public async Task DiscoverySearch_RespectsPrivacyBlockAndRestrictionFilters()
     {
         factory.ResetState();

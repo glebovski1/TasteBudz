@@ -11,7 +11,7 @@ using TasteBudz.Web.Mvc.ViewModels;
 namespace TasteBudz.Web.Mvc.Controllers;
 
 /// <summary>
-/// Admin-only panel for user management, moderation, and catalog maintenance.
+/// Staff panel for user management, moderation, and admin-only operations.
 /// </summary>
 [Authorize(Roles = "Admin,Moderator")]
 public sealed class AdminController : Controller
@@ -148,6 +148,7 @@ public sealed class AdminController : Controller
         Guid? reportId,
         bool permanent,
         string reason,
+        string? returnUrl,
         CancellationToken cancellationToken)
     {
         try
@@ -171,6 +172,84 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Error: {ex.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteUser(Guid userId, string? returnUrl, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await authApiService.DeleteAdminUserAsync(userId, cancellationToken);
+            TempData["StatusMessage"] = "User account has been deleted.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Delete failed: {ex.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> PermanentlyDeleteUser(
+        Guid userId,
+        string? confirmation,
+        string? returnUrl,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(confirmation, "delete", StringComparison.Ordinal))
+        {
+            TempData["StatusMessage"] = "Type delete to permanently delete the user.";
+
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            await authApiService.PermanentlyDeleteAdminUserAsync(
+                userId,
+                new PermanentlyDeleteUserRequest { Confirmation = confirmation },
+                cancellationToken);
+            TempData["StatusMessage"] = "User account has been permanently deleted.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Permanent delete failed: {ex.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
         }
 
         return RedirectToAction(nameof(Index));
@@ -213,8 +292,9 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Reset token failed: {ex.Message}";
-            return RedirectToAction(nameof(Index));
         }
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
@@ -255,8 +335,9 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Could not load support threads: {ex.Message}";
-            return RedirectToAction(nameof(Index));
         }
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]

@@ -71,6 +71,22 @@ public sealed class AuthApiService
             request,
             cancellationToken: cancellationToken);
 
+    public Task DeleteAdminUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            $"/api/v1/admin/users/{userId}/deletion",
+            cancellationToken: cancellationToken);
+
+    public Task PermanentlyDeleteAdminUserAsync(
+        Guid userId,
+        PermanentlyDeleteUserRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync(
+            $"/api/v1/admin/users/{userId}/permanent-deletion",
+            request,
+            cancellationToken: cancellationToken);
+
     public Task ResetPasswordAsync(
         ResetPasswordRequest request,
         CancellationToken cancellationToken = default) =>

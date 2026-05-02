@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Infrastructure.Auth;
@@ -103,9 +104,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
         var users = await LoadUserSummariesAsync(cancellationToken);
         var user = GetUser(users, userId)
             ?? throw ApiException.NotFound("The requested user could not be found.");
-        var restrictions = await dbContext.UserRestrictions
+        var restrictionRows = await dbContext.UserRestrictions
             .AsNoTracking()
             .Where(item => item.SubjectUserId == userId)
+            .ToListAsync(cancellationToken);
+        var restrictions = restrictionRows
             .OrderByDescending(item => item.StartsAtUtc)
             .ThenBy(item => item.Scope)
             .Select(item => new RestrictionDto(
@@ -117,7 +120,7 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
                 item.ExpiresAtUtc,
                 item.Status,
                 item.RevokedAtUtc))
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
         var reportCount = await dbContext.ModerationReports
             .AsNoTracking()
             .CountAsync(report =>
@@ -125,23 +128,18 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
                 report.RelatedUserId == userId ||
                 (report.TargetType == ReportTargetType.User && report.TargetId == userId),
                 cancellationToken);
-        var messageStats = await dbContext.ChatMessages
+        var messageCreatedAtValues = await dbContext.ChatMessages
             .AsNoTracking()
             .Where(message => message.SenderUserId == userId)
-            .GroupBy(message => message.SenderUserId)
-            .Select(group => new
-            {
-                Count = group.Count(),
-                LastMessageAtUtc = group.Max(message => message.CreatedAtUtc),
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+            .Select(message => message.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
 
         return new ModerationUserDetailDto(
             user,
             restrictions,
             reportCount,
-            messageStats?.Count ?? 0,
-            messageStats?.LastMessageAtUtc);
+            messageCreatedAtValues.Count,
+            messageCreatedAtValues.Count == 0 ? null : messageCreatedAtValues.Max());
     }
 
     private static bool MatchesType(ModerationSearchQuery query, ModerationSearchResultKind kind) =>
@@ -199,12 +197,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
             query = query.Where(row => EF.Functions.Like(row.Message.Body, pattern));
         }
 
-        var rows = await query
-            .OrderByDescending(row => row.Message.CreatedAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var rows = await query.ToListAsync(cancellationToken);
 
         return rows
+            .OrderByDescending(row => row.Message.CreatedAtUtc)
+            .Take(200)
             .Select(row => BuildMessageResult(users, row.Message, row.Thread))
             .ToArray();
     }
@@ -226,12 +223,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
                 (report.ResolutionNotes != null && EF.Functions.Like(report.ResolutionNotes, pattern)));
         }
 
-        var reports = await query
-            .OrderByDescending(report => report.CreatedAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var reports = await query.ToListAsync(cancellationToken);
 
         return reports
+            .OrderByDescending(report => report.CreatedAtUtc)
+            .Take(200)
             .Select(report =>
             {
                 var subject = ResolveReportSubject(users, report, relatedMessage: null);
@@ -274,12 +270,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
                 (row.RestaurantName != null && EF.Functions.Like(row.RestaurantName, pattern)));
         }
 
-        var rows = await query
-            .OrderByDescending(row => row.Event.EventStartAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var rows = await query.ToListAsync(cancellationToken);
 
         return rows
+            .OrderByDescending(row => row.Event.EventStartAtUtc)
+            .Take(200)
             .Select(row => new ModerationSearchResultDto(
                 ModerationSearchResultKind.Event,
                 row.Event.Id,
@@ -308,12 +303,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
                 (group.Description != null && EF.Functions.Like(group.Description, pattern)));
         }
 
-        var groups = await query
-            .OrderByDescending(group => group.CreatedAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var groups = await query.ToListAsync(cancellationToken);
 
         return groups
+            .OrderByDescending(group => group.CreatedAtUtc)
+            .Take(200)
             .Select(group => new ModerationSearchResultDto(
                 ModerationSearchResultKind.Group,
                 group.Id,
@@ -348,12 +342,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
             query = query.Where(row => EF.Functions.Like(row.Feedback.Text, pattern));
         }
 
-        var rows = await query
-            .OrderByDescending(row => row.Feedback.CreatedAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var rows = await query.ToListAsync(cancellationToken);
 
         return rows
+            .OrderByDescending(row => row.Feedback.CreatedAtUtc)
+            .Take(200)
             .Select(row => new ModerationSearchResultDto(
                 ModerationSearchResultKind.Feedback,
                 row.Feedback.Id,
@@ -419,12 +412,11 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
                 EF.Functions.Like(entry.Details, pattern));
         }
 
-        var entries = await query
-            .OrderByDescending(entry => entry.CreatedAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
+        var entries = await query.ToListAsync(cancellationToken);
 
         return entries
+            .OrderByDescending(entry => entry.CreatedAtUtc)
+            .Take(200)
             .Select(entry => new ModerationSearchResultDto(
                 ModerationSearchResultKind.Audit,
                 entry.Id,
@@ -545,7 +537,7 @@ public sealed class ModerationSearchService(TasteBudzDbContext dbContext)
     private static string FormatUserLabel(ModerationUserSummaryDto user) =>
         $"{user.DisplayName} (@{user.Username})";
 
-    private static bool HasSearchText(string? searchText) =>
+    private static bool HasSearchText([NotNullWhen(true)] string? searchText) =>
         !string.IsNullOrWhiteSpace(searchText);
 
     private static bool Contains(string? value, string? searchText) =>

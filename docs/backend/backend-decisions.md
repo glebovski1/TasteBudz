@@ -712,3 +712,26 @@ Admin OpenStreetMap import uses a preview-first flow. Admins choose a Cincinnati
 - User-facing restaurant browse remains local catalog-backed and does not call OpenStreetMap live.
 - Large catalogs remain manageable through paged admin search instead of full-page rendering.
 - Future duplicate override or merge tooling must be approved separately.
+
+## [ADR-037] Full Soft Bans Block Authentication and Admin Physical Delete Is Guarded
+
+- Date: 2026-05-01
+- Status: Accepted
+- Owners: Backend team
+
+### Context
+
+The moderation MVP originally modeled bans as scoped `UserRestriction` rows instead of account lifecycle changes. That kept moderation reversible, but active full-soft-banned users could still authenticate and could still appear in some active user-facing social lists. Admins also need a deliberately confirmed way to remove selected test/demo accounts without weakening historical integrity for real participation, messaging, moderation, audit, or payment records.
+
+### Decision
+
+A full MVP soft ban is the active set of `DiscoveryVisibility`, `ChatSend`, `EventJoin`, and `EventCreate` restrictions for the same user. Applying that ban revokes all sessions. While the full ban is active, login, refresh, bearer-token authentication, and SignalR bearer authentication are rejected. Regular user-facing people surfaces hide that account where the application is presenting active social participants or contacts, including discovery, Budz, group member lists, and event participant lists. Staff moderation search/detail surfaces still show the account and restriction history for traceability.
+
+Admins may soft-delete another user's account through admin user management. Admins may also permanently delete a user only when all of the following are true: the admin is not deleting themself, the account is already soft-deleted, the request confirmation is exactly `delete`, and the account has no protected historical dependencies. Protected dependencies include hosted events, event participation, event feedback, checkout sessions, owned groups, group announcements, chat messages, moderation reports/actions issued by the user, issued restrictions, actor audit entries, issued password reset artifacts, and context-linked media. Dependency-free permanent deletion may remove the account's private/profile/auth rows and non-historical relationship rows.
+
+### Consequences
+
+- Full soft-ban enforcement is centralized in auth/session boundaries instead of depending only on individual feature checks.
+- Account lifecycle (`UserAccount.Status`) remains separate from scoped moderation restrictions, but full-soft-ban status has an authentication-level effect while active.
+- Physical deletion remains an admin-only exception for dependency-free soft-deleted accounts, not a general cascade-delete model.
+- Staff tools must continue to preserve enough moderation traceability to review bans, deletion attempts, and historical safety decisions.

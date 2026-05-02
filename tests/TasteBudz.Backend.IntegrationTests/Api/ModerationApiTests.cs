@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using TasteBudz.Backend.Contracts;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
+using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Discovery;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Messaging;
@@ -180,6 +181,7 @@ public sealed class ModerationApiTests(TasteBudzApiFactory factory) : IClassFixt
         using var subjectClient = factory.CreateClient();
         using var hostClient = factory.CreateClient();
         using var observerClient = factory.CreateClient();
+        using var publicClient = factory.CreateClient();
 
         var moderatorSession = await ApiTestHelpers.RegisterAsync(moderatorClient, username: "mod", email: "mod@example.com");
         var reporterSession = await ApiTestHelpers.RegisterAsync(reporterClient, username: "reporter", email: "reporter@example.com");
@@ -211,6 +213,16 @@ public sealed class ModerationApiTests(TasteBudzApiFactory factory) : IClassFixt
             ReportId = report!.ReportId,
         });
         var ban = await banResponse.Content.ReadFromJsonAsync<UserBanDto>(ApiTestHelpers.JsonOptions);
+        var protectedResponse = await subjectClient.GetAsync("/api/v1/profiles/me");
+        var loginAfterBanResponse = await publicClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest
+        {
+            UsernameOrEmail = "subject",
+            Password = "Pa$$w0rd123",
+        });
+        var refreshAfterBanResponse = await publicClient.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshSessionRequest
+        {
+            RefreshToken = subjectSession.RefreshToken,
+        });
 
         var createEventResponse = await subjectClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
         {
@@ -250,12 +262,15 @@ public sealed class ModerationApiTests(TasteBudzApiFactory factory) : IClassFixt
             }.OrderBy(scope => scope),
             ban!.Restrictions.Select(restriction => restriction.Scope).OrderBy(scope => scope));
         Assert.Equal(ModerationReportStatus.Resolved, ban.ResolvedReport!.Status);
-        Assert.Equal(HttpStatusCode.Forbidden, createEventResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, protectedResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, loginAfterBanResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, refreshAfterBanResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, createEventResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, hostCreateEventResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, joinResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, joinResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, discoveryResponse.StatusCode);
         Assert.DoesNotContain(discovery!.Items, item => item.UserId == subjectSession.CurrentUser.UserId);
-        Assert.Equal(HttpStatusCode.Forbidden, chatResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, chatResponse.StatusCode);
     }
 
     [Fact]

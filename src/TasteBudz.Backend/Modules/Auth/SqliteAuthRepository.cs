@@ -121,6 +121,154 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<string>> ListPermanentDeleteBlockersAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var blockers = new List<string>();
+        var targetMediaIds = dbContext.MediaAssets
+            .Where(media => media.OwnerUserId == userId || media.ProfileUserId == userId)
+            .Select(media => media.Id);
+
+        if (await dbContext.Events.AnyAsync(item => item.HostUserId == userId, cancellationToken))
+        {
+            blockers.Add("hosted events");
+        }
+
+        if (await dbContext.EventParticipants.AnyAsync(item => item.UserId == userId, cancellationToken))
+        {
+            blockers.Add("event participation");
+        }
+
+        if (await dbContext.EventFeedbacks.AnyAsync(item => item.AuthorUserId == userId, cancellationToken))
+        {
+            blockers.Add("event feedback");
+        }
+
+        if (await dbContext.CheckoutSessions.AnyAsync(item => item.UserId == userId, cancellationToken))
+        {
+            blockers.Add("checkout sessions");
+        }
+
+        if (await dbContext.Groups.AnyAsync(item => item.OwnerUserId == userId, cancellationToken))
+        {
+            blockers.Add("owned groups");
+        }
+
+        if (await dbContext.GroupAnnouncements.AnyAsync(item => item.AuthorUserId == userId, cancellationToken))
+        {
+            blockers.Add("group announcements");
+        }
+
+        if (await dbContext.ChatMessages.AnyAsync(item => item.SenderUserId == userId, cancellationToken))
+        {
+            blockers.Add("chat messages");
+        }
+
+        if (await dbContext.ModerationReports.AnyAsync(item =>
+                item.ReporterUserId == userId ||
+                item.RelatedUserId == userId ||
+                item.ResolvedByUserId == userId ||
+                (item.TargetType == ReportTargetType.User && item.TargetId == userId),
+                cancellationToken))
+        {
+            blockers.Add("moderation reports");
+        }
+
+        if (await dbContext.ModerationActions.AnyAsync(item => item.ActorUserId == userId, cancellationToken))
+        {
+            blockers.Add("moderation actions");
+        }
+
+        if (await dbContext.UserRestrictions.AnyAsync(item => item.IssuedByUserId == userId, cancellationToken))
+        {
+            blockers.Add("issued restrictions");
+        }
+
+        if (await dbContext.AuditLogEntries.AnyAsync(item => item.ActorUserId == userId, cancellationToken))
+        {
+            blockers.Add("audit log entries");
+        }
+
+        if (await dbContext.PasswordResetTokens.AnyAsync(item => item.CreatedByUserId == userId, cancellationToken))
+        {
+            blockers.Add("issued password reset tokens");
+        }
+
+        if (await dbContext.PasswordResetRequests.AnyAsync(item => item.ClosedByUserId == userId, cancellationToken))
+        {
+            blockers.Add("closed password reset requests");
+        }
+
+        if (await dbContext.MediaAssets.AnyAsync(item =>
+                (item.OwnerUserId == userId || item.ProfileUserId == userId) &&
+                (item.GroupId.HasValue || item.EventId.HasValue || item.ReportId.HasValue),
+                cancellationToken))
+        {
+            blockers.Add("context-linked media assets");
+        }
+
+        if (await dbContext.EventFeedbackPhotos.AnyAsync(item => targetMediaIds.Contains(item.MediaAssetId), cancellationToken))
+        {
+            blockers.Add("event feedback photos");
+        }
+
+        return blockers;
+    }
+
+    public async Task PermanentlyDeleteAccountAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var account = await dbContext.UserAccounts.FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
+
+        if (account is null)
+        {
+            return;
+        }
+
+        var passwordResetRequests = await dbContext.PasswordResetRequests
+            .Where(request => request.MatchedUserId == userId || request.ClosedByUserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var request in passwordResetRequests)
+        {
+            if (request.MatchedUserId == userId)
+            {
+                request.MatchedUserId = null;
+            }
+
+            if (request.ClosedByUserId == userId)
+            {
+                request.ClosedByUserId = null;
+            }
+        }
+
+        await RemoveRangeAsync(dbContext.MediaAssets.Where(media =>
+            (media.OwnerUserId == userId || media.ProfileUserId == userId) &&
+            media.GroupId == null &&
+            media.EventId == null &&
+            media.ReportId == null), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserRoles.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserSessions.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.PasswordResetTokens.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserCuisinePreferences.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserDietaryFlags.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserAllergies.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserPreferences.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.PrivacySettings.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.RecurringAvailabilityWindows.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.OneOffAvailabilityWindows.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.SwipeDecisions.Where(item => item.ActorUserId == userId || item.SubjectUserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.BudConnections.Where(item => item.UserOneId == userId || item.UserTwoId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserBlocks.Where(item => item.BlockerUserId == userId || item.BlockedUserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.GroupMembers.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.GroupInvites.Where(item => item.InvitedUserId == userId || item.InviterUserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.RestaurantAdminAssignments.Where(item => item.UserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.Notifications.Where(item => item.RecipientUserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserRestrictions.Where(item => item.SubjectUserId == userId), cancellationToken);
+        await RemoveRangeAsync(dbContext.UserProfiles.Where(item => item.UserId == userId), cancellationToken);
+
+        dbContext.UserAccounts.Remove(account);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<UserSession?> GetSessionByAccessTokenAsync(string accessToken, CancellationToken cancellationToken = default)
     {
         var entity = await dbContext.UserSessions.AsNoTracking().FirstOrDefaultAsync(session => session.AccessToken == accessToken, cancellationToken);
@@ -384,6 +532,12 @@ public sealed class SqliteAuthRepository(TasteBudzDbContext dbContext) : IAuthRe
             ClosedAtUtc = request.ClosedAtUtc,
             ClosedByUserId = request.ClosedByUserId,
         };
+
+    private async Task RemoveRangeAsync<TEntity>(IQueryable<TEntity> query, CancellationToken cancellationToken)
+        where TEntity : class
+    {
+        dbContext.RemoveRange(await query.ToListAsync(cancellationToken));
+    }
 
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 }

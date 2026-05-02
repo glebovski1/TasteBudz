@@ -25,7 +25,8 @@ public sealed class AuthService(
     IClock clock,
     IHttpContextAccessor? httpContextAccessor = null,
     AuditLogService? auditLogService = null,
-    IPersistenceTransactionRunner? transactionRunner = null)
+    IPersistenceTransactionRunner? transactionRunner = null,
+    RestrictionService? restrictionService = null)
 {
     private readonly IPersistenceTransactionRunner persistenceTransactionRunner = transactionRunner ?? NoOpPersistenceTransactionRunner.Instance;
     private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromHours(8);
@@ -91,6 +92,12 @@ public sealed class AuthService(
             throw ApiException.Unauthorized("Invalid username/email or password.");
         }
 
+        if (restrictionService is not null &&
+            await restrictionService.IsFullBanActiveAsync(account.Id, cancellationToken))
+        {
+            throw ApiException.Unauthorized("Invalid username/email or password.");
+        }
+
         return await CreateSessionAsync(account, cancellationToken);
     }
 
@@ -106,6 +113,12 @@ public sealed class AuthService(
         var account = await authRepository.GetByIdAsync(session.UserId, cancellationToken);
 
         if (account is null || account.Status != AccountStatus.Active)
+        {
+            throw ApiException.Unauthorized("The refresh token does not map to an active account.");
+        }
+
+        if (restrictionService is not null &&
+            await restrictionService.IsFullBanActiveAsync(account.Id, cancellationToken))
         {
             throw ApiException.Unauthorized("The refresh token does not map to an active account.");
         }
@@ -154,6 +167,97 @@ public sealed class AuthService(
             {
                 await authRepository.UpdateAccountAsync(deletedAccount, cancellationToken);
                 await authRepository.RevokeAllSessionsForUserAsync(userId, now, cancellationToken);
+            },
+            cancellationToken);
+    }
+
+    public async Task DeleteAccountAsAdminAsync(CurrentUser admin, Guid userId, CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(admin);
+
+        if (userId == admin.UserId)
+        {
+            throw ApiException.BadRequest("Admins cannot delete their own account from the admin panel.");
+        }
+
+        var account = await authRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested user could not be found.");
+
+        if (account.Status == AccountStatus.Deleted)
+        {
+            return;
+        }
+
+        var now = clock.UtcNow;
+        var deletedAccount = account with
+        {
+            Status = AccountStatus.Deleted,
+            DeletedAtUtc = now,
+            UpdatedAtUtc = now,
+        };
+
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.UpdateAccountAsync(deletedAccount, cancellationToken);
+                await authRepository.RevokeAllSessionsForUserAsync(userId, now, cancellationToken);
+
+                if (auditLogService is not null)
+                {
+                    await auditLogService.WriteAsync(
+                        new AuditLogEntry(Guid.NewGuid(), "AdminUserSoftDeleted", admin.UserId, nameof(UserAccount), userId, now, "Admin soft-deleted a user account."),
+                        cancellationToken);
+                }
+            },
+            cancellationToken);
+    }
+
+    public async Task PermanentlyDeleteAccountAsAdminAsync(
+        CurrentUser admin,
+        Guid userId,
+        PermanentlyDeleteUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(admin);
+
+        if (userId == admin.UserId)
+        {
+            throw ApiException.BadRequest("Admins cannot permanently delete their own account from the admin panel.");
+        }
+
+        if (!string.Equals(request.Confirmation, "delete", StringComparison.Ordinal))
+        {
+            throw ApiException.BadRequest("Type delete to permanently delete the user.");
+        }
+
+        var account = await authRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw ApiException.NotFound("The requested user could not be found.");
+
+        if (account.Status != AccountStatus.Deleted)
+        {
+            throw ApiException.Conflict("Only soft-deleted users can be permanently deleted.");
+        }
+
+        var blockers = await authRepository.ListPermanentDeleteBlockersAsync(userId, cancellationToken);
+
+        if (blockers.Count > 0)
+        {
+            throw ApiException.Conflict($"This user still has historical records and cannot be permanently deleted. Blocking records: {string.Join(", ", blockers)}.");
+        }
+
+        var now = clock.UtcNow;
+
+        await persistenceTransactionRunner.ExecuteAsync(
+            async () =>
+            {
+                await authRepository.PermanentlyDeleteAccountAsync(userId, cancellationToken);
+
+                if (auditLogService is not null)
+                {
+                    await auditLogService.WriteAsync(
+                        new AuditLogEntry(Guid.NewGuid(), "AdminUserPermanentlyDeleted", admin.UserId, nameof(UserAccount), userId, now, "Admin permanently deleted a soft-deleted user account."),
+                        cancellationToken);
+                }
             },
             cancellationToken);
     }

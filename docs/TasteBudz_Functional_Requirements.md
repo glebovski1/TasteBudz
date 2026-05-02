@@ -51,7 +51,7 @@ User wants food -> discovers Budz, a group, or an event -> restaurant is selecte
 | Host | Create Open/Closed events (FR-008), invite users to events (FR-008), edit event details before cancellation/completion (FR-014), cancel own event with reason (FR-014), view participants and event details (FR-008 to FR-014) |
 | Group Owner | Create group, manage name/description/visibility (FR-011 to FR-012), remove group members (FR-012), transfer ownership or dissolve group later (FR-012A), create/view group-linked events (FR-013), use group chat (FR-017A) |
 | Moderator | View report queue, search moderation-relevant users/messages/content, resolve reports, apply/expire scoped restrictions, and rely on audit logging (FR-026 to FR-028) |
-| Admin | All Moderator actions plus support chat replies, password reset-request review, password reset-token issuance, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-014, FR-017B, FR-026 to FR-028) |
+| Admin | All Moderator actions plus support chat replies, password reset-request review, password reset-token issuance, user account soft/permanent deletion controls, support overrides for safety/correctness cases, event cancellation support, and audit-log review (FR-001, FR-002, FR-014, FR-017B, FR-026 to FR-028) |
 
 ## 2. Functional Requirements Catalogue
 
@@ -144,6 +144,8 @@ Priority legend:
 - Users can upload or replace one profile avatar image stored in the application database.
 - Users can view a personal dashboard with profile info plus My Events, groups, and Budz.
 - Users can request account deletion.
+- Admins can soft-delete another user's account, which revokes sessions and prevents future authentication.
+- Admins can permanently delete a soft-deleted account only after entering an exact `delete` confirmation and only when the account has no historical records that must be preserved.
 - Profile changes only affect the current user's data.
 - Public people cards and profile previews may surface the user's personality note (`bio`), social goal, cuisine tags, and dietary flags; allergies and availability remain non-public by default.
 
@@ -603,6 +605,7 @@ Priority legend:
 - Restrictions can target specific capabilities such as discovery visibility, chat send, event join, or event create.
 - Restrictions can have an expiration time.
 - Restricted users are prevented from restricted actions while the restriction is active.
+- A full MVP soft ban applies the `DiscoveryVisibility`, `ChatSend`, `EventJoin`, and `EventCreate` scopes together, revokes the user's active sessions, blocks login/refresh while active, and hides that user from regular user-facing people surfaces such as discovery, Budz, group members, and event participant lists while staff moderation surfaces retain traceability.
 
 ### FR-028 Audit Logging
 

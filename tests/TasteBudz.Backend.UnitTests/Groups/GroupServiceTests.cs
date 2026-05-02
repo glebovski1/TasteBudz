@@ -7,6 +7,7 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Media;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.UnitTests.Shared;
@@ -411,9 +412,12 @@ public sealed class GroupServiceTests
         var groupRepository = new InMemoryGroupRepository(store);
         var mediaRepository = new InMemoryMediaRepository(store);
         var notificationService = new InMemoryNotificationService(store);
+        var moderationRepository = new InMemoryModerationRepository(store);
+        var auditLogService = new AuditLogService(moderationRepository);
+        var restrictionService = new RestrictionService(moderationRepository, authRepository, auditLogService, clock);
         var authService = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, clock);
+        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, restrictionService, clock);
 
         return new TestServices(authService, groupService, profileRepository, notificationService);
     }

@@ -7,6 +7,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.IntegrationTests.Api;
@@ -105,6 +106,50 @@ public sealed class GroupsApiTests(TasteBudzApiFactory factory) : IClassFixture<
             item.AnnouncementType == GroupAnnouncementType.EventCreated &&
             item.RelatedEventId.HasValue &&
             item.Title == "New group event");
+    }
+
+    [Fact]
+    public async Task GroupDetailAndBrowse_HideFullBannedMembers()
+    {
+        factory.ResetState();
+        using var moderatorClient = factory.CreateClient();
+        using var ownerClient = factory.CreateClient();
+        using var memberClient = factory.CreateClient();
+        using var browserClient = factory.CreateClient();
+
+        var moderatorSession = await ApiTestHelpers.RegisterAsync(moderatorClient, username: "mod", email: "mod@example.com");
+        var ownerSession = await ApiTestHelpers.RegisterAsync(ownerClient, username: "owner", email: "owner@example.com");
+        var memberSession = await ApiTestHelpers.RegisterAsync(memberClient, username: "member", email: "member@example.com");
+        var browserSession = await ApiTestHelpers.RegisterAsync(browserClient, username: "browser", email: "browser@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, moderatorSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Moderator });
+        ApiTestHelpers.SetBearer(moderatorClient, moderatorSession.AccessToken);
+        ApiTestHelpers.SetBearer(ownerClient, ownerSession.AccessToken);
+        ApiTestHelpers.SetBearer(memberClient, memberSession.AccessToken);
+        ApiTestHelpers.SetBearer(browserClient, browserSession.AccessToken);
+
+        var createResponse = await ownerClient.PostAsJsonAsync("/api/v1/groups", new CreateGroupRequest
+        {
+            Name = "Public Foodies",
+            Visibility = GroupVisibility.Public,
+        });
+        var group = await createResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        await memberClient.PostAsync($"/api/v1/groups/{group!.GroupId}/members", null);
+
+        var banResponse = await moderatorClient.PostAsJsonAsync("/api/v1/moderation/bans", new CreateUserBanRequest
+        {
+            SubjectUserId = memberSession.CurrentUser.UserId,
+            Reason = "Full safety ban",
+        });
+        var detailResponse = await ownerClient.GetAsync($"/api/v1/groups/{group.GroupId}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<GroupDetailDto>(ApiTestHelpers.JsonOptions);
+        var browseResponse = await browserClient.GetAsync("/api/v1/groups?q=Public&pageSize=10");
+        var browse = await browseResponse.Content.ReadFromJsonAsync<ListResponse<GroupSummaryDto>>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, banResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        Assert.DoesNotContain(detail!.Members, item => item.UserId == memberSession.CurrentUser.UserId);
+        Assert.Equal(HttpStatusCode.OK, browseResponse.StatusCode);
+        Assert.Contains(browse!.Items, item => item.GroupId == group.GroupId && item.ActiveMembers == 1);
     }
 
     [Fact]
