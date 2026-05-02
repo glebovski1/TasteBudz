@@ -411,12 +411,13 @@ Key responsibilities:
 - apply/remove restrictions
 - enforce moderation-related restrictions via service checks
 - write immutable audit logs for sensitive actions
-- expose authenticated report submission, moderator/admin restriction workflows, and admin-only audit-log review
+- expose authenticated report submission, moderator/admin restriction workflows, moderator/admin content search, report-review user identity resolution, and admin-only audit-log review
 
 Suggested services:
 
 - `ReportService`
 - `ModerationService`
+- `ModerationSearchService`
 - `RestrictionService`
 - `AuditLogService`
 
@@ -556,8 +557,10 @@ Lives in `ReportService`, `ModerationService`, and `RestrictionService`.
 Auth boundary:
 
 - any authenticated user may submit a report
-- moderation queue and restriction management require `Moderator` or `Admin`
+- moderation queue, report-review identity resolution, privileged content search, and restriction management require `Moderator` or `Admin`
 - audit-log review requires `Admin`
+
+Privileged moderation search is a read-only staff surface over existing module data. It may return user, message, report, event, group, feedback, restaurant, and admin-visible audit summaries, but it must return DTOs rather than persistence entities and must not perform destructive moderation actions directly from search results. Report review should resolve user references into readable staff links, with GUIDs kept only as secondary traceability data.
 
 ### 7.7 Notification Triggering
 

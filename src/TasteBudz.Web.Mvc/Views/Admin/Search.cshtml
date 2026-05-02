@@ -1,0 +1,139 @@
+@model AdminSearchViewModel
+@using TasteBudz.Backend.Modules.Moderation
+
+@{
+    ViewData["Title"] = "Content Search";
+}
+
+<div class="admin-shell">
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">Moderation</span>
+            <h1 class="admin-title">Content Search</h1>
+            <p class="admin-subtitle">Search users, messages, reports, and app content for safety review.</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Reports" class="button button--secondary">All Reports</a>
+            <a asp-action="Index" class="button button--secondary">Admin Panel</a>
+        </div>
+    </div>
+
+    <section class="admin-section">
+        <form asp-action="Search" method="get" class="card stack" style="max-width: 860px;">
+            <div class="editor-grid">
+                <div class="field">
+                    <label for="q">Search</label>
+                    <input id="q" name="q" value="@Model.Query" maxlength="120" placeholder="Username, message, report reason, event, group, restaurant" />
+                </div>
+                <div class="field">
+                    <label for="type">Type</label>
+                    <select id="type" name="type">
+                        <option value="">All content</option>
+                        @foreach (var kind in Enum.GetValues<ModerationSearchResultKind>())
+                        {
+                            <option value="@kind" selected="@(Model.Type == kind)">@kind</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="button-row">
+                <button type="submit" class="button button--primary">Search</button>
+                <a asp-action="Search" class="button button--secondary">Show Latest (Browse)</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">
+                Results
+                @if (Model.TotalCount > 0)
+                {
+                    <span class="admin-badge">@Model.TotalCount</span>
+                }
+            </h2>
+        </div>
+
+        @if (!Model.Results.Any())
+        {
+            <div class="admin-empty">
+                <p>No results matched this filter.</p>
+            </div>
+        }
+        else
+        {
+            <div class="report-list">
+                @foreach (var group in Model.Results.GroupBy(result => result.Kind).OrderBy(group => group.Key))
+                {
+                    <h3 class="admin-section__title">@group.Key</h3>
+                    @foreach (var result in group)
+                    {
+                        <article class="report-card card">
+                            <div class="report-card__header">
+                                <div>
+                                    <strong>
+                                        @if (result.Kind == ModerationSearchResultKind.User && result.PrimaryUser is not null)
+                                        {
+                                            <a asp-action="UserDetail" asp-route-userId="@result.PrimaryUser.UserId">@UserLabel(result.PrimaryUser)</a>
+                                        }
+                                        else if (result.Kind == ModerationSearchResultKind.Report)
+                                        {
+                                            <a asp-action="ReportDetail" asp-route-id="@result.Id">@result.Title</a>
+                                        }
+                                        else
+                                        {
+                                            @result.Title
+                                        }
+                                    </strong>
+                                    @if (!string.IsNullOrWhiteSpace(result.Subtitle))
+                                    {
+                                        <p class="muted-note">@result.Subtitle</p>
+                                    }
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(result.Snippet))
+                            {
+                                <p class="report-card__reason">@result.Snippet</p>
+                            }
+
+                            <div class="button-row">
+                                @if (result.PrimaryUser is not null)
+                                {
+                                    <a asp-action="UserDetail" asp-route-userId="@result.PrimaryUser.UserId" class="button button--secondary">@UserLabel(result.PrimaryUser)</a>
+                                }
+                                @if (result.SecondaryUser is not null)
+                                {
+                                    <a asp-action="UserDetail" asp-route-userId="@result.SecondaryUser.UserId" class="button button--secondary">Subject: @UserLabel(result.SecondaryUser)</a>
+                                }
+                                @if (result.Kind == ModerationSearchResultKind.Report)
+                                {
+                                    <a asp-action="ReportDetail" asp-route-id="@result.Id" class="button button--primary">Review Report</a>
+                                }
+                            </div>
+                        </article>
+                    }
+                }
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="admin-pagination">
+                    @if (Model.CurrentPage > 1)
+                    {
+                        <a asp-action="Search" asp-route-q="@Model.Query" asp-route-type="@Model.Type" asp-route-page="@(Model.CurrentPage - 1)" class="button button--secondary">Prev</a>
+                    }
+                    <span class="muted-note">Page @Model.CurrentPage of @Model.TotalPages</span>
+                    @if (Model.CurrentPage < Model.TotalPages)
+                    {
+                        <a asp-action="Search" asp-route-q="@Model.Query" asp-route-type="@Model.Type" asp-route-page="@(Model.CurrentPage + 1)" class="button button--secondary">Next</a>
+                    }
+                </div>
+            }
+        }
+    </section>
+</div>
+
+@functions {
+    private static string UserLabel(ModerationUserSummaryDto user) => $"{user.DisplayName} (@{user.Username})";
+}

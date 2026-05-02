@@ -172,7 +172,22 @@ public sealed class EventParticipationService(
                     return await MapParticipantAsync(participant, cancellationToken);
                 }
 
+                if (eventRecord.EventType == EventType.Closed && participant.State != EventParticipantState.Invited)
+                {
+                    throw ApiException.Conflict("A current event invite is required to join this closed event.");
+                }
+
                 var participants = await eventRepository.ListParticipantsAsync(eventId, cancellationToken);
+
+                if (await EventPolicy.HasBlockedLiveParticipantAsync(
+                        profileRepository,
+                        eventRecord,
+                        participants,
+                        currentUser.UserId,
+                        cancellationToken))
+                {
+                    throw ApiException.Forbidden("Blocking prevents joining events with blocked users.");
+                }
 
                 // Invite acceptance still checks capacity at acceptance time.
                 if (participants.Count(existing => existing.State == EventParticipantState.Joined) >= eventRecord.Capacity)

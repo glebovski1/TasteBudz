@@ -50,9 +50,9 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountControlle
 
     private static string CreateDatabasePath()
     {
-        var directory = Path.Combine(Path.GetTempPath(), "TasteBudz.MvcIntegrationTests");
+        var directory = Path.Combine(Path.GetTempPath(), "TasteBudz.MvcIntegrationTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
-        return Path.Combine(directory, $"{Guid.NewGuid():N}.sqlite");
+        return Path.Combine(directory, "tastebudz.sqlite");
     }
 
     private void CleanupDatabaseFiles()
@@ -69,8 +69,7 @@ public sealed class TasteBudzMvcFactory : WebApplicationFactory<AccountControlle
         var directory = Path.GetDirectoryName(databasePath);
 
         if (!string.IsNullOrWhiteSpace(directory) &&
-            Directory.Exists(directory) &&
-            !Directory.EnumerateFileSystemEntries(directory).Any())
+            Directory.Exists(directory))
         {
             try
             {

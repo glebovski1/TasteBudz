@@ -25,4 +25,21 @@ public sealed class AdminUsersController(
         [FromBody] CreatePasswordResetTokenRequest request,
         CancellationToken cancellationToken) =>
         authService.CreatePasswordResetTokenAsync(currentUserAccessor.GetRequiredCurrentUser(), request, cancellationToken);
+
+    [HttpPost("{userId:guid}/deletion")]
+    public async Task<IActionResult> DeleteUser(Guid userId, CancellationToken cancellationToken)
+    {
+        await authService.DeleteAccountAsAdminAsync(currentUserAccessor.GetRequiredCurrentUser(), userId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("{userId:guid}/permanent-deletion")]
+    public async Task<IActionResult> PermanentlyDeleteUser(
+        Guid userId,
+        [FromBody] PermanentlyDeleteUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        await authService.PermanentlyDeleteAccountAsAdminAsync(currentUserAccessor.GetRequiredCurrentUser(), userId, request, cancellationToken);
+        return NoContent();
+    }
 }

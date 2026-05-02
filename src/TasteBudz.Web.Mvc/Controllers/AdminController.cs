@@ -11,7 +11,7 @@ using TasteBudz.Web.Mvc.ViewModels;
 namespace TasteBudz.Web.Mvc.Controllers;
 
 /// <summary>
-/// Admin-only panel for user management, moderation, and catalog maintenance.
+/// Staff panel for user management, moderation, and admin-only operations.
 /// </summary>
 [Authorize(Roles = "Admin,Moderator")]
 public sealed class AdminController : Controller
@@ -83,8 +83,57 @@ public sealed class AdminController : Controller
     {
         try
         {
-            var report = await moderationApiService.GetReportAsync(id, cancellationToken);
-            return View(new AdminReportDetailViewModel { Report = report });
+            var review = await moderationApiService.GetReportReviewAsync(id, cancellationToken);
+            return View(new AdminReportDetailViewModel { Review = review });
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Search(
+        string? q,
+        ModerationSearchResultKind? type,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var currentPage = Math.Max(1, page);
+            var response = await moderationApiService.SearchAsync(
+                new ModerationSearchQuery
+                {
+                    Q = string.IsNullOrWhiteSpace(q) ? null : q.Trim(),
+                    Type = type,
+                    Page = currentPage,
+                    PageSize = AdminSearchViewModel.PageSize,
+                },
+                cancellationToken);
+
+            return View(new AdminSearchViewModel
+            {
+                Query = q,
+                Type = type,
+                Results = response.Items,
+                TotalCount = response.TotalCount,
+                CurrentPage = currentPage,
+            });
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+    }
+
+    [HttpGet("Admin/Users/{userId:guid}")]
+    public async Task<IActionResult> UserDetail(Guid userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var detail = await moderationApiService.GetUserDetailAsync(userId, cancellationToken);
+            return View(new AdminUserDetailViewModel { Detail = detail });
         }
         catch (BackendAuthenticationExpiredException)
         {
@@ -96,18 +145,20 @@ public sealed class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> BanUser(
         Guid userId,
+        Guid? reportId,
         bool permanent,
         string reason,
+        string? returnUrl,
         CancellationToken cancellationToken)
     {
         try
         {
-            await moderationApiService.CreateRestrictionAsync(new CreateRestrictionRequest
+            await moderationApiService.CreateUserBanAsync(new CreateUserBanRequest
             {
                 SubjectUserId = userId,
-                Scope = RestrictionScope.DiscoveryVisibility,
                 Reason = reason,
                 ExpiresAtUtc = permanent ? null : DateTimeOffset.UtcNow.AddDays(7),
+                ReportId = reportId,
             }, cancellationToken);
 
             TempData["StatusMessage"] = permanent
@@ -121,6 +172,84 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Error: {ex.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteUser(Guid userId, string? returnUrl, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await authApiService.DeleteAdminUserAsync(userId, cancellationToken);
+            TempData["StatusMessage"] = "User account has been deleted.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Delete failed: {ex.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> PermanentlyDeleteUser(
+        Guid userId,
+        string? confirmation,
+        string? returnUrl,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(confirmation, "delete", StringComparison.Ordinal))
+        {
+            TempData["StatusMessage"] = "Type delete to permanently delete the user.";
+
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            await authApiService.PermanentlyDeleteAdminUserAsync(
+                userId,
+                new PermanentlyDeleteUserRequest { Confirmation = confirmation },
+                cancellationToken);
+            TempData["StatusMessage"] = "User account has been permanently deleted.";
+        }
+        catch (BackendAuthenticationExpiredException)
+        {
+            return await RedirectToLoginAsync(cancellationToken);
+        }
+        catch (BackendApiException ex)
+        {
+            TempData["StatusMessage"] = $"Permanent delete failed: {ex.Message}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
         }
 
         return RedirectToAction(nameof(Index));
@@ -163,8 +292,9 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Reset token failed: {ex.Message}";
-            return RedirectToAction(nameof(Index));
         }
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
@@ -205,8 +335,9 @@ public sealed class AdminController : Controller
         catch (BackendApiException ex)
         {
             TempData["StatusMessage"] = $"Could not load support threads: {ex.Message}";
-            return RedirectToAction(nameof(Index));
         }
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]

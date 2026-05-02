@@ -9,6 +9,7 @@ using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.IntegrationTests.Shared;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Profiles;
 
 namespace TasteBudz.Backend.IntegrationTests.Api;
@@ -107,6 +108,50 @@ public sealed class EventsApiTests(TasteBudzApiFactory factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.BadRequest, createResponse.StatusCode);
         Assert.Contains("application/problem+json", createResponse.Content.Headers.ContentType?.MediaType);
         Assert.Equal(400, createProblem!.Status);
+    }
+
+    [Fact]
+    public async Task EventParticipants_HideFullBannedUsersFromUserFacingLists()
+    {
+        factory.ResetState();
+        using var moderatorClient = factory.CreateClient();
+        using var hostClient = factory.CreateClient();
+        using var guestClient = factory.CreateClient();
+
+        var moderatorSession = await ApiTestHelpers.RegisterAsync(moderatorClient, username: "mod", email: "mod@example.com");
+        var hostSession = await ApiTestHelpers.RegisterAsync(hostClient, username: "host", email: "host@example.com");
+        var guestSession = await ApiTestHelpers.RegisterAsync(guestClient, username: "guest", email: "guest@example.com");
+        await ApiTestHelpers.PromoteRolesAsync(factory.Services, moderatorSession.CurrentUser.UserId, new[] { UserRole.User, UserRole.Moderator });
+        ApiTestHelpers.SetBearer(moderatorClient, moderatorSession.AccessToken);
+        ApiTestHelpers.SetBearer(hostClient, hostSession.AccessToken);
+        ApiTestHelpers.SetBearer(guestClient, guestSession.AccessToken);
+
+        var createResponse = await hostClient.PostAsJsonAsync("/api/v1/events", new CreateEventRequest
+        {
+            Title = "Public dinner",
+            EventType = EventType.Open,
+            EventStartAtUtc = DateTimeOffset.UtcNow.AddDays(1),
+            Capacity = 3,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+        await guestClient.PostAsync($"/api/v1/events/{created!.EventId}/participants", null);
+
+        var banResponse = await moderatorClient.PostAsJsonAsync("/api/v1/moderation/bans", new CreateUserBanRequest
+        {
+            SubjectUserId = guestSession.CurrentUser.UserId,
+            Reason = "Full safety ban",
+        });
+        var detailResponse = await hostClient.GetAsync($"/api/v1/events/{created.EventId}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<EventDetailDto>(ApiTestHelpers.JsonOptions);
+        var participantsResponse = await hostClient.GetAsync($"/api/v1/events/{created.EventId}/participants");
+        var participants = await participantsResponse.Content.ReadFromJsonAsync<EventParticipantDto[]>(ApiTestHelpers.JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, banResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        Assert.Equal(1, detail!.ActiveParticipants);
+        Assert.Equal(HttpStatusCode.OK, participantsResponse.StatusCode);
+        Assert.DoesNotContain(participants!, item => item.UserId == guestSession.CurrentUser.UserId);
     }
 
     [Fact]

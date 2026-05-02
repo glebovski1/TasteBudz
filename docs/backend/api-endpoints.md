@@ -61,6 +61,8 @@ Key DTO families:
 | List Open Password Reset Requests | GET | `/api/v1/admin/users/password-reset-requests` | Return open password reset requests for admin review | Admin |
 | Close Password Reset Request | POST | `/api/v1/admin/users/password-reset-requests/{requestId}/closure` | Dismiss or close an open password reset request | Admin |
 | Create Password Reset Token | POST | `/api/v1/admin/users/password-reset-tokens` | Issue a one-time password reset link for an active user | Admin |
+| Admin Soft Delete User | POST | `/api/v1/admin/users/{userId}/deletion` | Soft-delete another user account and revoke sessions | Admin |
+| Admin Permanently Delete User | POST | `/api/v1/admin/users/{userId}/permanent-deletion` | Physically delete a dependency-free, already soft-deleted user after exact confirmation | Admin |
 
 Representative request shapes:
 
@@ -107,7 +109,15 @@ Representative request shapes:
 }
 ```
 
+```json
+{
+  "confirmation": "delete"
+}
+```
+
 Password reset request submission returns a generic accepted response and does not disclose whether the username matched an active account. Password reset token responses include `userId`, `username`, `resetToken`, `resetUrl`, and `expiresAtUtc`. Reset tokens are one-time use, expire, and successful reset revokes the user's existing sessions. Admin token creation may optionally reference a password reset request id and close that request when the token is issued.
+
+Admin user deletion is separate from self-service account deletion. `POST /api/v1/admin/users/{userId}/deletion` soft-deletes another user's account and revokes that user's sessions. `POST /api/v1/admin/users/{userId}/permanent-deletion` requires request body `{ "confirmation": "delete" }`, rejects admin self-deletion, requires the target account to already be soft-deleted, and returns `409 Conflict` when protected historical dependencies prevent physical deletion.
 
 ### 3.2 Profiles, Preferences, Availability, Privacy
 
@@ -574,10 +584,14 @@ MVP notification contract:
 | Submit Report | POST | `/api/v1/reports` | Submit moderation report | Yes |
 | Upload Report Attachment | POST | `/api/v1/reports/{reportId}/attachments` | Add image evidence to a pending report | Yes |
 | List Report Attachments | GET | `/api/v1/reports/{reportId}/attachments` | List authorized report evidence attachments | Reporter/Moderator/Admin |
+| Search Moderation Content | GET | `/api/v1/moderation/search` | Search users, messages, reports, events, groups, feedback, restaurants, and admin-visible audit entries | Moderator/Admin |
 | List Moderation Reports | GET | `/api/v1/moderation/reports` | Return moderation queue | Moderator/Admin |
 | Get Moderation Report | GET | `/api/v1/moderation/reports/{reportId}` | Return report detail | Moderator/Admin |
+| Get Moderation Report Review | GET | `/api/v1/moderation/reports/{reportId}/review` | Return report detail with resolved reporter, subject, and message-sender user summaries | Moderator/Admin |
+| Get Moderation User Detail | GET | `/api/v1/moderation/users/{userId}` | Return staff user summary, restriction history, and moderation counts | Moderator/Admin |
 | Resolve Moderation Report | PATCH | `/api/v1/moderation/reports/{reportId}` | Resolve report | Moderator/Admin |
 | Create Restriction | POST | `/api/v1/moderation/restrictions` | Apply scoped restriction | Moderator/Admin |
+| Create User Ban | POST | `/api/v1/moderation/bans` | Apply full MVP soft ban across all restriction scopes, revoke sessions, block authentication while active, and optionally resolve a matching pending report | Moderator/Admin |
 | Update Restriction | PATCH | `/api/v1/moderation/restrictions/{restrictionId}` | Revoke/update restriction | Moderator/Admin |
 | View Audit Logs | GET | `/api/v1/audit-logs` | Return audit log entries | Admin |
 
@@ -607,7 +621,16 @@ Multipart report-attachment upload shape:
   "subjectUserId": "uuid",
   "scope": "DiscoveryVisibility",
   "reason": "Harassment",
-  "expiresAt": "timestamp"
+  "expiresAtUtc": "timestamp"
+}
+```
+
+```json
+{
+  "subjectUserId": "uuid",
+  "reason": "Harassment",
+  "expiresAtUtc": "timestamp",
+  "reportId": "uuid"
 }
 ```
 
@@ -617,6 +640,12 @@ Allowed MVP restriction scopes:
 - `ChatSend`
 - `EventJoin`
 - `EventCreate`
+
+`POST /api/v1/moderation/bans` creates active restrictions for all four MVP scopes (`DiscoveryVisibility`, `ChatSend`, `EventJoin`, and `EventCreate`) with the same reason and expiry. It revokes the banned user's active sessions; while all four restrictions remain active, login, refresh, bearer authentication, and SignalR bearer authentication are rejected. Regular user-facing people surfaces hide the banned user from discovery, Budz, group member lists, and event participant lists, while staff moderation search/detail endpoints retain visibility for traceability. When `reportId` is supplied, the report must be pending and match the banned user through either `targetType: "User"` plus `targetId`, or `relatedUserId`; the endpoint resolves the report with a soft-ban decision.
+
+`GET /api/v1/moderation/search` accepts `q`, optional `type`, `page`, and `pageSize`. Supported result types are `User`, `Message`, `Report`, `Event`, `Group`, `Feedback`, `Restaurant`, and `Audit`. `Audit` results are returned only to Admin callers under the current audit policy.
+
+`GET /api/v1/moderation/reports/{reportId}/review` resolves user references for report review. User reports resolve the target user as the ban subject. Message reports resolve the related/target chat message sender as the ban subject. The response exposes readable user summaries so staff UI can render display-name/username links instead of GUID-only identifiers.
 
 Audit log query parameters may include `actorUserId`, `targetEntityType`, `targetEntityId`, `page`, and `pageSize`.
 

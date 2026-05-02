@@ -35,6 +35,19 @@ public sealed class ModerationApiService
     public Task<ModerationReportDto> GetReportAsync(Guid reportId, CancellationToken cancellationToken = default) =>
         backendHttpClient.GetAsync<ModerationReportDto>($"/api/v1/moderation/reports/{reportId}", cancellationToken);
 
+    public Task<ModerationReportReviewDto> GetReportReviewAsync(Guid reportId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<ModerationReportReviewDto>($"/api/v1/moderation/reports/{reportId}/review", cancellationToken);
+
+    public Task<ModerationUserDetailDto> GetUserDetailAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<ModerationUserDetailDto>($"/api/v1/moderation/users/{userId}", cancellationToken);
+
+    public Task<ModerationSearchResponseDto> SearchAsync(
+        ModerationSearchQuery query,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.GetAsync<ModerationSearchResponseDto>(
+            BuildSearchPath(query),
+            cancellationToken);
+
     public Task<ModerationReportDto> ResolveReportAsync(
         Guid reportId,
         ResolveModerationReportRequest request,
@@ -49,6 +62,14 @@ public sealed class ModerationApiService
         CancellationToken cancellationToken = default) =>
         backendHttpClient.PostAsync<CreateRestrictionRequest, RestrictionDto>(
             "/api/v1/moderation/restrictions",
+            request,
+            cancellationToken: cancellationToken);
+
+    public Task<UserBanDto> CreateUserBanAsync(
+        CreateUserBanRequest request,
+        CancellationToken cancellationToken = default) =>
+        backendHttpClient.PostAsync<CreateUserBanRequest, UserBanDto>(
+            "/api/v1/moderation/bans",
             request,
             cancellationToken: cancellationToken);
 
@@ -106,5 +127,25 @@ public sealed class ModerationApiService
         builder.Add("pageSize", query.PageSize.ToString(CultureInfo.InvariantCulture));
 
         return $"/api/v1/audit-logs{builder.ToQueryString()}";
+    }
+
+    private static string BuildSearchPath(ModerationSearchQuery query)
+    {
+        var builder = new QueryBuilder();
+
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            builder.Add("q", query.Q.Trim());
+        }
+
+        if (query.Type.HasValue)
+        {
+            builder.Add("type", query.Type.Value.ToString());
+        }
+
+        builder.Add("page", query.Page.ToString(CultureInfo.InvariantCulture));
+        builder.Add("pageSize", query.PageSize.ToString(CultureInfo.InvariantCulture));
+
+        return $"/api/v1/moderation/search{builder.ToQueryString()}";
     }
 }

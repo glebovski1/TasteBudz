@@ -169,6 +169,7 @@ Each `UserRestriction` applies to exactly one scope such as `DiscoveryVisibility
 
 - `UserAccount.Status` is for account lifecycle
 - `UserRestriction` is for scoped moderation enforcement
+- a full soft ban is still represented by restriction rows, but active full-soft-ban status also blocks authentication/session validation and regular user-facing participant/contact surfaces
 
 ### 5.12 Notifications are simplified in MVP
 
@@ -207,6 +208,7 @@ For MVP:
 ### 5.16 Account deletion preserves historical integrity
 
 Account deletion is modeled as a logical/soft-delete workflow rather than physical cascade delete.
+Admin permanent deletion is an explicit exception for dependency-free, already soft-deleted accounts and requires an exact `delete` confirmation. Accounts with hosted events, event participation, authored feedback, checkout sessions, owned groups, group announcements, chat messages, moderation history, actor audit entries, issued password reset artifacts, or context-linked media remain soft-deleted instead of being physically removed.
 
 ### 5.17 Onboarding completeness is derived
 
@@ -332,6 +334,7 @@ Rules:
 - one account has at most one active profile bundle
 - account status is not used for temporary scoped moderation
 - deleted accounts leave historical references intact
+- active full-soft-banned accounts cannot authenticate even though account lifecycle and moderation records remain separate
 
 ### PasswordResetToken
 
@@ -890,6 +893,7 @@ Rules:
 - one record represents one scope only
 - only active, unexpired restrictions are enforceable
 - multiple restrictions may coexist if scopes differ
+- active `DiscoveryVisibility`, `ChatSend`, `EventJoin`, and `EventCreate` restrictions together represent a full MVP soft ban that revokes sessions, blocks authentication while active, and hides the user from regular active social surfaces while preserving staff traceability
 
 ### AuditLogEntry
 
@@ -1059,6 +1063,7 @@ Focus: append-only record of sensitive actions.
 - Blocking removes active Budz and separates shared live group/event contexts while preserving completed event history.
 - Each `UserRestriction` applies to exactly one scope.
 - `UserAccount.Status` is not used for temporary scoped moderation.
+- A full soft ban is the active four-scope restriction set and is enforced at authentication/session boundaries in addition to scoped feature checks.
 - Password reset tokens are admin-created, one-time use, stored hashed, and revoke existing user sessions on success.
 - Password reset requests accept username/message anonymously, may remain unmatched, and return a generic accepted response to the public caller.
 - Audit entries are append-only.

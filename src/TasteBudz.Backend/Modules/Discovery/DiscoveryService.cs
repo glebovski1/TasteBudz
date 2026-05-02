@@ -119,11 +119,24 @@ public sealed class DiscoveryService(
         var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
         var profiles = (await profileRepository.ListProfilesAsync(cancellationToken)).ToDictionary(profile => profile.UserId);
         var connections = await discoveryRepository.ListBudConnectionsAsync(cancellationToken);
-
-        return connections
+        var connected = connections
             .Where(connection => connection.State == BudConnectionState.Connected && (connection.UserOneId == currentUserId || connection.UserTwoId == currentUserId))
             .Select(connection => connection.UserOneId == currentUserId ? new { OtherUserId = connection.UserTwoId, connection.CreatedAtUtc } : new { OtherUserId = connection.UserOneId, connection.CreatedAtUtc })
             .Where(item => accounts.ContainsKey(item.OtherUserId))
+            .ToArray();
+        var visible = new List<(Guid OtherUserId, DateTimeOffset CreatedAtUtc)>(connected.Length);
+
+        foreach (var item in connected)
+        {
+            if (await restrictionService.IsFullBanActiveAsync(item.OtherUserId, cancellationToken))
+            {
+                continue;
+            }
+
+            visible.Add((item.OtherUserId, item.CreatedAtUtc));
+        }
+
+        return visible
             .OrderBy(item => accounts[item.OtherUserId].Username, StringComparer.OrdinalIgnoreCase)
             .Select(item => new BudConnectionDto(
                 item.OtherUserId,

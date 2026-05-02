@@ -37,7 +37,7 @@ public sealed class DashboardServiceTests
             authRepository,
             profileRepository,
             mediaRepository,
-            new UserEventQueryService(eventRepository, new EventLifecycleService(eventRepository, notificationService, clock)),
+            new UserEventQueryService(eventRepository, profileRepository, new EventLifecycleService(eventRepository, notificationService, clock)),
             new UserGroupQueryService(groupRepository),
             new DiscoveryService(
                 authRepository,

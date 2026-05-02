@@ -288,7 +288,7 @@ public sealed class MessagingServiceTests
         var eventService = new EventService(eventRepository, restaurantRepository, groupRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, inviteService, new InMemoryKeyedLockProvider(), clock);
         var participationService = new EventParticipationService(eventRepository, authRepository, profileRepository, notificationService, restrictionService, lifecycleService, new InMemoryKeyedLockProvider(), clock);
         var mediaRepository = new InMemoryMediaRepository(store);
-        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, clock);
+        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, restrictionService, clock);
         var discoveryService = new DiscoveryService(authRepository, profileRepository, discoveryRepository, restrictionService, notificationService, clock, keyedLockProvider: new InMemoryKeyedLockProvider());
         var messagingService = new MessagingService(messagingRepository, eventRepository, groupRepository, discoveryRepository, authRepository, profileRepository, new AlwaysOnFeatureFlagService(), restrictionService, clock);
 

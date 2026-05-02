@@ -1,9 +1,11 @@
 @model AdminReportDetailViewModel
 @using TasteBudz.Backend.Domain
+@using TasteBudz.Backend.Modules.Moderation
 
 @{
     ViewData["Title"] = "Report Detail";
     var report = Model.Report;
+    var banSubjectUserId = Model.SubjectUser?.UserId;
 }
 
 <div class="admin-shell">
@@ -44,17 +46,35 @@
                 <div class="editor-grid">
                     <div class="summary-card">
                         <strong>Reporter</strong>
-                        <span><code>@report.ReporterUserId</code></span>
+                        @if (Model.Reporter is not null)
+                        {
+                            <a asp-action="UserDetail" asp-route-userId="@Model.Reporter.UserId">@UserLabel(Model.Reporter)</a>
+                            <p class="muted-note">User id <code>@Model.Reporter.UserId</code></p>
+                        }
+                        else
+                        {
+                            <span>Unknown user</span>
+                            <p class="muted-note">User id <code>@report.ReporterUserId</code></p>
+                        }
                     </div>
                     <div class="summary-card">
-                        <strong>Target</strong>
-                        <span>@report.TargetType <code>@report.TargetId</code></span>
+                        <strong>Ban Subject</strong>
+                        @if (Model.SubjectUser is not null)
+                        {
+                            <a asp-action="UserDetail" asp-route-userId="@Model.SubjectUser.UserId">@UserLabel(Model.SubjectUser)</a>
+                            <p class="muted-note">Resolved from @report.TargetType report.</p>
+                        }
+                        else
+                        {
+                            <span>Unknown user</span>
+                            <p class="muted-note">No actionable user could be resolved.</p>
+                        }
                     </div>
-                    @if (report.RelatedUserId.HasValue)
+                    @if (Model.RelatedUser is not null && Model.RelatedUser.UserId != Model.SubjectUser?.UserId)
                     {
                         <div class="summary-card">
                             <strong>Related User</strong>
-                            <span><code>@report.RelatedUserId.Value</code></span>
+                            <a asp-action="UserDetail" asp-route-userId="@Model.RelatedUser.UserId">@UserLabel(Model.RelatedUser)</a>
                         </div>
                     }
                     @if (report.RelatedEventId.HasValue)
@@ -68,7 +88,21 @@
                     {
                         <div class="summary-card">
                             <strong>Related Message</strong>
-                            <span><code>@report.RelatedMessageId.Value</code></span>
+                            @if (Model.RelatedMessage is not null)
+                            {
+                                <span>@Model.RelatedMessage.Snippet</span>
+                                @if (Model.RelatedMessage.PrimaryUser is not null)
+                                {
+                                    <p class="muted-note">
+                                        Sender:
+                                        <a asp-action="UserDetail" asp-route-userId="@Model.RelatedMessage.PrimaryUser.UserId">@UserLabel(Model.RelatedMessage.PrimaryUser)</a>
+                                    </p>
+                                }
+                            }
+                            else
+                            {
+                                <span><code>@report.RelatedMessageId.Value</code></span>
+                            }
                         </div>
                     }
                 </div>
@@ -93,7 +127,7 @@
         </article>
     </section>
 
-    @if (report.Status == ModerationReportStatus.Pending && report.RelatedUserId.HasValue)
+    @if (report.Status == ModerationReportStatus.Pending && banSubjectUserId.HasValue)
     {
         <section class="admin-section">
             <div class="admin-section__header">
@@ -101,11 +135,18 @@
             </div>
             <form asp-action="BanUser" method="post" class="card stack" style="max-width: 720px;">
                 @Html.AntiForgeryToken()
-                <input type="hidden" name="userId" value="@report.RelatedUserId.Value" />
+                <input type="hidden" name="userId" value="@banSubjectUserId.Value" />
                 <input type="hidden" name="reportId" value="@report.ReportId" />
+                @if (Model.SubjectUser is not null)
+                {
+                    <p class="muted-note">
+                        Applying this ban to
+                        <a asp-action="UserDetail" asp-route-userId="@Model.SubjectUser.UserId">@UserLabel(Model.SubjectUser)</a>.
+                    </p>
+                }
                 <div class="field">
                     <label for="reason">Reason</label>
-                    <textarea id="reason" name="reason" required>DiscoveryVisibility restriction for report @report.ReportId</textarea>
+                    <textarea id="reason" name="reason" required>Full safety ban for report @report.ReportId</textarea>
                 </div>
                 <div class="button-row">
                     <button type="submit" name="permanent" value="false" class="button button--primary">7-Day Ban</button>
@@ -115,3 +156,7 @@
         </section>
     }
 </div>
+
+@functions {
+    private static string UserLabel(ModerationUserSummaryDto user) => $"{user.DisplayName} (@{user.Username})";
+}

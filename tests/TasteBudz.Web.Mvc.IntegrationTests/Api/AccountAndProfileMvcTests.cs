@@ -482,7 +482,7 @@ public sealed class AccountAndProfileMvcTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Upcoming Events", html);
-        Assert.Contains("Every future event tied to you, sorted by date.", html);
+        Assert.Contains("Future events you are hosting or joined to, sorted by date.", html);
         Assert.Contains("My Events", html);
         Assert.Contains("data-profile-section=\"upcoming-events\"", html);
         Assert.Contains("Group events", html);
@@ -495,6 +495,53 @@ public sealed class AccountAndProfileMvcTests
         Assert.Contains("Friday Sushi Night", html);
         Assert.Contains("Cincy Foodies", html);
         Assert.Contains("Sam Carter", html);
+        factory.BackendHandler.AssertDrained();
+    }
+
+    [Fact]
+    public async Task DashboardView_UpcomingEventsOnlyShowsFutureJoinedEvents()
+    {
+        using var factory = new TasteBudzMvcFactory();
+        using var client = MvcTestHelpers.CreateClient(factory);
+        var now = DateTimeOffset.UtcNow;
+        var dashboard = new DashboardDto(
+            MvcTestHelpers.CreateProfile(),
+            new[]
+            {
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Joined future dinner", EventType.Open, EventStatus.Open, now.AddDays(2), "Sushi", IsJoined: true),
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Future invite only", EventType.Closed, EventStatus.Open, now.AddDays(3), "Ramen", IsInvited: true),
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Group linked not joined", EventType.Open, EventStatus.Open, now.AddDays(4), "Tacos", Guid.NewGuid(), IsGroupLinked: true),
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Past joined dinner", EventType.Open, EventStatus.Open, now.AddDays(-1), "Pizza", IsJoined: true),
+                new DashboardEventSummaryDto(Guid.NewGuid(), "Completed joined dinner", EventType.Open, EventStatus.Completed, now.AddDays(5), "Thai", IsJoined: true),
+            },
+            Array.Empty<DashboardGroupSummaryDto>(),
+            Array.Empty<DashboardBudSummaryDto>());
+
+        await MvcTestHelpers.LoginThroughUiAsync(client, factory, isOnboardingComplete: true);
+
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/onboarding/status",
+            (_, _) => StubBackendApiHandler.Json(
+                HttpStatusCode.OK,
+                new OnboardingStatusDto(true, Array.Empty<string>())));
+        factory.BackendHandler.Enqueue(
+            HttpMethod.Get,
+            "/api/v1/me/dashboard",
+            (_, _) => StubBackendApiHandler.Json(HttpStatusCode.OK, dashboard));
+
+        using var response = await client.GetAsync("/Profile/View");
+        var html = await response.Content.ReadAsStringAsync();
+        var upcomingSection = ExtractSection(html, "<div id=\"upcoming-events\"", "<div id=\"friends\"");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Joined future dinner", upcomingSection);
+        Assert.DoesNotContain("Future invite only", upcomingSection);
+        Assert.DoesNotContain("Group linked not joined", upcomingSection);
+        Assert.DoesNotContain("Past joined dinner", upcomingSection);
+        Assert.DoesNotContain("Completed joined dinner", upcomingSection);
+        Assert.Contains("Future invite only", html);
+        Assert.Contains("Group linked not joined", html);
         factory.BackendHandler.AssertDrained();
     }
 
@@ -581,6 +628,17 @@ public sealed class AccountAndProfileMvcTests
         Assert.Contains("[data-my-event-card][hidden]", css);
         Assert.Contains("display: none !important;", css);
         factory.BackendHandler.AssertDrained();
+    }
+
+    private static string ExtractSection(string html, string startMarker, string endMarker)
+    {
+        var start = html.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Expected start marker '{startMarker}' in HTML.");
+
+        var end = html.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"Expected end marker '{endMarker}' after '{startMarker}' in HTML.");
+
+        return html[start..end];
     }
 
     [Fact]

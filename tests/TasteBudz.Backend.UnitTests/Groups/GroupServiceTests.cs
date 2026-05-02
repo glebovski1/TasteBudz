@@ -7,6 +7,7 @@ using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Groups;
 using TasteBudz.Backend.Modules.Media;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 using TasteBudz.Backend.UnitTests.Shared;
@@ -220,6 +221,69 @@ public sealed class GroupServiceTests
     }
 
     [Fact]
+    public async Task InviteAsync_RemovedMemberIsRejected()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Removed private crew",
+            Visibility = GroupVisibility.Public,
+        });
+
+        await services.GroupService.JoinAsync(guest.CurrentUser.UserId, group.GroupId);
+        await services.GroupService.RemoveMemberAsync(ToCurrentUser(owner), group.GroupId, guest.CurrentUser.UserId);
+        await services.GroupService.UpdateAsync(ToCurrentUser(owner), group.GroupId, new UpdateGroupRequest
+        {
+            Visibility = GroupVisibility.Private,
+        });
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.GroupService.InviteAsync(ToCurrentUser(owner), group.GroupId, new InviteUserToGroupRequest
+            {
+                Username = guest.CurrentUser.Username,
+            }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task RespondToInviteAsync_WhenInviteeBlocksActiveMember_ReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var owner = await RegisterAsync(services.AuthService, "owner", "owner@example.com");
+        var activeMember = await RegisterAsync(services.AuthService, "member", "member@example.com");
+        var guest = await RegisterAsync(services.AuthService, "guest", "guest@example.com");
+        var group = await services.GroupService.CreateAsync(ToCurrentUser(owner), new CreateGroupRequest
+        {
+            Name = "Blocked private crew",
+            Visibility = GroupVisibility.Public,
+        });
+
+        await services.GroupService.JoinAsync(activeMember.CurrentUser.UserId, group.GroupId);
+        await services.GroupService.UpdateAsync(ToCurrentUser(owner), group.GroupId, new UpdateGroupRequest
+        {
+            Visibility = GroupVisibility.Private,
+        });
+        var invite = await services.GroupService.InviteAsync(ToCurrentUser(owner), group.GroupId, new InviteUserToGroupRequest
+        {
+            Username = guest.CurrentUser.Username,
+        });
+        await services.ProfileRepository.SaveBlockAsync(new UserBlock(activeMember.CurrentUser.UserId, guest.CurrentUser.UserId, clock.UtcNow));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.GroupService.RespondToInviteAsync(ToCurrentUser(guest), invite.InviteId, new RespondToGroupInviteRequest
+            {
+                Status = GroupInviteStatus.Accepted,
+            }));
+
+        Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
     public async Task LeaveAsync_OwnerIsRejected()
     {
         var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 12, 0, 0, TimeSpan.Zero));
@@ -348,9 +412,12 @@ public sealed class GroupServiceTests
         var groupRepository = new InMemoryGroupRepository(store);
         var mediaRepository = new InMemoryMediaRepository(store);
         var notificationService = new InMemoryNotificationService(store);
+        var moderationRepository = new InMemoryModerationRepository(store);
+        var auditLogService = new AuditLogService(moderationRepository);
+        var restrictionService = new RestrictionService(moderationRepository, authRepository, auditLogService, clock);
         var authService = new AuthService(authRepository, profileRepository, new Pbkdf2PasswordHasher(), new SecureTokenGenerator(), clock);
         var lifecycleService = new EventLifecycleService(eventRepository, notificationService, clock);
-        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, clock);
+        var groupService = new GroupService(groupRepository, eventRepository, authRepository, profileRepository, mediaRepository, notificationService, lifecycleService, restrictionService, clock);
 
         return new TestServices(authService, groupService, profileRepository, notificationService);
     }

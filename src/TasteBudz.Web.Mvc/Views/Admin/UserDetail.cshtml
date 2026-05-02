@@ -1,0 +1,155 @@
+@model AdminUserDetailViewModel
+
+@{
+    var detail = Model.Detail;
+    var user = detail.User;
+    ViewData["Title"] = $"{user.DisplayName} (@{user.Username})";
+}
+
+<div class="admin-shell">
+    <div class="admin-header">
+        <div>
+            <span class="eyebrow">Moderation</span>
+            <h1 class="admin-title">@user.DisplayName (@user.Username)</h1>
+            <p class="admin-subtitle">@user.Email</p>
+        </div>
+        <div class="button-row">
+            <a asp-action="Search" class="button button--secondary">Content Search</a>
+            <a asp-action="Reports" class="button button--secondary">All Reports</a>
+            <a asp-action="Index" class="button button--secondary">Admin Panel</a>
+        </div>
+    </div>
+
+    <section class="admin-section">
+        <div class="editor-grid">
+            <div class="summary-card">
+                <strong>Account</strong>
+                <span>@user.Status</span>
+                <p class="muted-note">User id <code>@user.UserId</code></p>
+            </div>
+            <div class="summary-card">
+                <strong>Roles</strong>
+                <span>@string.Join(", ", user.Roles)</span>
+            </div>
+            <div class="summary-card">
+                <strong>Reports</strong>
+                <span>@detail.ReportCount related report(s)</span>
+            </div>
+            <div class="summary-card">
+                <strong>Messages</strong>
+                <span>@detail.MessageCount sent message(s)</span>
+                @if (detail.LastMessageAtUtc.HasValue)
+                {
+                    <p class="muted-note">Last message @detail.LastMessageAtUtc.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section__header">
+            <h2 class="admin-section__title">Restrictions</h2>
+        </div>
+
+        @if (!detail.Restrictions.Any())
+        {
+            <p class="muted-note">No restrictions recorded for this user.</p>
+        }
+        else
+        {
+            <div class="report-list">
+                @foreach (var restriction in detail.Restrictions)
+                {
+                    <article class="report-card card">
+                        <div class="report-card__header">
+                            <div>
+                                <strong>@restriction.Scope</strong>
+                                <span class="pill">@restriction.Status</span>
+                            </div>
+                            <time class="report-card__time" datetime="@restriction.StartsAtUtc.ToString("o")">
+                                @restriction.StartsAtUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                            </time>
+                        </div>
+                        <p class="report-card__reason">@restriction.Reason</p>
+                        @if (restriction.ExpiresAtUtc.HasValue)
+                        {
+                            <p class="muted-note">Expires @restriction.ExpiresAtUtc.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                        }
+                        else
+                        {
+                            <p class="muted-note">No expiration.</p>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    @if (Model.HasActiveFullBan)
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Active Ban</h2>
+            </div>
+            <div class="summary-card">
+                <strong>Full soft ban is active</strong>
+                <p class="muted-note">
+                    This user already has active DiscoveryVisibility, ChatSend, EventJoin, and EventCreate restrictions.
+                </p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Quick Ban</h2>
+            </div>
+            <form asp-action="BanUser" method="post" class="card stack" style="max-width: 720px;">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="userId" value="@user.UserId" />
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <div class="field">
+                    <label for="reason">Reason</label>
+                    <input id="reason" name="reason" value="Moderator action" maxlength="200" required />
+                </div>
+                <div class="button-row">
+                    <button type="submit" name="permanent" value="false" class="button button--primary">7-Day Ban</button>
+                    <button type="submit" name="permanent" value="true" class="button button--danger">Permanent Ban</button>
+                </div>
+            </form>
+        </section>
+    }
+
+    @if (User.IsInRole("Admin"))
+    {
+        <section class="admin-section">
+            <div class="admin-section__header">
+                <h2 class="admin-section__title">Account Deletion</h2>
+            </div>
+            <div class="editor-grid">
+                <form asp-action="DeleteUser" method="post" class="card stack">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@user.UserId" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <strong>Delete Account</strong>
+                    <p class="muted-note">Soft delete revokes sessions and removes the account from active use.</p>
+                    <button type="submit" class="button button--danger">Delete Account</button>
+                </form>
+
+                <form asp-action="PermanentlyDeleteUser" method="post" class="card stack">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@user.UserId" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <strong>Permanent Delete</strong>
+                    <p class="muted-note">Only soft-deleted users without historical records can be physically deleted.</p>
+                    <div class="field">
+                        <label for="confirmation">Type delete to confirm</label>
+                        <input id="confirmation" name="confirmation" placeholder="delete" autocomplete="off" required />
+                    </div>
+                    <button type="submit" class="button button--danger">Permanent Delete</button>
+                </form>
+            </div>
+        </section>
+    }
+</div>

@@ -114,6 +114,7 @@ public sealed record DashboardEventCardViewModel(
 
     public bool IsUpcoming =>
         EventStartAtUtc >= DateTimeOffset.UtcNow &&
+        (IsJoined || IsHosted) &&
         Status is not EventStatus.Cancelled and not EventStatus.Completed;
 
     public IReadOnlyList<string> RelationshipLabels

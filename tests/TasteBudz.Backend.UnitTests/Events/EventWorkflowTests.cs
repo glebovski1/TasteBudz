@@ -152,6 +152,71 @@ public sealed class EventWorkflowTests
         Assert.Equal(EventParticipantState.Joined, participant!.State);
     }
 
+    [Fact]
+    public async Task InviteAsync_RemovedParticipantIsRejected()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Removed participant dinner",
+            EventType = EventType.Open,
+            EventStartAtUtc = clock.UtcNow.AddDays(2),
+            Capacity = 4,
+            SelectedRestaurantId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        });
+
+        await services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId);
+        await services.EventParticipationService.RemoveParticipantAsync(host, detail.EventId, guest.UserId);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventInviteService.InviteAsync(host, detail.EventId, new InviteUsersRequest
+            {
+                Usernames = new[] { guest.Username },
+            }));
+        var participant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+
+        Assert.Equal(403, exception.StatusCode);
+        Assert.Equal(EventParticipantState.Removed, participant!.State);
+    }
+
+    [Fact]
+    public async Task UpdateMyParticipationAsync_DeclinedClosedInviteCannotBeAcceptedWithoutReinvite()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Declined invite dinner",
+            EventType = EventType.Closed,
+            EventStartAtUtc = clock.UtcNow.AddDays(2),
+            Capacity = 4,
+            CuisineTarget = "Sushi",
+            InviteUsernames = new[] { guest.Username },
+        });
+
+        await services.EventParticipationService.UpdateMyParticipationAsync(guest, detail.EventId, new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Declined,
+        });
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.UpdateMyParticipationAsync(guest, detail.EventId, new UpdateMyParticipationRequest
+            {
+                State = EventParticipantState.Joined,
+            }));
+        var participant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+
+        Assert.Equal(409, exception.StatusCode);
+        Assert.Equal(EventParticipantState.Declined, participant!.State);
+    }
+
     /// <summary>
     /// Update flows must enforce the same hard size bounds as create flows.
     /// </summary>
@@ -430,6 +495,41 @@ public sealed class EventWorkflowTests
             services.EventParticipationService.JoinOpenEventAsync(guest, detail.EventId));
 
         Assert.Equal(403, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateMyParticipationAsync_InviteAcceptWithBlockedParticipantReturnsForbidden()
+    {
+        var clock = new TestClock(new DateTimeOffset(2026, 3, 8, 18, 0, 0, TimeSpan.Zero));
+        var services = CreateServices(clock);
+        var host = ToCurrentUser(await RegisterAsync(services.AuthService, "host", "host@example.com"));
+        var participant = ToCurrentUser(await RegisterAsync(services.AuthService, "participant", "participant@example.com"));
+        var guest = ToCurrentUser(await RegisterAsync(services.AuthService, "guest", "guest@example.com"));
+
+        var detail = await services.EventService.CreateAsync(host, new CreateEventRequest
+        {
+            Title = "Blocked invite dinner",
+            EventType = EventType.Closed,
+            EventStartAtUtc = clock.UtcNow.AddDays(2),
+            Capacity = 4,
+            CuisineTarget = "Ramen",
+            InviteUsernames = new[] { participant.Username, guest.Username },
+        });
+        await services.EventParticipationService.UpdateMyParticipationAsync(participant, detail.EventId, new UpdateMyParticipationRequest
+        {
+            State = EventParticipantState.Joined,
+        });
+        services.Store.Blocks[$"{participant.UserId:N}:{guest.UserId:N}"] = new UserBlock(participant.UserId, guest.UserId, clock.UtcNow);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            services.EventParticipationService.UpdateMyParticipationAsync(guest, detail.EventId, new UpdateMyParticipationRequest
+            {
+                State = EventParticipantState.Joined,
+            }));
+        var guestParticipant = await services.EventRepository.GetParticipantAsync(detail.EventId, guest.UserId);
+
+        Assert.Equal(403, exception.StatusCode);
+        Assert.Equal(EventParticipantState.Invited, guestParticipant!.State);
     }
 
     [Fact]

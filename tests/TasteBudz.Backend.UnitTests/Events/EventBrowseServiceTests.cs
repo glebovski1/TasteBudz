@@ -513,6 +513,48 @@ public sealed class EventBrowseServiceTests
         Assert.True(item.ActiveParticipants < item.Capacity);
     }
 
+    [Fact]
+    public async Task BrowseAsync_RecommendedModeExcludesPastAndAlreadyJoinedEvents()
+    {
+        var services = CreateServices();
+        var currentUserId = Guid.NewGuid();
+        var hostUserId = Guid.NewGuid();
+
+        await SaveProfileAsync(services.ProfileRepository, currentUserId, "45220", "caller", services.Clock);
+        await SaveProfileAsync(services.ProfileRepository, hostUserId, "45220", "host", services.Clock);
+
+        var joinableFuture = CreateOpenEvent(hostUserId, "Joinable future", services.Clock.UtcNow.AddDays(2));
+        var alreadyJoined = CreateOpenEvent(hostUserId, "Already joined", services.Clock.UtcNow.AddDays(2).AddHours(1));
+        var pastStillOpen = CreateOpenEvent(hostUserId, "Past open", services.Clock.UtcNow.AddHours(-1)) with
+        {
+            DecisionAtUtc = services.Clock.UtcNow.AddHours(1),
+        };
+
+        foreach (var eventRecord in new[] { joinableFuture, alreadyJoined, pastStillOpen })
+        {
+            await SaveEventAsync(services.EventRepository, eventRecord, hostUserId, services.Clock);
+        }
+
+        await services.EventRepository.SaveParticipantAsync(new EventParticipant(
+            alreadyJoined.Id,
+            currentUserId,
+            EventParticipantState.Joined,
+            null,
+            services.Clock.UtcNow,
+            services.Clock.UtcNow,
+            null,
+            null));
+
+        var result = await services.BrowseService.BrowseAsync(currentUserId, new BrowseEventsQuery
+        {
+            Recommended = true,
+            PageSize = 10,
+        });
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Joinable future", item.Title);
+    }
+
     private static Event CreateOpenEvent(
         Guid hostUserId,
         string title,
@@ -575,7 +617,8 @@ public sealed class EventBrowseServiceTests
             discoveryRepository,
             lifecycleService,
             restaurantOperationsRepository,
-            new TestFeatureFlagService(restaurantOperationsEnabled, discountsEnabled));
+            new TestFeatureFlagService(restaurantOperationsEnabled, discountsEnabled),
+            clock);
 
         return new TestServices(clock, eventRepository, profileRepository, discoveryRepository, restaurantOperationsRepository, browseService);
     }

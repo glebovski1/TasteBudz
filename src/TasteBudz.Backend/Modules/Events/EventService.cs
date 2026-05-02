@@ -244,6 +244,11 @@ public sealed class EventService(
 
         foreach (var participant in participants)
         {
+            if (await restrictionService.IsFullBanActiveAsync(participant.UserId, cancellationToken))
+            {
+                continue;
+            }
+
             var account = await authRepository.GetByIdAsync(participant.UserId, cancellationToken)
                 ?? throw ApiException.NotFound("The requested participant could not be found.");
             var profile = await profileRepository.GetProfileAsync(participant.UserId, cancellationToken);
@@ -366,9 +371,26 @@ public sealed class EventService(
 
         return EventDtoMapper.ToDetail(
             eventRecord,
-            participants.Count(participant => participant.State == EventParticipantState.Joined),
+            await CountVisibleJoinedParticipantsAsync(participants, cancellationToken),
             reservationDto,
             discountDto);
+    }
+
+    private async Task<int> CountVisibleJoinedParticipantsAsync(
+        IReadOnlyCollection<EventParticipant> participants,
+        CancellationToken cancellationToken)
+    {
+        var count = 0;
+
+        foreach (var participant in participants.Where(item => item.State == EventParticipantState.Joined))
+        {
+            if (!await restrictionService.IsFullBanActiveAsync(participant.UserId, cancellationToken))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     /// <summary>

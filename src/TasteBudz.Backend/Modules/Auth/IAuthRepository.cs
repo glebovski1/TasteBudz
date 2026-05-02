@@ -24,6 +24,10 @@ public interface IAuthRepository
 
     Task UpdateAccountAsync(UserAccount account, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<string>> ListPermanentDeleteBlockersAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task PermanentlyDeleteAccountAsync(Guid userId, CancellationToken cancellationToken = default);
+
     Task<UserSession?> GetSessionByAccessTokenAsync(string accessToken, CancellationToken cancellationToken = default);
 
     Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);

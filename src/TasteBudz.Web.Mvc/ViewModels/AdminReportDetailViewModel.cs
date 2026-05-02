@@ -10,5 +10,15 @@ namespace TasteBudz.Web.Mvc.ViewModels;
 
 public sealed class AdminReportDetailViewModel
 {
-    public ModerationReportDto Report { get; init; } = null!;
+    public ModerationReportReviewDto Review { get; init; } = null!;
+
+    public ModerationReportDto Report => Review.Report;
+
+    public ModerationUserSummaryDto? Reporter => Review.Reporter;
+
+    public ModerationUserSummaryDto? SubjectUser => Review.SubjectUser;
+
+    public ModerationUserSummaryDto? RelatedUser => Review.RelatedUser;
+
+    public ModerationSearchResultDto? RelatedMessage => Review.RelatedMessage;
 }

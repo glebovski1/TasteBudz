@@ -93,6 +93,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GroupService>();
         services.AddScoped<UserGroupQueryService>();
         services.AddScoped<ModerationService>();
+        services.AddScoped<ModerationSearchService>();
         services.AddScoped<RestrictionService>();
         services.AddScoped<AuditLogService>();
         services.AddScoped<DiscoveryService>();

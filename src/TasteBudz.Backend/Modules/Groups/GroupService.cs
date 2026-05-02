@@ -8,6 +8,7 @@ using TasteBudz.Backend.Infrastructure.Time;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Modules.Events;
 using TasteBudz.Backend.Modules.Media;
+using TasteBudz.Backend.Modules.Moderation;
 using TasteBudz.Backend.Modules.Notifications;
 using TasteBudz.Backend.Modules.Profiles;
 
@@ -24,6 +25,7 @@ public sealed class GroupService(
     IMediaRepository mediaRepository,
     INotificationService notificationService,
     EventLifecycleService eventLifecycleService,
+    RestrictionService restrictionService,
     IClock clock,
     IPersistenceTransactionRunner? transactionRunner = null)
 {
@@ -56,6 +58,7 @@ public sealed class GroupService(
             }
 
             var members = await groupRepository.ListMembersAsync(group.Id, cancellationToken);
+            var visibleActiveMembers = await FilterVisibleActiveMembersAsync(members, cancellationToken);
 
             if (await HasBlockedActiveMemberAsync(currentUserId, group, members, cancellationToken))
             {
@@ -67,7 +70,7 @@ public sealed class GroupService(
                 group.Name,
                 group.Description,
                 group.Visibility,
-                members.Count(member => member.State == GroupMemberState.Active))
+                visibleActiveMembers.Length)
             {
                 WallpaperTheme = group.WallpaperTheme,
             });
@@ -322,6 +325,11 @@ public sealed class GroupService(
             throw ApiException.Conflict($"User '{invitee.Username}' is already a member of this group.");
         }
 
+        if (membership?.State == GroupMemberState.Removed)
+        {
+            throw ApiException.Forbidden($"User '{invitee.Username}' has been removed from this group.");
+        }
+
         var invites = await groupRepository.ListInvitesForGroupAsync(groupId, cancellationToken);
         var pending = invites.FirstOrDefault(existing =>
             existing.InvitedUserId == invitee.Id &&
@@ -392,6 +400,17 @@ public sealed class GroupService(
                 {
                     await EnsureNotBlockedAsync(group.OwnerUserId, currentUser.UserId, cancellationToken);
                     var membership = await groupRepository.GetMemberAsync(group.Id, currentUser.UserId, cancellationToken);
+
+                    if (membership?.State == GroupMemberState.Removed)
+                    {
+                        throw ApiException.Forbidden("You have been removed from this group.");
+                    }
+
+                    if (await HasBlockedActiveMemberAsync(currentUser.UserId, group, cancellationToken))
+                    {
+                        throw ApiException.Forbidden("Blocking prevents joining groups with blocked users.");
+                    }
+
                     await groupRepository.SaveMemberAsync(new GroupMember(
                         group.Id,
                         currentUser.UserId,
@@ -453,9 +472,7 @@ public sealed class GroupService(
     private async Task<GroupDetailDto> MapDetailAsync(Guid currentUserId, Group group, CancellationToken cancellationToken)
     {
         var members = await groupRepository.ListMembersAsync(group.Id, cancellationToken);
-        var activeMembers = members
-            .Where(member => member.State == GroupMemberState.Active)
-            .ToArray();
+        var activeMembers = await FilterVisibleActiveMembersAsync(members, cancellationToken);
         var accounts = (await authRepository.ListActiveAccountsAsync(cancellationToken)).ToDictionary(account => account.Id);
         var profiles = (await profileRepository.ListProfilesAsync(cancellationToken)).ToDictionary(profile => profile.UserId);
         var orderedMembers = activeMembers
@@ -495,6 +512,23 @@ public sealed class GroupService(
             group.LifecycleState,
             currentMembership?.State == GroupMemberState.Active,
             memberDtos);
+    }
+
+    private async Task<GroupMember[]> FilterVisibleActiveMembersAsync(
+        IReadOnlyCollection<GroupMember> members,
+        CancellationToken cancellationToken)
+    {
+        var visible = new List<GroupMember>();
+
+        foreach (var member in members.Where(item => item.State == GroupMemberState.Active))
+        {
+            if (!await restrictionService.IsFullBanActiveAsync(member.UserId, cancellationToken))
+            {
+                visible.Add(member);
+            }
+        }
+
+        return visible.ToArray();
     }
 
     private async Task<GroupAnnouncementDto> MapAnnouncementAsync(GroupAnnouncement announcement, CancellationToken cancellationToken)

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using TasteBudz.Backend.Domain;
 using TasteBudz.Backend.Modules.Auth;
 using TasteBudz.Backend.Infrastructure.Time;
+using TasteBudz.Backend.Modules.Moderation;
 
 namespace TasteBudz.Backend.Infrastructure.Auth;
 
@@ -17,7 +18,8 @@ public sealed class SessionAuthenticationHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     IAuthRepository authRepository,
-    IClock clock)
+    IClock clock,
+    RestrictionService restrictionService)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     /// <summary>
@@ -71,6 +73,11 @@ public sealed class SessionAuthenticationHandler(
         if (account is null || account.Status != AccountStatus.Active)
         {
             return AuthenticateResult.Fail("The access token does not map to an active account.");
+        }
+
+        if (await restrictionService.IsFullBanActiveAsync(account.Id, Context.RequestAborted))
+        {
+            return AuthenticateResult.Fail("The access token maps to a banned account.");
         }
 
         // Keep the claim set intentionally small because the app rehydrates anything richer from storage.
